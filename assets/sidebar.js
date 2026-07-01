@@ -252,6 +252,13 @@ class Sidebar {
       const isActive = row.dataset.id === this.active;
       row.classList.toggle("active", isActive);
       row.style.background = isActive ? tintOverBase(this.windowColour, 0.28) : "";
+      // The active tab always has a live surface (selecting it activates/creates it), so upgrade its
+      // dot to live even if the last DTO snapshot caught it cold. Without this the loaded dot never
+      // fills after a lazy select, and the unload ✕ (gated on .live) can never fire.
+      if (isActive) {
+        const dot = row.querySelector(".cc-dot");
+        if (dot) this._paintDot(dot, true);
+      }
     }
   }
 
