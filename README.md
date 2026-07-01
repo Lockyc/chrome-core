@@ -15,9 +15,9 @@ controller. See [`CLAUDE.md`](CLAUDE.md) for the full interface contract.
 
 ## Status
 
-Early. The crate + asset scaffolding are in place; the component (`assets/sidebar.js`) and styles
-(`assets/sidebar.css`) are built out across the initial tasks. Not yet consumed by either app until
-its first tag.
+In use. Both [curator](https://github.com/Lockyc/curator) and [warden](https://github.com/Lockyc/warden)
+consume chrome-core (pinned to a `v0.1.x` rev). The component implements the full sidebar view; each
+app supplies a thin controller binding it to its own Tauri backend.
 
 ## How it's consumed
 
