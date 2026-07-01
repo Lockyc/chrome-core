@@ -59,6 +59,18 @@ function resolveOffset(ids, active, dir) {
   return ids[(base + dir + ids.length) % ids.length];
 }
 
+/** Class list for a presence dot given session state + capabilities. `on` = a probe reported a
+ *  session → a kill affordance when `killable`; `off` = configured-but-absent → a *start* affordance
+ *  (re-run the tab's command) only when `startable` AND the tab is `live` — a cold tab has no shell
+ *  to type into, and is started by activating the row instead. */
+function presenceClass(state, killable, startable, live) {
+  const on = state === "on";
+  let cls = "cc-presence " + (on ? "on" : "off");
+  if (on && killable) cls += " kill";
+  if (!on && startable && live) cls += " start";
+  return cls;
+}
+
 /** Opaque dark base the sidebar tint composites over (matches the CSS `.cc-root` fallback). */
 const SIDEBAR_BASE = [21, 25, 30]; // #15191e
 const NEUTRAL_COLOUR = "#6b7280";
@@ -191,22 +203,42 @@ class Sidebar {
 
   _makePresence(t, state) {
     const s = el("span");
-    this._paintPresence(s, t.id, state, !!t.killable);
-    if (t.killable) {
+    this._paintPresence(s, t.id, state, !!t.killable, !!t.startable, !!t.live);
+    // The dot is a session toggle: click a present session to kill (2-step confirm), or click an
+    // absent-but-startable one to restart (single click — non-destructive). Both are gated by the
+    // painted classes (`.kill` / `.start`), so a click that matches neither is inert.
+    if (t.killable || t.startable) {
       s.addEventListener("click", (e) => {
-        if (!s.classList.contains("on")) return; // no session ⇒ nothing to kill
-        e.stopPropagation();
-        this._armKill(t.id, s.closest(".cc-tab"));
+        if (s.classList.contains("kill")) {
+          e.stopPropagation();
+          this._armKill(t.id, s.closest(".cc-tab"));
+        } else if (s.classList.contains("start")) {
+          e.stopPropagation();
+          if (this.cb.onStart) this.cb.onStart(t.id);
+        }
       });
     }
     return s;
   }
 
-  _paintPresence(span, id, state, killable) {
-    let cls = "cc-presence " + (state === "on" ? "on" : "off");
-    if (state === "on" && killable) cls += " kill";
-    span.className = cls;
+  _paintPresence(span, id, state, killable, startable, live) {
+    span.className = presenceClass(state, killable, startable, live);
     span.dataset.kill = killable ? "1" : "";
+    span.dataset.start = startable ? "1" : "";
+    span.title = span.classList.contains("kill")
+      ? "Kill session"
+      : span.classList.contains("start")
+        ? "Start session"
+        : "";
+  }
+
+  /** Re-evaluate a row's presence dot after a live-state change — the `start` affordance is gated on
+   *  the tab being live, so unloading/loading must repaint it (kill/start classes read from dataset). */
+  _refreshPresenceLive(row, live) {
+    const s = row.querySelector(".cc-presence");
+    if (!s) return;
+    const state = s.classList.contains("on") ? "on" : "off";
+    this._paintPresence(s, row.dataset.id, state, s.dataset.kill === "1", s.dataset.start === "1", live);
   }
 
   _makeDot(live) {
@@ -263,6 +295,7 @@ class Sidebar {
       if (isActive) {
         const dot = row.querySelector(".cc-dot");
         if (dot) this._paintDot(dot, true);
+        this._refreshPresenceLive(row, true); // active ⇒ live ⇒ its presence dot can offer start
       }
     }
   }
@@ -310,8 +343,11 @@ class Sidebar {
   // ── targeted setters (patch a hot signal without a full re-render) ──
 
   setLive(id, live) {
-    const dot = this._rowById(id)?.querySelector(".cc-dot");
+    const row = this._rowById(id);
+    if (!row) return;
+    const dot = row.querySelector(".cc-dot");
     if (dot) this._paintDot(dot, live);
+    this._refreshPresenceLive(row, live); // live gates the presence `start` affordance
   }
 
   setAttention(id, val) {
@@ -343,12 +379,14 @@ class Sidebar {
       return;
     }
     const killable = s ? s.dataset.kill === "1" : false;
+    const startable = s ? s.dataset.start === "1" : false;
+    const live = !!row.querySelector(".cc-dot.live");
     if (!s) {
       const t = this.tabs.find((x) => x.id === id) || {};
       s = this._makePresence(t, state);
       row.insertBefore(s, row.querySelector(".cc-dot"));
     } else {
-      this._paintPresence(s, id, state, killable);
+      this._paintPresence(s, id, state, killable, startable, live);
     }
     if (state !== "on" && this.armedKill === id) this._disarmKill(); // session gone → nothing to kill
   }
@@ -466,7 +504,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, clampWidth, resolveOffset };
+  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, clampWidth, resolveOffset, presenceClass };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;

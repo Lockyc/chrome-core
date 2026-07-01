@@ -6,6 +6,7 @@ const {
   tintOverBase,
   clampWidth,
   resolveOffset,
+  presenceClass,
 } = require("../assets/sidebar.js");
 
 test("tileInitial: first alphanumeric, uppercased; bullet fallback", () => {
@@ -41,6 +42,19 @@ test("clampWidth: [min, min(max, fraction*window)]", () => {
   assert.equal(clampWidth(300, isolated), 300); // honoured, not collapsed to min
   assert.equal(clampWidth(9999, isolated), 520); // still bounded by hard max
   assert.equal(clampWidth(50, isolated), 160); // still bounded by min
+});
+
+test("presenceClass: kill affordance when on+killable, start affordance when off+startable+live", () => {
+  // session present → base on; kill only when killable
+  assert.equal(presenceClass("on", false, false, true), "cc-presence on");
+  assert.equal(presenceClass("on", true, false, true), "cc-presence on kill");
+  // killable is irrelevant while off; startable is irrelevant while on
+  assert.equal(presenceClass("on", false, true, true), "cc-presence on");
+  // session absent → base off; start only when startable AND live (a shell to re-run cmd in)
+  assert.equal(presenceClass("off", false, false, true), "cc-presence off");
+  assert.equal(presenceClass("off", false, true, true), "cc-presence off start");
+  assert.equal(presenceClass("off", false, true, false), "cc-presence off"); // cold: no start
+  assert.equal(presenceClass("off", true, true, true), "cc-presence off start"); // killable ignored while off
 });
 
 test("resolveOffset: cycles among ids with wraparound; null when empty", () => {

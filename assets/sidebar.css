@@ -203,7 +203,9 @@
 
 /* ── Presence slot ── cyan; filled = a probe reported a session, hollow ring = configured-but-absent.
  * `.kill` (session present AND the tab has a kill command) makes it a pointer that arms the row's
- * kill-confirm; a hover halo foreshadows the red confirm. warden-only (curator never sets presence). */
+ * kill-confirm; a hover halo foreshadows the red confirm. `.start` (session absent AND the tab has a
+ * startup command AND is live) makes the hollow ring a pointer that re-runs the command on click; a
+ * cyan hover halo + filled ring foreshadow the restart. warden-only (curator never sets presence). */
 .cc-presence {
   flex: none;
   width: 16px;
@@ -231,6 +233,13 @@
 }
 .cc-presence.on.kill:hover::before {
   box-shadow: 0 0 0 3px rgba(255, 91, 82, 0.22);
+}
+.cc-presence.off.start {
+  cursor: pointer;
+}
+.cc-presence.off.start:hover::before {
+  background: #56b4e9; /* fill the hollow ring — foreshadows the session coming up */
+  box-shadow: 0 0 0 3px rgba(86, 180, 233, 0.22);
 }
 
 /* ── Live/unload slot ── green filled = surface live (loaded/spawned); hover a LIVE dot for a red ✕

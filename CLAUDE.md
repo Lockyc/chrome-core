@@ -21,7 +21,7 @@ that binds the callbacks to its own backend and maps its events to the setters.
 
 `ChromeSidebar.mount(container, callbacks, config) -> instance`
 
-- **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onKill(id)`, `onResize(width)`.
+- **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onKill(id)`, `onStart(id)`, `onResize(width)`.
 - **config:** `{ header: Node|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction }`.
   `maxFraction` caps the sidebar at a share of `window.innerWidth`; pass a **falsy** value (e.g. `0`)
   to skip that cap. A consumer whose sidebar is an isolated child webview (curator) must do this —
@@ -29,7 +29,7 @@ that binds the callbacks to its own backend and maps its events to the setters.
   `minWidth` — and enforce the share-of-window limit backend-side instead.
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
   active?: id, tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null, live: bool,
-  attention: null|true|number, presence: null|'on'|'off', killable: bool, warn: bool }`.
+  attention: null|true|number, presence: null|'on'|'off', killable: bool, startable: bool, warn: bool }`.
   **`active`** selects the ownership model: **present** ⇒ the app owns selection (curator, whose Rust
   side is authoritative) — the component honours it and does NOT fire `onSelect`; **absent** ⇒ the
   component owns it (warden) — it preserves the current selection, falls back to the first tab, and
@@ -45,7 +45,11 @@ that binds the callbacks to its own backend and maps its events to the setters.
 count pill when `attention` is a number (curator's unread count). Presence = cyan on/off (warden's
 probe; curator never sets it). Live/unload = green live ↔ hover-✕ unload / hollow cold.
 **Kill-confirm is a row-overlay state, not a slot** (clicking a killable presence dot reddens the row,
-hides the dots, shows ⏻/↩); gated on `killable` (curator: always false).
+hides the dots, shows ⏻/↩); gated on `killable` (curator: always false). The presence dot is a
+**session toggle**: when the session is *present* it kills (2-step confirm, `killable`); when *absent*
+and the tab is *live* it **starts** — a single click firing `onStart` (gated on `startable`, curator:
+always false), re-running the tab's command. Absent+cold shows no start affordance (no shell to run
+in — the row-click activation path starts it instead); the gating lives in `presenceClass`.
 
 The component owns `cc-`-prefixed IDs (`#cc-sidebar`, `#cc-banner`, `#cc-tab-list`, `#cc-error`,
 `#cc-resize`) so they never collide with an app's page-shell IDs.
