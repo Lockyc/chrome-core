@@ -1,1 +1,348 @@
-/* chrome-core sidebar styles — built in Task 2. */
+/* chrome-core — the shared sidebar chrome for curator and warden.
+ *
+ * The component owns everything under the mount container (`.cc-root`): the banner, the error bar,
+ * the grouped tab rows (tile + title + three dot slots), the kill-confirm row overlay, and the
+ * resize handle. IDs/classes are `cc-`-prefixed so they never collide with an app's page-shell.
+ *
+ * Density tokens: the default set is "comfortable"; the component sets `data-density="compact"` on
+ * <html> from the window DTO, swapping in the condensed set so the whole type + spacing scale moves
+ * as a unit. `--sidebar-w` is the density-aware default/reset width (the app applies it).
+ */
+:root {
+  --cc-title-font: 16px;
+  --cc-title-pad: 10px 12px;
+  --cc-group-font: 14px;
+  --cc-group-pad: 14px 12px 6px;
+  --cc-group-first-top: 12px;
+  --cc-row-font: 14px;
+  --cc-row-pad: 9px 12px;
+  --cc-row-gap: 10px;
+  --cc-tile-size: 20px;
+  --cc-tile-font: 11px;
+  --cc-dot-size: 9px;
+  --cc-glyph-x: 11px;
+  --cc-glyph-confirm: 13px;
+  --cc-sidebar-w: 240px;
+}
+[data-density="compact"] {
+  --cc-title-font: 14px;
+  --cc-title-pad: 7px 10px;
+  --cc-group-font: 12px;
+  --cc-group-pad: 10px 9px 4px;
+  --cc-group-first-top: 8px;
+  --cc-row-font: 12px;
+  --cc-row-pad: 6px 9px;
+  --cc-row-gap: 8px;
+  --cc-tile-size: 17px;
+  --cc-tile-font: 10px;
+  --cc-dot-size: 8px;
+  --cc-glyph-x: 10px;
+  --cc-glyph-confirm: 12px;
+  --cc-sidebar-w: 200px;
+}
+
+/* The mount container. The app positions it (its own page shell / webview); the component makes it a
+ * column and paints an OPAQUE base + window tint (set inline by JS — any alpha would leak a
+ * transparent window's wallpaper). Chrome is navigation, never text-selectable. */
+.cc-root {
+  position: relative; /* containing block for the resize handle */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #15191e; /* opaque fallback; JS overrides with the window tint over this base */
+  color: #ddd;
+  font: 13px system-ui, -apple-system, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+/* Window-name banner (curator's title strip / warden's banner), coloured by JS to the window accent.
+ * The optional `header` slot (curator's nav pill) mounts before the name inside `.cc-banner`. */
+#cc-banner {
+  flex: none;
+  order: -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--cc-title-pad);
+  font-size: var(--cc-title-font);
+  font-weight: 700;
+  color: #fff;
+  background: #6b7280; /* neutral default; JS sets the window colour */
+}
+#cc-banner .cc-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Error bar: one opaque red strip between the banner and the tab list, shown via setError().
+ * Sidebar-scoped in both apps (below the traffic-light inset + banner → no per-app inset needed). */
+#cc-error {
+  flex: none;
+  display: none; /* shown by setError() */
+  background: #7a1f1f;
+  color: #ffd;
+  padding: 6px 12px;
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: normal;
+}
+
+/* Scrollable tab list. No horizontal padding: group headers run full-bleed (their separator spans
+ * the sidebar) while rows inset themselves via margin to read as chips. */
+#cc-tab-list {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+  overflow-y: auto;
+}
+
+/* Sticky section header. Its opaque background is set by JS to the same window tint as the sidebar
+ * so rows scroll invisibly under it; this is the pre-paint fallback. */
+.cc-group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #15191e;
+  margin-top: 6px;
+  padding: var(--cc-group-pad);
+  border-top: 1px solid #313640;
+  font-size: var(--cc-group-font);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9aa4b2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cc-group:first-child {
+  margin-top: 0;
+  border-top: none;
+  padding-top: var(--cc-group-first-top);
+}
+
+/* Tab row: tile · title · [attention] · [presence] · live/unload. */
+.cc-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--cc-row-gap);
+  margin: 0 6px;
+  padding: var(--cc-row-pad);
+  border-radius: 5px;
+  font-size: var(--cc-row-font);
+  color: #ddd;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.cc-tab:hover:not(.active) {
+  background: #2a2a2a;
+}
+/* Active highlight: JS sets an inline window-tinted background; these rules cover text weight and the
+ * neutral fallback when no colour is configured. */
+.cc-tab.active {
+  color: #fff;
+  font-weight: 600;
+  background: var(--cc-active-bg, #094771);
+}
+
+/* Letter/colour tile (initial + title-hashed colour) — at-a-glance scanning. */
+.cc-icon {
+  flex: none;
+  width: var(--cc-tile-size);
+  height: var(--cc-tile-size);
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--cc-tile-font);
+  font-weight: 600;
+  color: #fff;
+}
+.cc-title {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Attention slot ── amber; a bare dot, or a count pill when attention is a number (curator's
+ * unread count). Sits first in the trailing group. */
+.cc-attention {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--cc-dot-size);
+  height: var(--cc-dot-size);
+  border-radius: 9px;
+  background: #f0883e;
+}
+.cc-attention.cc-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  color: #1e1e1e;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ── Presence slot ── cyan; filled = a probe reported a session, hollow ring = configured-but-absent.
+ * `.kill` (session present AND the tab has a kill command) makes it a pointer that arms the row's
+ * kill-confirm; a hover halo foreshadows the red confirm. warden-only (curator never sets presence). */
+.cc-presence {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.cc-presence::before {
+  content: "";
+  width: var(--cc-dot-size);
+  height: var(--cc-dot-size);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.cc-presence.off::before {
+  border: 1px solid rgba(86, 180, 233, 0.5);
+}
+.cc-presence.on::before {
+  background: #56b4e9;
+}
+.cc-presence.on.kill {
+  cursor: pointer;
+}
+.cc-presence.on.kill:hover::before {
+  box-shadow: 0 0 0 3px rgba(255, 91, 82, 0.22);
+}
+
+/* ── Live/unload slot ── green filled = surface live (loaded/spawned); hover a LIVE dot for a red ✕
+ * that unloads (curator: cheap webview reload class of "loaded"; warden: kills the terminal). A
+ * hollow ring = cold. Cold dots are inert. */
+.cc-dot {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.cc-dot.cold::before {
+  content: "";
+  width: var(--cc-dot-size);
+  height: var(--cc-dot-size);
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 1px solid rgba(238, 238, 238, 0.3);
+}
+.cc-dot.live {
+  cursor: pointer;
+}
+.cc-dot.live::before {
+  content: "";
+  width: var(--cc-dot-size);
+  height: var(--cc-dot-size);
+  border-radius: 50%;
+  background: #3fb950;
+}
+.cc-dot.live:hover::before {
+  display: none;
+}
+.cc-dot.live:hover::after {
+  content: "✕";
+  color: #f85149;
+  font-size: var(--cc-glyph-x);
+  font-weight: 700;
+}
+
+/* ── Kill-confirm: a row-overlay state (NOT a slot). Clicking a killable presence dot reddens the
+ * whole row, hides the three dots, and shows ⏻ (terminate) / ↩ (cancel). `!important` beats the
+ * inline active-tint JS sets, so an armed active row still reads red. */
+.cc-tab.confirming,
+.cc-tab.confirming:hover {
+  background: #5a1f1f !important;
+  color: #fff;
+}
+.cc-tab.confirming .cc-attention,
+.cc-tab.confirming .cc-presence,
+.cc-tab.confirming .cc-dot {
+  display: none;
+}
+.cc-confirm-kill,
+.cc-confirm-cancel {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: none; /* shown only while .confirming */
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  cursor: pointer;
+  font-size: var(--cc-glyph-confirm);
+  font-weight: 700;
+}
+.cc-tab.confirming .cc-confirm-kill,
+.cc-tab.confirming .cc-confirm-cancel {
+  display: inline-flex;
+}
+/* Destructive reads destructive: ⏻ bright red, ↩ muted grey. */
+.cc-confirm-kill {
+  color: #ff5b52;
+}
+.cc-confirm-cancel {
+  color: rgba(255, 255, 255, 0.5);
+}
+.cc-confirm-kill:hover {
+  background: rgba(255, 91, 82, 0.2);
+  border-radius: 4px;
+  color: #ff7b73;
+}
+.cc-confirm-cancel:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.95);
+}
+/* Confirm feedback: ⏻ presses and the row pulses once (~180ms), added as `.killing` on confirm.
+ * The pulse is a layered box-shadow (not background — `.confirming`'s !important background would
+ * beat an animated one); box-shadow renders above the background but below content. */
+.cc-tab.killing {
+  animation: cc-confirm-pulse 180ms ease-out;
+}
+.cc-tab.killing .cc-confirm-kill {
+  animation: cc-confirm-press 180ms ease-out;
+}
+@keyframes cc-confirm-pulse {
+  0% { box-shadow: inset 0 0 0 9999px rgba(255, 91, 82, 0); }
+  35% { box-shadow: inset 0 0 0 9999px rgba(255, 91, 82, 0.32); }
+  100% { box-shadow: inset 0 0 0 9999px rgba(255, 91, 82, 0); }
+}
+@keyframes cc-confirm-press {
+  0% { transform: scale(1); }
+  30% { transform: scale(0.8); }
+  100% { transform: scale(1); }
+}
+
+/* Resize grip pinned to the container's right edge; invisible until hover/drag. */
+#cc-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 5;
+}
+#cc-resize:hover,
+#cc-resize.dragging {
+  background: rgba(255, 255, 255, 0.14);
+}
