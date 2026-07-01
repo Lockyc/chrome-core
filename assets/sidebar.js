@@ -278,6 +278,7 @@ class Sidebar {
   /** Move the highlight to `id` WITHOUT firing onSelect — for reflecting app-side state the app
    *  already actioned (e.g. the neighbour it activated after an unload). */
   setActive(id) {
+    this._disarmKill(); // a non-DOM path (⌘W) can land here with a background row still armed
     this.active = id;
     this._paint();
   }
@@ -290,7 +291,7 @@ class Sidebar {
       (r) => !liveOnly || r.querySelector(".cc-dot.live")
     );
     const ids = rows.map((r) => r.dataset.id);
-    if (ids.length < (liveOnly ? 2 : 1)) return;
+    if (ids.length < 2) return; // cycling needs ≥2 (eligible) tabs; 1 tab is a no-op, not a self-select
     const next = resolveOffset(ids, this.active, dir < 0 ? -1 : 1);
     if (next != null) this.select(next);
   }
