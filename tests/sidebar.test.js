@@ -35,6 +35,12 @@ test("clampWidth: [min, min(max, fraction*window)]", () => {
   assert.equal(clampWidth(50, cfg), 120); // below min snaps up
   assert.equal(clampWidth(9999, cfg), 400); // above hard max snaps down
   assert.equal(clampWidth(300, { min: 120, max: 400, fraction: 0.4, windowWidth: 500 }), 200); // 40% of a narrow window
+  // Falsy fraction skips the window-share cap (isolated-sidebar-webview consumers clamp backend-side):
+  // windowWidth is ignored, so a drag isn't pinned to the floor by a tiny sidebar-view innerWidth.
+  const isolated = { min: 160, max: 520, fraction: 0, windowWidth: 240 };
+  assert.equal(clampWidth(300, isolated), 300); // honoured, not collapsed to min
+  assert.equal(clampWidth(9999, isolated), 520); // still bounded by hard max
+  assert.equal(clampWidth(50, isolated), 160); // still bounded by min
 });
 
 test("resolveOffset: cycles among ids with wraparound; null when empty", () => {

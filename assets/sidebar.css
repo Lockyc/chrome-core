@@ -102,6 +102,14 @@
   padding: 8px 0;
   overflow-y: auto;
 }
+/* List children never shrink. This is a scroll container (`overflow-y: auto`), so when the rows +
+ * headers are taller than the sidebar the overflow must SCROLL — not compress the items. Without
+ * this, flex-shrink crushes the shrinkable items: `.cc-group` (with `overflow: hidden`) collapses
+ * to a sliver and clips its header text to the bottom of the glyphs. The tempting "fix" is to make
+ * the header taller / bump its colour, but the box is being squeezed — pin the children instead. */
+#cc-tab-list > * {
+  flex-shrink: 0;
+}
 
 /* Sticky section header. Its opaque background is set by JS to the same window tint as the sidebar
  * so rows scroll invisibly under it; this is the pre-paint fallback. */

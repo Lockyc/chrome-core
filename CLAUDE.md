@@ -23,6 +23,10 @@ that binds the callbacks to its own backend and maps its events to the setters.
 
 - **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onKill(id)`, `onResize(width)`.
 - **config:** `{ header: Node|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction }`.
+  `maxFraction` caps the sidebar at a share of `window.innerWidth`; pass a **falsy** value (e.g. `0`)
+  to skip that cap. A consumer whose sidebar is an isolated child webview (curator) must do this —
+  its `innerWidth` is the sidebar's own width, not the window's, so the cap would pin every drag to
+  `minWidth` — and enforce the share-of-window limit backend-side instead.
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
   active?: id, tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null, live: bool,
   attention: null|true|number, presence: null|'on'|'off', killable: bool, warn: bool }`.

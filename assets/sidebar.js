@@ -39,9 +39,14 @@ function tintOverBase(hex, ratio, base) {
   return "rgb(" + ch(0) + "," + ch(1) + "," + ch(2) + ")";
 }
 
-/** Clamp a desired sidebar width into [min, min(max, fraction*windowWidth)]. */
+/** Clamp a desired sidebar width into [min, min(max, fraction*windowWidth)]. `fraction` caps the
+ *  sidebar at a share of the window — but `windowWidth` is the sidebar view's own `window.innerWidth`,
+ *  which is only the full window when the sidebar shares the window with the content (warden). When
+ *  the sidebar is an isolated child webview (curator), `innerWidth` is just the sidebar's width, so
+ *  the fraction cap would collapse below `min` and pin every drag to the floor. Such a consumer
+ *  passes a falsy `fraction` to skip the cap here and enforce its share-of-window limit backend-side. */
 function clampWidth(w, { min, max, fraction, windowWidth }) {
-  const upper = Math.min(max, windowWidth * fraction);
+  const upper = fraction ? Math.min(max, windowWidth * fraction) : max;
   return Math.max(min, Math.min(w, upper));
 }
 
