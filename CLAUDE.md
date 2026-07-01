@@ -24,8 +24,15 @@ that binds the callbacks to its own backend and maps its events to the setters.
 - **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onKill(id)`, `onResize(width)`.
 - **config:** `{ header: Node|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction }`.
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
-  tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null, live: bool,
+  active?: id, tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null, live: bool,
   attention: null|true|number, presence: null|'on'|'off', killable: bool, warn: bool }`.
+  **`active`** selects the ownership model: **present** ⇒ the app owns selection (curator, whose Rust
+  side is authoritative) — the component honours it and does NOT fire `onSelect`; **absent** ⇒ the
+  component owns it (warden) — it preserves the current selection, falls back to the first tab, and
+  fires `onSelect` so the app activates the fallback.
+- **`select(id)`** (public): highlight + fire `onSelect` (row clicks, keyboard nav, notification
+  focus resolve to this). **`setActive(id)`**: highlight only, no callback (reflect app-actioned
+  state, e.g. the neighbour activated after an unload).
 - **methods:** `update(dto)`, `setActive(id)`, `setLive(id,live)`, `setAttention(id,val)`,
   `setPresence(id,state)`, `selectByOffset(dir,{liveOnly})`, `selectByIndex(n)`, `setError(msg)`,
   `clearError()`.

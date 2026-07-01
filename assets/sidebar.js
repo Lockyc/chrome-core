@@ -127,14 +127,21 @@ class Sidebar {
       this.list.appendChild(this._renderRow(t));
     }
 
-    // Keep the active tab if it survived; else fall back to the first (or null).
-    if (!this.tabs.find((t) => t.id === this.active)) {
-      this.active = this.tabs.length ? this.tabs[0].id : null;
-    }
-    this._paint();
-    // A fallback-changed active is the app's cue to activate it (render only repaints the highlight).
-    if (this.active && this.active !== prevActive && this.cb.onSelect) {
-      this.cb.onSelect(this.active, { wasActive: false });
+    // Active selection has two ownership models. When the DTO carries `active`, the APP owns it
+    // (curator: its Rust side is authoritative via get_tabs) — honour it and do NOT fire onSelect.
+    // When `active` is absent, the COMPONENT owns it (warden): preserve the current selection, fall
+    // back to the first tab if it vanished, and fire onSelect so the app activates the fallback.
+    if (dto.active !== undefined) {
+      this.active = dto.active;
+      this._paint();
+    } else {
+      if (!this.tabs.find((t) => t.id === this.active)) {
+        this.active = this.tabs.length ? this.tabs[0].id : null;
+      }
+      this._paint();
+      if (this.active && this.active !== prevActive && this.cb.onSelect) {
+        this.cb.onSelect(this.active, { wasActive: false });
+      }
     }
   }
 
