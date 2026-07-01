@@ -1,0 +1,50 @@
+<h1 align="center">chrome-core</h1>
+
+<p align="center">The shared sidebar chrome for <a href="https://github.com/Lockyc/curator">curator</a> and <a href="https://github.com/Lockyc/warden">warden</a> — one component, two apps.</p>
+
+curator (browser keeper-tabs) and warden (terminals) are sibling macOS Tauri apps with the same
+sidebar silhouette. `chrome-core` is that sidebar, extracted once: a framework-free CSS + vanilla-JS
+component (`ChromeSidebar`) plus a thin Rust crate that embeds the two asset files as string
+constants so they ride cargo's git-dependency fetch.
+
+The component is a **view**. It owns the banner + accent tint, grouped tab rows (letter tile, title,
+and three status/action dot slots — attention, presence, live/unload), the kill-confirm row overlay,
+density tokens, the resize-drag, and the error bar. Each app supplies a normalized tab DTO + a few
+callbacks; each app's own content-area plumbing and backend commands stay in a thin per-app
+controller. See [`CLAUDE.md`](CLAUDE.md) for the full interface contract.
+
+## Status
+
+Early. The crate + asset scaffolding are in place; the component (`assets/sidebar.js`) and styles
+(`assets/sidebar.css`) are built out across the initial tasks. Not yet consumed by either app until
+its first tag.
+
+## How it's consumed
+
+Each app takes chrome-core as a **build-dependency** pinned by `rev`:
+
+```toml
+[build-dependencies]
+chrome-core = { git = "https://github.com/Lockyc/chrome-core", rev = "<commit>" }
+```
+
+and its `build.rs` writes the constants into the app's `frontendDist` before Tauri embeds it:
+
+```rust
+std::fs::write("../src/chrome-core.css", chrome_core::SIDEBAR_CSS)?;
+std::fs::write("../src/chrome-core.js",  chrome_core::SIDEBAR_JS)?;
+```
+
+The generated files are git-ignored in each app — reproducible from the pinned rev + this recipe, so
+a plain `git clone` of either app still builds (cargo fetches chrome-core; build.rs materializes it).
+
+## Build & test
+
+```sh
+cargo build     # compiles the include_str! constants (catches missing/renamed assets)
+node --test     # unit-tests the component's pure logic (zero deps)
+```
+
+## License
+
+MIT.

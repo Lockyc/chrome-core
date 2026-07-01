@@ -1,0 +1,8 @@
+{
+  "name": "chrome-core",
+  "private": true,
+  "description": "Test harness for the chrome-core sidebar component (node:test, zero deps).",
+  "scripts": {
+    "test": "node --test"
+  }
+}

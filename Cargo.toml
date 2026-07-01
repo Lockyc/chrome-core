@@ -1,0 +1,8 @@
+[package]
+name = "chrome-core"
+version = "0.1.0"
+edition = "2021"
+description = "Shared sidebar chrome (CSS + vanilla JS) for curator and warden, embedded as string consts."
+license = "MIT"
+repository = "https://github.com/Lockyc/chrome-core"
+publish = false
