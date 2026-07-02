@@ -117,6 +117,12 @@ class Sidebar {
 
   // ── rendering ──
 
+  /** Toggle the Tauri window-drag attribute on a non-interactive chrome node (see `update`). */
+  _setDrag(node, on) {
+    if (on) node.setAttribute("data-tauri-drag-region", "");
+    else node.removeAttribute("data-tauri-drag-region");
+  }
+
   /** Full render from a window DTO. The one render path (init + hot-reload). */
   update(dto) {
     this._disarmKill();
@@ -131,6 +137,18 @@ class Sidebar {
     this.root.style.background = tint;
     this.root.style.setProperty("--cc-active-bg", tintOverBase(this.windowColour, 0.28));
 
+    // Window-move drag surface. When `windowDrag` is set, the NON-interactive chrome (banner, name,
+    // the list container's empty area, group headers) carries `data-tauri-drag-region` so a drag on
+    // it moves the host window (macOS: double-click zooms) — Tauri drags only when the mousedown
+    // TARGET itself has the attribute, so interactive descendants (rows, dots, buttons, the resize
+    // handle) stay attribute-free and clickable. Absent field → off, so a consumer that never sets it
+    // (curator) is unchanged; warden drives it from its `sidebar_drag` config (default on). Applied
+    // every render so a hot-reload toggle takes effect; group headers get it in the loop below.
+    const drag = !!dto.windowDrag;
+    this._setDrag(this.banner, drag);
+    this._setDrag(this.nameEl, drag);
+    this._setDrag(this.list, drag);
+
     this.list.innerHTML = "";
     let lastGroup;
     for (const t of this.tabs) {
@@ -138,6 +156,7 @@ class Sidebar {
       if (g !== lastGroup && g !== null) {
         const h = el("div", { class: "cc-group" }, g);
         h.style.background = tint; // sticky header matches the tinted sidebar
+        this._setDrag(h, drag);
         this.list.appendChild(h);
       }
       lastGroup = g;
