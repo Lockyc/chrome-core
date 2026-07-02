@@ -57,8 +57,9 @@ and the tab is *live* it **starts** — a single click firing `onStart` (gated o
 always false), re-running the tab's command. Absent+cold shows no start affordance (no shell to run
 in — the row-click activation path starts it instead); the gating lives in `presenceClass`.
 
-The component owns `cc-`-prefixed IDs (`#cc-sidebar`, `#cc-banner`, `#cc-tab-list`, `#cc-error`,
-`#cc-resize`) so they never collide with an app's page-shell IDs.
+The component owns `cc-`-prefixed IDs (`#cc-banner`, `#cc-tab-list`, `#cc-error`, `#cc-resize`) so
+they never collide with an app's page-shell IDs; the mount container itself carries the `.cc-root`
+class (not an id).
 
 ## Consumption (build-dep + build.rs) and pinning
 
