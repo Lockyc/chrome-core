@@ -168,8 +168,8 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: #9aa4b2;
-  font-size: var(--cc-tree-glyph);
+  color: #c3ccd8;
+  font-size: calc(var(--cc-tree-glyph) * 1.15);
   line-height: 1;
   padding: 0;
   cursor: pointer;
@@ -194,7 +194,8 @@
   padding: var(--cc-row-pad);
   border-radius: 5px;
   font-size: var(--cc-row-font);
-  color: #9aa4b2;
+  font-weight: 500;
+  color: #c3ccd8;
   cursor: pointer;
   user-select: none;
 }
@@ -204,19 +205,26 @@
 }
 .cc-chevron {
   flex: none;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: var(--cc-tree-glyph);
-  font-size: var(--cc-tree-glyph);
-  text-align: center;
-  color: inherit;
-  transform: rotate(90deg);
+  height: var(--cc-tree-glyph);
+  color: #c3ccd8;
+  transform: rotate(90deg); /* expanded → points down */
   transition: transform 0.12s ease;
 }
+/* A CSS-drawn filled triangle, not a glyph: crisp at any size, sized off --cc-tree-glyph, and it
+ * actually fills like the dots do (the ▸ glyph's ink was thin/weak). */
 .cc-chevron::before {
-  content: "▸";
+  content: "";
+  border-style: solid;
+  border-width: calc(var(--cc-tree-glyph) * 0.3) 0 calc(var(--cc-tree-glyph) * 0.3)
+    calc(var(--cc-tree-glyph) * 0.46);
+  border-color: transparent transparent transparent currentColor; /* right-pointing */
 }
 .cc-folder[data-collapsed] .cc-chevron {
-  transform: rotate(0deg);
+  transform: rotate(0deg); /* collapsed → points right */
 }
 .cc-folder-label {
   flex: 1 1 auto;
