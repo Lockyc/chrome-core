@@ -103,22 +103,27 @@ Each app is a **build-dependency** consumer pinned by `rev`; its `build.rs` writ
 each app. **Pin this crate by `rev` and bump it in lockstep with config-core and the Rust toolchain
 pin** across curator + warden (the same lockstep discipline those already follow).
 
-Dev iteration on the chrome from inside an app is higher-friction behind a pinned rev: use a cargo
-path override (`[patch."https://github.com/Lockyc/chrome-core"]` → a local checkout) while actively
-working the chrome, then switch back to the pinned rev before committing the app.
+Dev iteration on the chrome from inside an app is higher-friction behind a pinned rev — so each app
+ships **`just chrome-dev`** (build against a local `../chrome-core` checkout via a normally-commented
+`[patch]`) and **`just chrome-pin`** (re-pin the app's rev to `../chrome-core`'s pushed HEAD and
+re-comment the patch before you commit); `just gate` in each app refuses a left-active patch. Reach
+this repo's preview from either app with **`just chrome-preview`**. See warden's / curator's CLAUDE.md.
 
 For **visual** tweaks, skip the app round-trip entirely: the checked-in **`preview.html`** mounts the
 component in isolation with a representative DTO (loose tabs, a plain group, and a project-tree with
-folders + leaves, across the dot states). Open it in a browser, or screenshot it headlessly to *see*
-a change without building either app —
-`chrome --headless=new --disable-gpu --force-device-scale-factor=2 --window-size=310,900 --screenshot=preview.png "file://$PWD/preview.html"`
-(`?density=compact` on the URL previews the compact scale; `preview.png` is git-ignored). This is the
-fast loop for iterating on `sidebar.{css,js}`; the pinned-rev round-trip through an app is only for
-shipping and final integration.
+folders + leaves, across the dot states). **`just preview`** opens it in a browser; **`just shot
+[density]`** headless-screenshots it to `preview.png` (git-ignored) — both wrap the raw
+`chrome --headless … --screenshot` invocation (still documented at the top of `preview.html`). URL
+params compose: **`?density=compact`** previews the compact scale, **`?header=1`** mounts a stand-in
+in the banner's `header` slot (curator's nav pill; warden leaves it empty) and a corner readout shows
+`#cc-banner`'s measured height — which must be identical with and without `?header=1`, the check that
+`--cc-banner-min` keeps the banner one height regardless of the slot. This is the fast loop for
+iterating on `sidebar.{css,js}`; the pinned-rev round-trip through an app is only for shipping.
 
 ## Build / test
 
-`cargo build` compiles the `include_str!` constants (catches a missing/renamed asset).
-`node --test` unit-tests the pure logic (`tileColour`/`tintOverBase`/`clampWidth`/`resolveOffset`/
-`buildTree`); DOM/visual behaviour has no unit coverage — iterate it with `preview.html` (above) and
-confirm integration by running the two apps.
+`just build` (`cargo build`) compiles the `include_str!` constants (catches a missing/renamed asset).
+`just test` (`node --test`) unit-tests the pure logic (`tileColour`/`tintOverBase`/`clampWidth`/
+`resolveOffset`/`buildTree`); `just gate` runs rustfmt-check + tests + build together. DOM/visual
+behaviour has no unit coverage — iterate it with `just preview` / `just shot` (above) and confirm
+integration by running the two apps.

@@ -3,10 +3,24 @@
      Loads assets/sidebar.{css,js} directly and mounts one instance with a representative DTO
      (loose tabs, a plain group, and a project-tree section with folders + leaf projects, across
      the dot states). Lets you iterate on the CSS/JS and SEE the result without building curator or
-     warden. `?density=compact` on the URL previews the compact scale.
+     warden.
 
-     Look at it in a browser:            open preview.html
-     Or screenshot it headlessly:
+     Fast loop (from a chrome-core checkout):
+       just preview            → open it in your browser
+       just shot [density]     → headless screenshot to preview.png
+     Or reach it from either app: `just chrome-preview` (in warden / curator).
+
+     URL params (compose freely, e.g. ?density=compact&header=1):
+       ?density=compact   preview the compact sizing scale (default: comfortable)
+       ?header=1          mount a stand-in in the banner's `header` slot (curator fills this with
+                          its nav pill; warden leaves it empty). Proves the banner is ONE height
+                          either way — the readout in the top-right shows #cc-banner's measured px,
+                          which must match with and without ?header=1 (that's --cc-banner-min doing
+                          its job). The stand-in is a neutral placeholder sized to curator's real
+                          nav-pill row (30px) — the pill's own styling is app-owned (curator's
+                          chrome.css), so it deliberately does NOT live here.
+
+     Raw headless invocation (what `just shot` wraps):
        chrome --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 \
          --window-size=310,900 --default-background-color=00000000 \
          --screenshot=preview.png "file://$PWD/preview.html"
@@ -18,13 +32,27 @@
     <style>
       html, body { margin: 0; background: #0c0f12; }
       #sidebar { width: 300px; }
+      /* Neutral stand-in for a consumer's `header` slot (curator's nav pill). Preview-only — sized
+         to the real pill row (2px pad + 26px buttons = 30px) so the banner-height parity check is
+         meaningful; the pill's actual look is curator's concern, not chrome-core's. */
+      .ph-header { flex: none; display: inline-flex; gap: 2px; background: #2a2a2a; border-radius: 8px; padding: 2px; }
+      .ph-btn { width: 30px; height: 26px; border-radius: 6px; background: #3a3a3a; }
+      /* Corner readout: mode + measured banner height, so the loop doubles as a measuring tool. */
+      #readout {
+        position: fixed; top: 8px; right: 8px; z-index: 9;
+        font: 12px ui-monospace, monospace; color: #cdd; background: #1b1f24cc;
+        border: 1px solid #333; border-radius: 6px; padding: 4px 8px; white-space: pre;
+      }
     </style>
   </head>
   <body>
+    <div id="readout"></div>
     <aside id="sidebar"></aside>
     <script src="assets/sidebar.js"></script>
     <script>
-      const density = new URLSearchParams(location.search).get("density") || "comfortable";
+      const params = new URLSearchParams(location.search);
+      const density = params.get("density") || "comfortable";
+      const withHeader = params.get("header") === "1";
       const T = (id, title, group, tree, treePath, extra = {}) => ({
         id, title, group, tree, treePath,
         live: false, attention: null, presence: null, killable: false, startable: false, warn: false,
@@ -54,12 +82,23 @@
           T("/d/github.com/spatie/y", "y", "Developer", true, ["github.com", "spatie"]),
         ],
       };
+      // Optional `header` slot stand-in (curator mounts its nav pill here; warden passes null).
+      let header = null;
+      if (withHeader) {
+        header = document.createElement("div");
+        header.className = "ph-header";
+        for (let i = 0; i < 4; i++) header.appendChild(Object.assign(document.createElement("div"), { className: "ph-btn" }));
+      }
       const sb = window.ChromeSidebar.mount(
         document.getElementById("sidebar"),
         { onSelect() {}, onUnload() {}, onKill() {}, onStart() {}, onRescan() {}, onResize() {} },
-        { storageKey: "preview" }
+        { storageKey: "preview", header }
       );
       sb.update(dto);
+      // Readout: mode + measured banner height. The height must be identical with/without ?header=1.
+      const bh = document.getElementById("cc-banner").offsetHeight;
+      document.getElementById("readout").textContent =
+        `density: ${density}\nheader:  ${withHeader ? "on" : "off"}\nbanner:  ${bh}px`;
     </script>
   </body>
 </html>
