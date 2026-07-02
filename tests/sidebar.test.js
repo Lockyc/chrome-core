@@ -7,6 +7,7 @@ const {
   clampWidth,
   resolveOffset,
   presenceClass,
+  buildTree,
 } = require("../assets/sidebar.js");
 
 test("tileInitial: first alphanumeric, uppercased; bullet fallback", () => {
@@ -55,6 +56,53 @@ test("presenceClass: kill affordance when on+killable, start affordance when off
   assert.equal(presenceClass("off", false, true, true), "cc-presence off start");
   assert.equal(presenceClass("off", false, true, false), "cc-presence off"); // cold: no start
   assert.equal(presenceClass("off", true, true, true), "cc-presence off start"); // killable ignored while off
+});
+
+test("buildTree compresses single-child chains", () => {
+  const rows = [
+    { id: "/d/gh/lockyc/warden", treePath: ["gh", "lockyc"] },
+    { id: "/d/gh/lockyc/curator", treePath: ["gh", "lockyc"] },
+    { id: "/d/solo", treePath: [] },
+  ];
+  const tree = buildTree(rows);
+  // top level: one compressed folder "gh/lockyc" (single-child chain) + one loose leaf
+  assert.equal(tree.folders.length, 1);
+  assert.equal(tree.folders[0].label, "gh/lockyc");
+  assert.equal(tree.folders[0].rows.length, 2);
+  assert.equal(tree.rows.length, 1);
+  assert.equal(tree.rows[0].id, "/d/solo");
+});
+
+test("buildTree keeps sibling branches uncompressed", () => {
+  const rows = [
+    { id: "/d/gh/lockyc/warden", treePath: ["gh", "lockyc"] },
+    { id: "/d/gh/other/thing", treePath: ["gh", "other"] },
+    { id: "/d/loose", treePath: [] }, // a root-level row stops "gh" itself from being absorbed
+  ];
+  const tree = buildTree(rows);
+  // "gh" has two children (lockyc, other) → not compressed away, stays its own folder
+  assert.equal(tree.folders.length, 1);
+  assert.equal(tree.folders[0].label, "gh");
+  assert.equal(tree.folders[0].folders.length, 2);
+  const labels = tree.folders[0].folders.map((f) => f.label).sort();
+  assert.deepEqual(labels, ["lockyc", "other"]);
+  assert.equal(tree.folders[0].rows.length, 0);
+  assert.equal(tree.rows.length, 1);
+  assert.equal(tree.rows[0].id, "/d/loose");
+});
+
+test("buildTree: a loose row with an empty treePath sits at the top level", () => {
+  const rows = [{ id: "/d/solo-a", treePath: [] }, { id: "/d/solo-b", treePath: [] }];
+  const tree = buildTree(rows);
+  assert.equal(tree.folders.length, 0);
+  assert.equal(tree.rows.length, 2);
+  assert.deepEqual(tree.rows.map((r) => r.id), ["/d/solo-a", "/d/solo-b"]);
+});
+
+test("buildTree: no rows → empty folders and rows", () => {
+  const tree = buildTree([]);
+  assert.equal(tree.folders.length, 0);
+  assert.equal(tree.rows.length, 0);
 });
 
 test("resolveOffset: cycles among ids with wraparound; null when empty", () => {

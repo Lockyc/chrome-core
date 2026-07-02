@@ -21,16 +21,19 @@ that binds the callbacks to its own backend and maps its events to the setters.
 
 `ChromeSidebar.mount(container, callbacks, config) -> instance`
 
-- **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onKill(id)`, `onStart(id)`, `onResize(width)`.
+- **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onKill(id)`, `onStart(id)`, `onResize(width)`,
+  `onRescan(group)`.
 - **config:** `{ header: Node|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction }`.
   `maxFraction` caps the sidebar at a share of `window.innerWidth`; pass a **falsy** value (e.g. `0`)
   to skip that cap. A consumer whose sidebar is an isolated child webview (curator) must do this —
   its `innerWidth` is the sidebar's own width, not the window's, so the cap would pin every drag to
-  `minWidth` — and enforce the share-of-window limit backend-side instead.
+  `minWidth` — and enforce the share-of-window limit backend-side instead. `storageKey` doubles as the
+  per-instance namespace for tree-collapse persistence (below) — it need only be unique per mounted
+  sidebar, its literal contents don't matter beyond that.
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
   windowDrag?: bool, active?: id, tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null,
   live: bool, attention: null|true|number, presence: null|'on'|'off', killable: bool, startable: bool,
-  warn: bool }`.
+  warn: bool, tree?: bool, treePath?: string[] }`.
   **`windowDrag`** (default **on** when absent) makes the non-interactive chrome — banner, name, the
   empty area of the tab list, group headers — a `data-tauri-drag-region` so a drag there moves the
   host window (interactive descendants stay clickable; Tauri drags only when the mousedown target
@@ -61,6 +64,23 @@ The component owns `cc-`-prefixed IDs (`#cc-banner`, `#cc-tab-list`, `#cc-error`
 they never collide with an app's page-shell IDs; the mount container itself carries the `.cc-root`
 class (not an id).
 
+**Project-tree sections** (`tree`/`treePath` on `TabDTO`, warden-only — curator never sets them): a
+run of consecutive same-`group` tabs whose rows carry `tree: true` renders as a collapsible folder
+tree instead of a flat group. `treePath` is the folder-segment chain between the tree's root and the
+project (empty for a project sitting directly in the root, or for a non-tree row). The pure helper
+`buildTree(rows)` (exported for tests) nests rows by `treePath` into `{ folders: [{label, folders,
+rows}], rows }`, compressing single-child folder chains (labels joined with `/`) — a chain rooted at
+the anonymous top level whose compression fully absorbs the top folder surfaces its children directly
+(no synthetic top-level label), which only matters when the *entire* section is one unbranching chain
+with no root-level rows. The tree-head (a `.cc-group.cc-tree-head`) carries the group label + a
+`.cc-rescan` button firing `onRescan(group)`; an empty section renders the head plus a muted
+`.cc-tree-empty` "No projects found" line. Folder rows (`.cc-folder`) toggle their subtree via a full
+repaint (trees are config-scale, so this is simpler than DOM-patching visibility) and persist collapse
+state in `localStorage` under `cc-tree:<storageKey>:<group>/<folder-path>` — default policy is top
+level (depth 0) expanded, deeper folders collapsed. Depth indentation for both folder rows and leaf
+rows (`.cc-tab.cc-tree-row`) is driven by an inline `--cc-depth` custom property against the
+`--cc-indent` density token.
+
 ## Consumption (build-dep + build.rs) and pinning
 
 Each app is a **build-dependency** consumer pinned by `rev`; its `build.rs` writes `SIDEBAR_CSS`/
@@ -76,5 +96,5 @@ working the chrome, then switch back to the pinned rev before committing the app
 ## Build / test
 
 `cargo build` compiles the `include_str!` constants (catches a missing/renamed asset).
-`node --test` unit-tests the pure logic (`tileColour`/`tintOverBase`/`clampWidth`/`resolveOffset`);
-DOM/visual behaviour is verified by running the two apps.
+`node --test` unit-tests the pure logic (`tileColour`/`tintOverBase`/`clampWidth`/`resolveOffset`/
+`buildTree`); DOM/visual behaviour is verified by running the two apps.

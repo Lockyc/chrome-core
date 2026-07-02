@@ -75,6 +75,36 @@ function presenceClass(state, killable, startable, live) {
 const SIDEBAR_BASE = [21, 25, 30]; // #15191e
 const NEUTRAL_COLOUR = "#6b7280";
 
+/** Build a nested folder tree from flat rows carrying `treePath` segment arrays.
+ *  Single-child folder chains are compressed (label joined with "/"). Pure — tested. */
+function buildTree(rows) {
+  const root = { label: "", folders: new Map(), rows: [] };
+  for (const r of rows) {
+    let node = root;
+    for (const seg of r.treePath || []) {
+      if (!node.folders.has(seg)) node.folders.set(seg, { label: seg, folders: new Map(), rows: [] });
+      node = node.folders.get(seg);
+    }
+    node.rows.push(r);
+  }
+  const compress = (node) => {
+    let folders = [...node.folders.values()].map(compress);
+    // compress a chain: exactly one child folder, no rows here → merge labels
+    let self = { label: node.label, folders, rows: node.rows };
+    while (self.rows.length === 0 && self.folders.length === 1) {
+      const only = self.folders[0];
+      self = {
+        label: self.label ? `${self.label}/${only.label}` : only.label,
+        folders: only.folders,
+        rows: only.rows,
+      };
+    }
+    return self;
+  };
+  const top = compress(root);
+  return { folders: top.folders, rows: top.rows };
+}
+
 // ─────────────────────────── the component ───────────────────────────
 
 function el(tag, attrs, text) {
@@ -152,8 +182,19 @@ class Sidebar {
 
     this.list.innerHTML = "";
     let lastGroup;
-    for (const t of this.tabs) {
+    let i = 0;
+    while (i < this.tabs.length) {
+      const t = this.tabs[i];
       const g = t.group == null ? null : t.group;
+      // A run of consecutive tabs sharing a group whose rows are `tree: true` is a project-tree
+      // (root) section — rendered as a collapsible folder tree instead of flat rows.
+      if (g !== null && t.tree) {
+        const start = i;
+        while (i < this.tabs.length && (this.tabs[i].group == null ? null : this.tabs[i].group) === g) i++;
+        this._renderTreeSection(g, this.tabs.slice(start, i), tint, drag);
+        lastGroup = g;
+        continue;
+      }
       if (g !== lastGroup && g !== null) {
         const h = el("div", { class: "cc-group" }, g);
         h.style.background = tint; // sticky header matches the tinted sidebar
@@ -162,6 +203,7 @@ class Sidebar {
       }
       lastGroup = g;
       this.list.appendChild(this._renderRow(t));
+      i++;
     }
 
     // Active selection has two ownership models. When the DTO carries `active`, the APP owns it
@@ -180,6 +222,77 @@ class Sidebar {
         this.cb.onSelect(this.active, { wasActive: false });
       }
     }
+  }
+
+  // ── project-tree sections (a group whose rows are `tree: true`) ──
+
+  /** Render a tree-head (group label + rescan control) followed by the nested folder body for one
+   *  contiguous run of `tree: true` rows sharing `group`. Empty runs never reach here (they simply
+   *  wouldn't exist as tabs), but `buildTree` on zero rows is handled defensively. */
+  _renderTreeSection(group, rows, tint, drag) {
+    const head = el("div", { class: "cc-group cc-tree-head" });
+    head.style.background = tint;
+    this._setDrag(head, drag);
+    head.appendChild(el("span", { class: "cc-tree-label" }, group));
+    const rescan = el("button", { class: "cc-rescan", type: "button", title: "Rescan" }, "⟳");
+    rescan.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (this.cb.onRescan) this.cb.onRescan(group);
+    });
+    head.appendChild(rescan);
+    this.list.appendChild(head);
+
+    const body = el("div", { class: "cc-tree-body" });
+    this.list.appendChild(body);
+
+    const tree = buildTree(rows);
+    const repaint = () => {
+      body.innerHTML = "";
+      if (!tree.folders.length && !tree.rows.length) {
+        body.appendChild(el("div", { class: "cc-tree-empty" }, "No projects found"));
+        return;
+      }
+      this._paintTreeNode(body, tree, group, [], 0, repaint);
+    };
+    repaint();
+  }
+
+  /** Recursively paint one tree node's rows + child folders into `container`. `pathSegs` is the
+   *  folder-label chain down to (not including) this node, used to build each folder's persisted
+   *  collapse-state key. `repaint` re-runs the whole section's paint from scratch on toggle — trees
+   *  are small (config-scale), so a full repaint is simpler and cheap versus DOM-patching visibility. */
+  _paintTreeNode(container, node, group, pathSegs, depth, repaint) {
+    for (const t of node.rows) {
+      const row = this._renderRow(t);
+      row.classList.add("cc-tree-row");
+      row.style.setProperty("--cc-depth", String(depth));
+      container.appendChild(row);
+    }
+    for (const folder of node.folders) {
+      const segs = [...pathSegs, folder.label];
+      const key = "cc-tree:" + (this.cfg.storageKey || "") + ":" + group + "/" + segs.join("/");
+      const collapsed = this._treeCollapsed(key, depth);
+      const row = el("div", { class: "cc-folder" });
+      if (collapsed) row.setAttribute("data-collapsed", "");
+      row.style.setProperty("--cc-depth", String(depth));
+      row.appendChild(el("span", { class: "cc-chevron" }));
+      row.appendChild(el("span", { class: "cc-folder-label" }, folder.label));
+      row.addEventListener("click", () => {
+        localStorage.setItem(key, collapsed ? "0" : "1");
+        repaint();
+      });
+      container.appendChild(row);
+      if (!collapsed) this._paintTreeNode(container, folder, group, segs, depth + 1, repaint);
+    }
+  }
+
+  /** Persisted collapse state for a folder key. Default policy (no stored value yet): top level
+   *  (depth 0) expanded, deeper folders (depth ≥ 1) collapsed. */
+  _treeCollapsed(key, depth) {
+    const v = localStorage.getItem(key);
+    if (v === "1") return true;
+    if (v === "0") return false;
+    return depth >= 1;
   }
 
   _renderRow(t) {
@@ -524,7 +637,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, clampWidth, resolveOffset, presenceClass };
+  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, clampWidth, resolveOffset, presenceClass, buildTree };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;
