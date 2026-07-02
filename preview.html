@@ -1,0 +1,65 @@
+<!doctype html>
+<!-- Standalone visual preview of the ChromeSidebar component — dev tooling, not a test.
+     Loads assets/sidebar.{css,js} directly and mounts one instance with a representative DTO
+     (loose tabs, a plain group, and a project-tree section with folders + leaf projects, across
+     the dot states). Lets you iterate on the CSS/JS and SEE the result without building curator or
+     warden. `?density=compact` on the URL previews the compact scale.
+
+     Look at it in a browser:            open preview.html
+     Or screenshot it headlessly:
+       chrome --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 \
+         --window-size=310,900 --default-background-color=00000000 \
+         --screenshot=preview.png "file://$PWD/preview.html"
+     (`chrome` = Google Chrome / Chromium — any Chromium-based browser with --screenshot.) -->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="assets/sidebar.css" />
+    <style>
+      html, body { margin: 0; background: #0c0f12; }
+      #sidebar { width: 300px; }
+    </style>
+  </head>
+  <body>
+    <aside id="sidebar"></aside>
+    <script src="assets/sidebar.js"></script>
+    <script>
+      const density = new URLSearchParams(location.search).get("density") || "comfortable";
+      const T = (id, title, group, tree, treePath, extra = {}) => ({
+        id, title, group, tree, treePath,
+        live: false, attention: null, presence: null, killable: false, startable: false, warn: false,
+        ...extra,
+      });
+      const dto = {
+        title: "personal",
+        colour: "#1a9e8f",
+        density,
+        windowDrag: false,
+        tabs: [
+          // Loose tabs (no group) — the flat, un-sectioned rows.
+          T("/p/dotfiles", "dotfiles", null, false, [], { live: true, presence: "on" }),
+          T("/p/blog", "blog", null, false, [], { live: true, presence: "off" }),
+          T("/p/notes", "notes", null, false, [], { presence: "off" }),
+          // A plain [[window.group]] section (tree:false) — flat rows under a labelled header.
+          T("/g/api", "api", "backend", false, [], { killable: true, presence: "on", live: true }),
+          T("/g/workers", "workers", "backend", false, [], { presence: "off" }),
+          // A project-tree ([[window.root]]) section — tree:true rows nest by treePath.
+          T("/d/git.lsjc.au/LSJC/business", "business", "Developer", true, ["git.lsjc.au", "LSJC"], { presence: "on" }),
+          T("/d/git.lsjc.au/LSJC/lachlan-business-card", "lachlan-business-card", "Developer", true, ["git.lsjc.au", "LSJC"], { presence: "on" }),
+          T("/d/github.com/ccfnq/x", "x", "Developer", true, ["github.com", "ccfnq"]),
+          T("/d/github.com/lockyc/agentmux", "agentmux", "Developer", true, ["github.com", "lockyc"], { presence: "off" }),
+          T("/d/github.com/lockyc/chrome-core", "chrome-core", "Developer", true, ["github.com", "lockyc"], { presence: "off" }),
+          T("/d/github.com/lockyc/curator", "curator", "Developer", true, ["github.com", "lockyc"], { live: true, presence: "on" }),
+          T("/d/github.com/lockyc/warden", "warden", "Developer", true, ["github.com", "lockyc"], { live: true, presence: "on" }),
+          T("/d/github.com/spatie/y", "y", "Developer", true, ["github.com", "spatie"]),
+        ],
+      };
+      const sb = window.ChromeSidebar.mount(
+        document.getElementById("sidebar"),
+        { onSelect() {}, onUnload() {}, onKill() {}, onStart() {}, onRescan() {}, onResize() {} },
+        { storageKey: "preview" }
+      );
+      sb.update(dto);
+    </script>
+  </body>
+</html>

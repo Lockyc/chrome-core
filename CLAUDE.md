@@ -93,8 +93,18 @@ Dev iteration on the chrome from inside an app is higher-friction behind a pinne
 path override (`[patch."https://github.com/Lockyc/chrome-core"]` → a local checkout) while actively
 working the chrome, then switch back to the pinned rev before committing the app.
 
+For **visual** tweaks, skip the app round-trip entirely: the checked-in **`preview.html`** mounts the
+component in isolation with a representative DTO (loose tabs, a plain group, and a project-tree with
+folders + leaves, across the dot states). Open it in a browser, or screenshot it headlessly to *see*
+a change without building either app —
+`chrome --headless=new --disable-gpu --force-device-scale-factor=2 --window-size=310,900 --screenshot=preview.png "file://$PWD/preview.html"`
+(`?density=compact` on the URL previews the compact scale; `preview.png` is git-ignored). This is the
+fast loop for iterating on `sidebar.{css,js}`; the pinned-rev round-trip through an app is only for
+shipping and final integration.
+
 ## Build / test
 
 `cargo build` compiles the `include_str!` constants (catches a missing/renamed asset).
 `node --test` unit-tests the pure logic (`tileColour`/`tintOverBase`/`clampWidth`/`resolveOffset`/
-`buildTree`); DOM/visual behaviour is verified by running the two apps.
+`buildTree`); DOM/visual behaviour has no unit coverage — iterate it with `preview.html` (above) and
+confirm integration by running the two apps.
