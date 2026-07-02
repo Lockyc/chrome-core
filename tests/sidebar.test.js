@@ -105,6 +105,28 @@ test("buildTree: no rows → empty folders and rows", () => {
   assert.equal(tree.rows.length, 0);
 });
 
+test("buildTree: a single branch from the root is not absorbed away", () => {
+  // Every row shares the same treePath and there are no loose root rows — the
+  // root itself must not be compressed, or the top-level folder's label is lost.
+  const rows = [
+    { id: "warden", treePath: ["github.com", "lockyc"] },
+    { id: "curator", treePath: ["github.com", "lockyc"] },
+  ];
+  const tree = buildTree(rows);
+  assert.equal(tree.folders.length, 1);
+  assert.equal(tree.folders[0].label, "github.com/lockyc");
+  assert.equal(tree.folders[0].rows.length, 2);
+  assert.equal(tree.rows.length, 0);
+});
+
+test("buildTree: a single top-level folder with one segment is kept as a folder", () => {
+  const rows = [{ id: "only", treePath: ["a"] }];
+  const tree = buildTree(rows);
+  assert.equal(tree.folders.length, 1);
+  assert.equal(tree.folders[0].label, "a");
+  assert.equal(tree.folders[0].rows.length, 1);
+});
+
 test("resolveOffset: cycles among ids with wraparound; null when empty", () => {
   const ids = ["a", "b", "c"];
   assert.equal(resolveOffset(ids, "a", 1), "b");

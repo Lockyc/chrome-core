@@ -101,8 +101,11 @@ function buildTree(rows) {
     }
     return self;
   };
-  const top = compress(root);
-  return { folders: top.folders, rows: top.rows };
+  // Compress each top-level folder's internal single-child chains, but never
+  // merge the anonymous root itself — otherwise a root with one top-level folder
+  // would drop that folder's label and surface its projects unnested.
+  const folders = [...root.folders.values()].map(compress);
+  return { folders, rows: root.rows };
 }
 
 // ─────────────────────────── the component ───────────────────────────
