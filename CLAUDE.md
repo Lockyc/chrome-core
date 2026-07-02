@@ -25,9 +25,12 @@ that binds the callbacks to its own backend and maps its events to the setters.
   `onRescan(group)`.
 - **config:** `{ header: Node|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction }`.
   `maxFraction` caps the sidebar at a share of `window.innerWidth`; pass a **falsy** value (e.g. `0`)
-  to skip that cap. A consumer whose sidebar is an isolated child webview (curator) must do this —
-  its `innerWidth` is the sidebar's own width, not the window's, so the cap would pin every drag to
-  `minWidth` — and enforce the share-of-window limit backend-side instead. `storageKey` doubles as the
+  to skip that cap. The cap is only meaningful when the sidebar's `innerWidth` IS the host window's
+  width — i.e. the sidebar is the window's full-size main webview, which **both** current consumers
+  are (curator + warden are hole-punch main webviews), so both pass a real `maxFraction`. A consumer
+  whose sidebar were instead an isolated child webview (its `innerWidth` = the sidebar's own width,
+  not the window's) would have the cap pin every drag to `minWidth`, so it would pass a falsy value
+  and enforce the share-of-window limit backend-side. `storageKey` doubles as the
   per-instance namespace for tree-collapse persistence (below) — it need only be unique per mounted
   sidebar, its literal contents don't matter beyond that.
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
