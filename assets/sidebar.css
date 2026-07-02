@@ -101,13 +101,32 @@
  * Sidebar-scoped in both apps (below the traffic-light inset + banner → no per-app inset needed). */
 #cc-error {
   flex: none;
-  display: none; /* shown by setError() */
+  display: none; /* set to flex by setError() */
+  align-items: center;
+  gap: 8px;
   background: #7a1f1f;
   color: #ffd;
   padding: 6px 12px;
   font-size: 12px;
   line-height: 1.3;
   white-space: normal;
+}
+#cc-error-text {
+  flex: 1;
+}
+#cc-error-close {
+  flex: none;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+}
+#cc-error-close:hover {
+  opacity: 1;
 }
 
 #cc-update {

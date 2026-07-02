@@ -145,6 +145,13 @@ class Sidebar {
     this.nameEl = el("span", { class: "cc-name" });
     this.banner.appendChild(this.nameEl);
     this.errorBar = el("div", { id: "cc-error" });
+    // Error text + a dismiss (×) button, so any surfaced error (config, update-check, …) can be
+    // cleared by the user rather than lingering until something else clears it.
+    this._errorText = el("span", { id: "cc-error-text" });
+    this._errorClose = el("button", { id: "cc-error-close", "aria-label": "Dismiss" });
+    this._errorClose.textContent = "×";
+    this._errorClose.addEventListener("click", () => this.clearError());
+    this.errorBar.append(this._errorText, this._errorClose);
     // Update bar: shown by setUpdate() when the consumer's updater finds a newer release. The
     // component stays Tauri-agnostic — clicking the button just fires onUpdate; the consumer runs
     // the actual download/install/relaunch.
@@ -575,8 +582,8 @@ class Sidebar {
   // ── error bar ──
 
   setError(msg) {
-    this.errorBar.textContent = msg;
-    this.errorBar.style.display = "block";
+    this._errorText.textContent = msg;
+    this.errorBar.style.display = "flex";
   }
   clearError() {
     this.errorBar.style.display = "none";
