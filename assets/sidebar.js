@@ -137,14 +137,15 @@ class Sidebar {
     this.root.style.background = tint;
     this.root.style.setProperty("--cc-active-bg", tintOverBase(this.windowColour, 0.28));
 
-    // Window-move drag surface. When `windowDrag` is set, the NON-interactive chrome (banner, name,
-    // the list container's empty area, group headers) carries `data-tauri-drag-region` so a drag on
-    // it moves the host window (macOS: double-click zooms) — Tauri drags only when the mousedown
-    // TARGET itself has the attribute, so interactive descendants (rows, dots, buttons, the resize
-    // handle) stay attribute-free and clickable. Absent field → off, so a consumer that never sets it
-    // (curator) is unchanged; warden drives it from its `sidebar_drag` config (default on). Applied
-    // every render so a hot-reload toggle takes effect; group headers get it in the loop below.
-    const drag = !!dto.windowDrag;
+    // Window-move drag surface. Unless `windowDrag` is explicitly false, the NON-interactive chrome
+    // (banner, name, the list container's empty area, group headers) carries `data-tauri-drag-region`
+    // so a drag on it moves the host window (macOS: double-click zooms) — Tauri drags only when the
+    // mousedown TARGET itself has the attribute, so interactive descendants (rows, dots, buttons, the
+    // resize handle) stay attribute-free and clickable. Defaults ON when the field is absent (standard
+    // macOS sidebar behaviour); a consumer opts out with `windowDrag: false`. warden drives it from
+    // its `sidebar_drag` config. Applied every render so a hot-reload toggle takes effect; group
+    // headers get it in the loop below.
+    const drag = dto.windowDrag !== false;
     this._setDrag(this.banner, drag);
     this._setDrag(this.nameEl, drag);
     this._setDrag(this.list, drag);

@@ -31,11 +31,11 @@ that binds the callbacks to its own backend and maps its events to the setters.
   windowDrag?: bool, active?: id, tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null,
   live: bool, attention: null|true|number, presence: null|'on'|'off', killable: bool, startable: bool,
   warn: bool }`.
-  **`windowDrag`** (default off when absent) makes the non-interactive chrome — banner, name, the
+  **`windowDrag`** (default **on** when absent) makes the non-interactive chrome — banner, name, the
   empty area of the tab list, group headers — a `data-tauri-drag-region` so a drag there moves the
   host window (interactive descendants stay clickable; Tauri drags only when the mousedown target
-  itself carries the attr). Re-applied every `update`, so a consumer can hot-reload the toggle.
-  Curator omits it (unchanged); warden drives it from its `sidebar_drag` config (default on).
+  itself carries the attr). Re-applied every `update`, so a consumer can hot-reload the toggle. A
+  consumer opts out with `windowDrag: false`; warden drives it from its `sidebar_drag` config.
   **`active`** selects the ownership model: **present** ⇒ the app owns selection (curator, whose Rust
   side is authoritative) — the component honours it and does NOT fire `onSelect`; **absent** ⇒ the
   component owns it (warden) — it preserves the current selection, falls back to the first tab, and
