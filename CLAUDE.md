@@ -68,6 +68,16 @@ The component owns `cc-`-prefixed IDs (`#cc-banner`, `#cc-tab-list`, `#cc-error`
 they never collide with an app's page-shell IDs; the mount container itself carries the `.cc-root`
 class (not an id).
 
+**The banner is a fixed height regardless of the header slot** (`--cc-banner-min` per density; `#cc-banner`
+is `box-sizing: border-box` + `min-height`). So curator (nav pill in the slot) and warden (no slot) get
+an **identical-height title strip** — without it warden's slot-less banner is ~11px shorter. The token is
+sized to curator's nav-pill row (2px pad + 26px `.nav-btn` = 30px, plus that density's title padding). The
+`border-box` is set explicitly here because curator resets `box-sizing` globally but warden/`preview.html`
+don't — pinning it makes `min-height` mean the total strip height in every host. **Footgun:** this couples
+chrome-core to curator's `.nav-btn`/`.nav-pill` height, which live in curator's `chrome.css` (the slot content
+is app-owned) — CSS can't import across the repo boundary, so if curator changes that pill height, bump
+`--cc-banner-min` to match (the chrome-core-rev lockstep bump across both apps is where this is caught).
+
 **Project-tree sections** (`tree`/`treePath` on `TabDTO`, warden-only — curator never sets them): a
 run of consecutive same-`group` tabs whose rows carry `tree: true` renders as a collapsible folder
 tree instead of a flat group. `treePath` is the folder-segment chain between the tree's root and the

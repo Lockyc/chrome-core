@@ -29,6 +29,12 @@
   --cc-glyph-confirm: 13px;
   --cc-sidebar-w: 240px;
   --cc-indent: 14px;
+  /* Banner (title strip) height, held CONSTANT whether or not the header slot is filled, so
+   * curator (nav pill in the slot) and warden (no slot) get an identical-height title strip.
+   * Sized to curator's nav-pill row: pill = 2px pad + 26px .nav-btn = 30px, + this density's
+   * title padding (10px×2). If curator's nav-btn/nav-pill height changes, bump this to match
+   * (caught by the chrome-core-rev lockstep bump across both apps). */
+  --cc-banner-min: 50px;
 }
 [data-density="compact"] {
   --cc-title-font: 14px;
@@ -46,6 +52,7 @@
   --cc-glyph-confirm: 12px;
   --cc-sidebar-w: 200px;
   --cc-indent: 12px;
+  --cc-banner-min: 44px; /* 30px nav-pill row + compact title padding (7px×2) */
 }
 
 /* The mount container. The app positions it (its own page shell / webview); the component makes it a
@@ -72,6 +79,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  /* border-box so --cc-banner-min is the TOTAL strip height in every host: curator resets box-sizing
+   * globally, but warden/preview don't — pin it here so the min-height means the same everywhere. */
+  box-sizing: border-box;
+  min-height: var(--cc-banner-min);
   padding: var(--cc-title-pad);
   font-size: var(--cc-title-font);
   font-weight: 700;
