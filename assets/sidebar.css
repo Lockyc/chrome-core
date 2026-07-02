@@ -20,6 +20,11 @@
   --cc-tile-size: 20px;
   --cc-tile-font: 11px;
   --cc-dot-size: 9px;
+  /* Project-tree controls (folder chevron ▸, section reload ⟳) — sized off the dot scale so their
+   * glyph ink reads at the same visual weight as the row dots (a triangle/refresh glyph's ink is
+   * well under its font-size, so this runs ~1.9× the dot). Derived, so it tracks density via
+   * --cc-dot-size without a per-density restatement. */
+  --cc-tree-glyph: calc(var(--cc-dot-size) * 1.9);
   --cc-glyph-x: 11px;
   --cc-glyph-confirm: 13px;
   --cc-sidebar-w: 240px;
@@ -155,8 +160,8 @@
 }
 .cc-rescan {
   flex: none;
-  width: calc(var(--cc-group-font) * 1.5);
-  height: calc(var(--cc-group-font) * 1.5);
+  width: calc(var(--cc-tree-glyph) * 1.5);
+  height: calc(var(--cc-tree-glyph) * 1.5);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -164,7 +169,7 @@
   border-radius: 4px;
   background: transparent;
   color: #9aa4b2;
-  font-size: var(--cc-group-font);
+  font-size: var(--cc-tree-glyph);
   line-height: 1;
   padding: 0;
   cursor: pointer;
@@ -200,7 +205,8 @@
 .cc-chevron {
   flex: none;
   display: inline-block;
-  width: 10px;
+  width: var(--cc-tree-glyph);
+  font-size: var(--cc-tree-glyph);
   text-align: center;
   color: inherit;
   transform: rotate(90deg);
