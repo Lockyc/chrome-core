@@ -145,9 +145,20 @@ class Sidebar {
     this.nameEl = el("span", { class: "cc-name" });
     this.banner.appendChild(this.nameEl);
     this.errorBar = el("div", { id: "cc-error" });
+    // Update bar: shown by setUpdate() when the consumer's updater finds a newer release. The
+    // component stays Tauri-agnostic — clicking the button just fires onUpdate; the consumer runs
+    // the actual download/install/relaunch.
+    this.updateBar = el("div", { id: "cc-update" });
+    this._updateText = el("span", { id: "cc-update-text" });
+    this._updateBtn = el("button", { id: "cc-update-btn" });
+    this._updateBtn.textContent = "Update & Relaunch";
+    this._updateBtn.addEventListener("click", () => {
+      if (this.cb.onUpdate) this.cb.onUpdate();
+    });
+    this.updateBar.append(this._updateText, this._updateBtn);
     this.list = el("div", { id: "cc-tab-list" });
     this.resizeEl = el("div", { id: "cc-resize" });
-    this.root.append(this.banner, this.errorBar, this.list, this.resizeEl);
+    this.root.append(this.banner, this.errorBar, this.updateBar, this.list, this.resizeEl);
   }
 
   // ── rendering ──
@@ -569,6 +580,19 @@ class Sidebar {
   }
   clearError() {
     this.errorBar.style.display = "none";
+  }
+
+  // ── update bar ──
+
+  // Show the "update available" bar. `info.version` labels it; the button fires onUpdate. Purely
+  // presentational — the consumer owns the actual updater (see CLAUDE.md).
+  setUpdate(info) {
+    const v = info && info.version ? String(info.version) : "";
+    this._updateText.textContent = v ? `Update available: v${v}` : "Update available";
+    this.updateBar.style.display = "flex";
+  }
+  clearUpdate() {
+    this.updateBar.style.display = "none";
   }
 
   // ── resize ──

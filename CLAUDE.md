@@ -22,7 +22,7 @@ that binds the callbacks to its own backend and maps its events to the setters.
 `ChromeSidebar.mount(container, callbacks, config) -> instance`
 
 - **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onKill(id)`, `onStart(id)`, `onResize(width)`,
-  `onRescan(group)`.
+  `onRescan(group)`, `onUpdate()` (fired when the user clicks the update bar's "Update & Relaunch").
 - **config:** `{ header: Node|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction }`.
   `maxFraction` caps the sidebar at a share of `window.innerWidth`; pass a **falsy** value (e.g. `0`)
   to skip that cap. The cap is only meaningful when the sidebar's `innerWidth` IS the host window's
@@ -51,7 +51,8 @@ that binds the callbacks to its own backend and maps its events to the setters.
   state, e.g. the neighbour activated after an unload).
 - **methods:** `update(dto)`, `setActive(id)`, `setLive(id,live)`, `setAttention(id,val)`,
   `setPresence(id,state)`, `selectByOffset(dir,{liveOnly})`, `selectByIndex(n)`, `setError(msg)`,
-  `clearError()`.
+  `clearError()`, `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update bar; the
+  component stays Tauri-agnostic — the consumer runs the actual check/download/relaunch on `onUpdate`).
 
 **Dot slots (fixed order): attention · presence · live/unload.** Attention = amber dot, rendered as a
 count pill when `attention` is a number (curator's unread count). Presence = cyan on/off (warden's

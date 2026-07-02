@@ -99,6 +99,34 @@
   white-space: normal;
 }
 
+#cc-update {
+  flex: none;
+  display: none; /* set to flex by setUpdate() */
+  align-items: center;
+  gap: 8px;
+  background: #1e3a5f;
+  color: #eaf2ff;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+#cc-update-text {
+  flex: 1;
+}
+#cc-update-btn {
+  flex: none;
+  cursor: pointer;
+  border: 0;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font: inherit;
+  background: #3b82f6;
+  color: #fff;
+}
+#cc-update-btn:hover {
+  background: #2f6fe0;
+}
+
 /* Scrollable tab list. No horizontal padding: group headers run full-bleed (their separator spans
  * the sidebar) while rows inset themselves via margin to read as chips. */
 #cc-tab-list {
