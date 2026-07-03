@@ -160,6 +160,20 @@
   opacity: 0.6;
   cursor: default;
 }
+#cc-update-close {
+  flex: none;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+}
+#cc-update-close:hover {
+  opacity: 1;
+}
 
 /* Scrollable tab list. No horizontal padding: group headers run full-bleed (their separator spans
  * the sidebar) while rows inset themselves via margin to read as chips. */

@@ -166,7 +166,15 @@ class Sidebar {
       this._updateBtn.textContent = "Updating…";
       if (this.cb.onUpdate) this.cb.onUpdate();
     });
-    this.updateBar.append(this._updateText, this._updateBtn);
+    // Dismiss (×): hide the update bar. In-memory only, so it's a per-session dismissal — the
+    // consumer's onUpdateDismiss lets it suppress re-surfacing until the next launch.
+    this._updateClose = el("button", { id: "cc-update-close", "aria-label": "Dismiss" });
+    this._updateClose.textContent = "×";
+    this._updateClose.addEventListener("click", () => {
+      this.clearUpdate();
+      if (this.cb.onUpdateDismiss) this.cb.onUpdateDismiss();
+    });
+    this.updateBar.append(this._updateText, this._updateBtn, this._updateClose);
     this.list = el("div", { id: "cc-tab-list" });
     this.resizeEl = el("div", { id: "cc-resize" });
     this.root.append(this.banner, this.errorBar, this.updateBar, this.list, this.resizeEl);

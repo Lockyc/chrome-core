@@ -22,7 +22,8 @@ that binds the callbacks to its own backend and maps its events to the setters.
 `ChromeSidebar.mount(container, callbacks, config) -> instance`
 
 - **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onKill(id)`, `onStart(id)`, `onResize(width)`,
-  `onRescan(group)`, `onUpdate()` (fired when the user clicks the update bar's "Update & Relaunch").
+  `onRescan(group)`, `onUpdate()` (update bar's "Update & Relaunch"), `onUpdateDismiss()` (its × —
+  the consumer suppresses re-surfacing for the session).
 - **config:** `{ header: Node|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction }`.
   `maxFraction` caps the sidebar at a share of `window.innerWidth`; pass a **falsy** value (e.g. `0`)
   to skip that cap. The cap is only meaningful when the sidebar's `innerWidth` IS the host window's
