@@ -156,6 +156,10 @@
 #cc-update-btn:hover {
   background: #2f6fe0;
 }
+#cc-update-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
 
 /* Scrollable tab list. No horizontal padding: group headers run full-bleed (their separator spans
  * the sidebar) while rows inset themselves via margin to read as chips. */

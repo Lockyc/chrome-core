@@ -160,6 +160,10 @@ class Sidebar {
     this._updateBtn = el("button", { id: "cc-update-btn" });
     this._updateBtn.textContent = "Update & Relaunch";
     this._updateBtn.addEventListener("click", () => {
+      // Immediate feedback: the download/install/relaunch takes a beat and the consumer can't
+      // repaint mid-flight, so reflect the working state here on click.
+      this._updateBtn.disabled = true;
+      this._updateBtn.textContent = "Updating…";
       if (this.cb.onUpdate) this.cb.onUpdate();
     });
     this.updateBar.append(this._updateText, this._updateBtn);
@@ -596,6 +600,9 @@ class Sidebar {
   setUpdate(info) {
     const v = info && info.version ? String(info.version) : "";
     this._updateText.textContent = v ? `Update available: v${v}` : "Update available";
+    // Reset the button to the ready state (a re-shown bar after a failed attempt gets a fresh click).
+    this._updateBtn.disabled = false;
+    this._updateBtn.textContent = "Update & Relaunch";
     this.updateBar.style.display = "flex";
   }
   clearUpdate() {
