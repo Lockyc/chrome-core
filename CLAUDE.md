@@ -10,12 +10,35 @@ component, consumed by both, so a look/behaviour change is made once and both ap
 - `src/lib.rs` — a thin crate that `include_str!`s those two files into `pub const SIDEBAR_CSS` /
   `SIDEBAR_JS`, so the assets ride cargo's git-dependency fetch.
 
-## The one invariant: the component is a VIEW only
+## The dividing line: app-agnostic belongs here; only app-*type*-specific stays in the app
 
-No app-specific Tauri command names, no `#terminal-hole`/`reportRect` (warden's native-surface
-plumbing), no browser-nav logic live in `sidebar.js`. Divergence between the two apps enters **only**
-through the DTO, the callbacks, and the optional `header` slot. Each app keeps a ~40-line controller
-that binds the callbacks to its own backend and maps its events to the setters.
+chrome-core is the shared, composable layer, and the whole reason to share components is that
+**capabilities universal across apps live once, here — not just the view.** The line is
+**app-agnostic (belongs in the core) vs app-*type*-specific (stays in the app)** — NOT "view vs logic."
+
+- **Stays in the app** — behaviour tied to *what the app is*: app-specific Tauri command *names*,
+  `#terminal-hole`/`reportRect` (warden's native-surface plumbing), browser-nav logic. Divergence
+  between the two apps enters **only** through the DTO, the callbacks, and the optional `header` slot;
+  each app keeps a thin controller binding those to its backend.
+- **Belongs in the core** — capabilities that are the same for *any* app regardless of what it hosts.
+  **Self-update is the exemplar:** checking for a release, the update bar, download/install/relaunch,
+  the session-dismiss behaviour, and the re-check cadence are identical whether the app hosts terminals
+  or webviews — so they live **once, here**, and every consuming app inherits them. An updater is not a
+  terminal feature or a browser feature; it's an *app* feature.
+
+> **Decision (2026-07-08): app-agnostic capabilities (self-update first) are owned by chrome-core, not
+> reimplemented per app.** Status: **active; code migration in progress.** The earlier framing — "the
+> component is a VIEW only; the consumer owns the updater" — was backwards: it demoted a universal
+> capability to an app concern, which led to the updater being copy-pasted into both app controllers.
+> **Do not re-litigate this** (it has been questioned once already): reimplementing an app-agnostic
+> capability per app is the anti-pattern a shared-components repo exists to remove. A shared capability
+> may use a platform primitive that *all* consumers share (the Tauri runtime): the core
+> **feature-detects** it (`window.__TAURI__?.updater`) so the isolated `preview.html` — which has no
+> Tauri — no-ops, while both real apps get the full capability. The per-app *identity* a universal
+> capability still needs — the release endpoint, the signing pubkey, the Rust plugin registration, the
+> `auto_update` gate — is config, not logic, and stays in the app. **Current code:** the check +
+> cadence still live in each app's controller (warden `ui/index.html`, curator `src/chrome.js`) via
+> the `onUpdate`/`setUpdate` seam below; they are being consolidated into this crate.
 
 ## Interface contract
 
@@ -52,8 +75,11 @@ that binds the callbacks to its own backend and maps its events to the setters.
   state, e.g. the neighbour activated after an unload).
 - **methods:** `update(dto)`, `setActive(id)`, `setLive(id,live)`, `setAttention(id,val)`,
   `setPresence(id,state)`, `selectByOffset(dir,{liveOnly})`, `selectByIndex(n)`, `setError(msg)`,
-  `clearError()`, `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update bar; the
-  component stays Tauri-agnostic — the consumer runs the actual check/download/relaunch on `onUpdate`).
+  `clearError()`, `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update bar). These
+  plus `onUpdate`/`onUpdateDismiss` are the **current** per-app updater seam; per the dividing-line
+  decision above, the check/download/relaunch/cadence are being consolidated into this crate (each app
+  keeping only its endpoint/pubkey/plugin config), so this callback seam will fold into a core-owned
+  self-update capability.
 
 **Dot slots (fixed order): attention · presence · live/unload.** Attention = amber dot, rendered as a
 count pill when `attention` is a number (curator's unread count). Presence = cyan on/off (warden's

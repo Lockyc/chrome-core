@@ -7,11 +7,16 @@ sidebar silhouette. `chrome-core` is that sidebar, extracted once: a framework-f
 component (`ChromeSidebar`) plus a thin Rust crate that embeds the two asset files as string
 constants so they ride cargo's git-dependency fetch.
 
-The component is a **view**. It owns the banner + accent tint, grouped tab rows (letter tile, title,
-and three status/action dot slots — attention, presence, live/unload), the kill-confirm row overlay,
-density tokens, the resize-drag, and the error bar. Each app supplies a normalized tab DTO + a few
-callbacks; each app's own content-area plumbing and backend commands stay in a thin per-app
-controller. See [`CLAUDE.md`](CLAUDE.md) for the full interface contract.
+chrome-core is the **shared, composable layer** for its apps. Chiefly it's a **view** — it owns the
+banner + accent tint, grouped tab rows (letter tile, title, and three status/action dot slots —
+attention, presence, live/unload), the kill-confirm row overlay, density tokens, the resize-drag, and
+the error bar. But the same sharing principle extends to **app-agnostic capabilities**: anything that's
+the same for any app regardless of what it hosts lives here once, rather than being reimplemented per
+app. **Self-update** is the first such capability being consolidated in (checking, the update bar,
+install/relaunch, and the re-check cadence) so both apps inherit one implementation. Each app supplies
+a normalized tab DTO + a few callbacks (and its own updater *identity* — endpoint/pubkey); each app's
+content-area plumbing and backend commands stay in a thin per-app controller. See
+[`CLAUDE.md`](CLAUDE.md) for the dividing line and the full interface contract.
 
 ## Status
 
