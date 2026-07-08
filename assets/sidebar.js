@@ -1,9 +1,12 @@
 // chrome-core — the shared sidebar chrome for curator and warden.
 //
 // Framework-free: exposes a global `ChromeSidebar` factory (browser) and CommonJS exports (the
-// factory + the pure helpers, for node:test). The component is a VIEW: it renders a window DTO into
-// a mount container and reports user intent via callbacks. Divergence between the two apps lives in
-// their thin controllers (callback → Tauri command, event → setter), never here.
+// factory + the pure helpers, for node:test). The component renders a window DTO into a mount
+// container and reports user intent via callbacks — and it also owns app-agnostic capabilities
+// shared by every consuming app (self-update: check/install/relaunch + the re-check cadence),
+// feature-detecting the Tauri runtime so the isolated preview.html no-ops. Only app-*type*-specific
+// divergence lives in the thin per-app controllers (callback → Tauri command, event → setter),
+// never here. See CLAUDE.md's dividing-line decision.
 //
 // See CLAUDE.md for the interface contract (DTO, callbacks, methods, the fixed dot-slot order).
 
@@ -119,12 +122,16 @@ function el(tag, attrs, text) {
   return node;
 }
 
+// Self-update re-check cadence: a long-running window re-checks this often so a release surfaces
+// without a restart (the single home for the interval, shared by every consuming app).
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
 class Sidebar {
   constructor(container, callbacks, config) {
     this.root = container;
     this.cb = callbacks || {};
     this.cfg = Object.assign(
-      { header: null, minWidth: 120, maxWidth: 400, maxFraction: 0.4, defaultWidth: 240 },
+      { header: null, minWidth: 120, maxWidth: 400, maxFraction: 0.4, defaultWidth: 240, autoUpdate: false },
       config || {}
     );
     this.active = null;
@@ -132,9 +139,15 @@ class Sidebar {
     this.windowColour = NEUTRAL_COLOUR;
     this.tabs = [];
     this._lastWidth = 0;
+    // Self-update state (see the "self-update" section): the pending Update from a successful check,
+    // a per-session dismissal flag, and the recurring-check timer handle.
+    this._pendingUpdate = null;
+    this._updateDismissed = false;
+    this._updateTimer = null;
     this._buildShell();
     this._initResize();
     this._restoreWidth();
+    this._startUpdater();
   }
 
   _buildShell() {
@@ -152,27 +165,26 @@ class Sidebar {
     this._errorClose.textContent = "×";
     this._errorClose.addEventListener("click", () => this.clearError());
     this.errorBar.append(this._errorText, this._errorClose);
-    // Update bar: shown by setUpdate() when the consumer's updater finds a newer release. The
-    // component stays Tauri-agnostic — clicking the button just fires onUpdate; the consumer runs
-    // the actual download/install/relaunch.
+    // Update bar: shown by setUpdate() when the component's own updater finds a newer release
+    // (self-update is a core-owned capability — see the "self-update" section). Clicking the button
+    // downloads/installs/relaunches; the × dismisses for the session.
     this.updateBar = el("div", { id: "cc-update" });
     this._updateText = el("span", { id: "cc-update-text" });
     this._updateBtn = el("button", { id: "cc-update-btn" });
     this._updateBtn.textContent = "Update & Relaunch";
     this._updateBtn.addEventListener("click", () => {
-      // Immediate feedback: the download/install/relaunch takes a beat and the consumer can't
-      // repaint mid-flight, so reflect the working state here on click.
+      // Immediate feedback: the download/install/relaunch takes a beat, so reflect the working state.
       this._updateBtn.disabled = true;
       this._updateBtn.textContent = "Updating…";
-      if (this.cb.onUpdate) this.cb.onUpdate();
+      this._installUpdate();
     });
-    // Dismiss (×): hide the update bar. In-memory only, so it's a per-session dismissal — the
-    // consumer's onUpdateDismiss lets it suppress re-surfacing until the next launch.
+    // Dismiss (×): hide the update bar and suppress auto re-surfacing for the session (in-memory, so
+    // it resets next launch; the menu check clears it and re-surfaces).
     this._updateClose = el("button", { id: "cc-update-close", "aria-label": "Dismiss" });
     this._updateClose.textContent = "×";
     this._updateClose.addEventListener("click", () => {
       this.clearUpdate();
-      if (this.cb.onUpdateDismiss) this.cb.onUpdateDismiss();
+      this._updateDismissed = true;
     });
     this.updateBar.append(this._updateText, this._updateBtn, this._updateClose);
     this.list = el("div", { id: "cc-tab-list" });
@@ -601,10 +613,10 @@ class Sidebar {
     this.errorBar.style.display = "none";
   }
 
-  // ── update bar ──
+  // ── update bar (view) ──
 
-  // Show the "update available" bar. `info.version` labels it; the button fires onUpdate. Purely
-  // presentational — the consumer owns the actual updater (see CLAUDE.md).
+  // Show the "update available" bar. `info.version` labels it. Public so a consumer *could* drive it
+  // directly, but normally the component's own updater (below) calls it.
   setUpdate(info) {
     const v = info && info.version ? String(info.version) : "";
     this._updateText.textContent = v ? `Update available: v${v}` : "Update available";
@@ -615,6 +627,83 @@ class Sidebar {
   }
   clearUpdate() {
     this.updateBar.style.display = "none";
+  }
+
+  // ── self-update (app-agnostic capability) ──
+  //
+  // A self-updater is the same for any app regardless of what it hosts, so it lives here once and
+  // every consuming app inherits it (see CLAUDE.md's dividing-line decision). It feature-detects the
+  // shared Tauri runtime: both real apps expose `window.__TAURI__.updater`/`.process`, while the
+  // isolated preview.html has no Tauri, so every path below no-ops there. Per-app *identity* (release
+  // endpoint, signing pubkey, the Rust plugin registration) stays in the app's own config; the only
+  // knob passed in is `autoUpdate` (mount config), the app's config gate.
+
+  _updater() {
+    return typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.updater : null;
+  }
+  _process() {
+    return typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.process : null;
+  }
+
+  // Arm at mount (gated on autoUpdate + a present Tauri runtime): one immediate silent check, then a
+  // recurring one so a long-running window surfaces a release without a restart. Toggling autoUpdate
+  // in config takes effect next launch (armed once here) — restart-only by design.
+  _startUpdater() {
+    if (!this.cfg.autoUpdate || !this._updater()) return;
+    this.checkForUpdate(false);
+    this._updateTimer = setInterval(() => this.checkForUpdate(false), UPDATE_CHECK_INTERVAL_MS);
+  }
+
+  // Check for a newer release. `announce` = surface "up to date" / errors (the menu path); the launch
+  // + periodic paths pass false so they stay silent on miss/offline and never nag. A found update
+  // shows unless dismissed this session — except the menu path, which re-surfaces it (clearing the
+  // dismissal, since the user is re-engaging).
+  async checkForUpdate(announce) {
+    const updater = this._updater();
+    if (!updater) return;
+    try {
+      const update = await updater.check();
+      if (update) {
+        this._pendingUpdate = update;
+        if (announce) this._updateDismissed = false;
+        if (announce || !this._updateDismissed) this.setUpdate({ version: update.version, notes: update.body });
+      } else if (announce) {
+        this.setError("You're up to date.");
+        setTimeout(() => this.clearError(), 4000);
+      }
+    } catch (e) {
+      if (announce) this.setError("Couldn't check for updates: " + e);
+    }
+  }
+
+  // The menu "Check for Updates…" path: check now and announce the result. The app forwards its own
+  // menu event here — the event *name* is app-specific (warden:check-update / check-update), the
+  // logic isn't.
+  checkForUpdateNow() {
+    this.checkForUpdate(true);
+  }
+
+  // Download + install the pending update, then relaunch into it. Fired by the update bar's button.
+  async _installUpdate() {
+    const proc = this._process();
+    if (!this._pendingUpdate || !proc) return;
+    try {
+      await this._pendingUpdate.downloadAndInstall();
+      await proc.relaunch();
+    } catch (e) {
+      this.clearUpdate();
+      this.setError("Update failed: " + e);
+    }
+  }
+
+  // Stop the recurring check — the interval is the only long-lived resource the component holds. A
+  // consumer that unmounts the sidebar should call this; both current apps let the webview teardown
+  // collect it, but destroy() keeps that explicit and lets tests tear down cleanly.
+  destroy() {
+    if (this._updateTimer) {
+      clearInterval(this._updateTimer);
+      this._updateTimer = null;
+    }
   }
 
   // ── resize ──

@@ -27,27 +27,30 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   terminal feature or a browser feature; it's an *app* feature.
 
 > **Decision (2026-07-08): app-agnostic capabilities (self-update first) are owned by chrome-core, not
-> reimplemented per app.** Status: **active; code migration in progress.** The earlier framing — "the
-> component is a VIEW only; the consumer owns the updater" — was backwards: it demoted a universal
-> capability to an app concern, which led to the updater being copy-pasted into both app controllers.
-> **Do not re-litigate this** (it has been questioned once already): reimplementing an app-agnostic
-> capability per app is the anti-pattern a shared-components repo exists to remove. A shared capability
-> may use a platform primitive that *all* consumers share (the Tauri runtime): the core
-> **feature-detects** it (`window.__TAURI__?.updater`) so the isolated `preview.html` — which has no
-> Tauri — no-ops, while both real apps get the full capability. The per-app *identity* a universal
-> capability still needs — the release endpoint, the signing pubkey, the Rust plugin registration, the
-> `auto_update` gate — is config, not logic, and stays in the app. **Current code:** the check +
-> cadence still live in each app's controller (warden `ui/index.html`, curator `src/chrome.js`) via
-> the `onUpdate`/`setUpdate` seam below; they are being consolidated into this crate.
+> reimplemented per app.** Status: **active; implemented.** The earlier framing — "the component is a
+> VIEW only; the consumer owns the updater" — was backwards: it demoted a universal capability to an
+> app concern, which led to the updater being copy-pasted into both app controllers. **Do not
+> re-litigate this** (it was questioned once already): reimplementing an app-agnostic capability per
+> app is the anti-pattern a shared-components repo exists to remove. A shared capability may use a
+> platform primitive that *all* consumers share (the Tauri runtime): the core **feature-detects** it
+> (`window.__TAURI__?.updater`) so the isolated `preview.html` — which has no Tauri — no-ops, while
+> both real apps get the full capability. The per-app *identity* a universal capability still needs —
+> the release endpoint, the signing pubkey, the Rust plugin registration, the `auto_update` gate — is
+> config, not logic, and stays in the app. **Where it lives:** `sidebar.js`'s self-update section
+> (`checkForUpdate`/`_installUpdate`/`_startUpdater` + `UPDATE_CHECK_INTERVAL_MS`); each app passes
+> `autoUpdate` (mount config) and forwards its menu event to `checkForUpdateNow()`.
 
 ## Interface contract
 
 `ChromeSidebar.mount(container, callbacks, config) -> instance`
 
 - **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onKill(id)`, `onStart(id)`, `onResize(width)`,
-  `onRescan(group)`, `onUpdate()` (update bar's "Update & Relaunch"), `onUpdateDismiss()` (its × —
-  the consumer suppresses re-surfacing for the session).
-- **config:** `{ header: Node|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction }`.
+  `onRescan(group)`. (The update bar is wired **internally** — self-update is a core capability, see
+  the dividing-line decision above — so there is **no** `onUpdate`/`onUpdateDismiss` callback.)
+- **config:** `{ header: Node|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
+  **`autoUpdate`** (bool, default false) is the app's config gate for self-update: when true *and* the
+  Tauri runtime is present, the component runs a launch check + the recurring re-check; the menu path
+  (`checkForUpdateNow()`) works regardless of it. See the dividing-line decision above.
   `maxFraction` caps the sidebar at a share of `window.innerWidth`; pass a **falsy** value (e.g. `0`)
   to skip that cap. The cap is only meaningful when the sidebar's `innerWidth` IS the host window's
   width — i.e. the sidebar is the window's full-size main webview, which **both** current consumers
@@ -75,11 +78,10 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   state, e.g. the neighbour activated after an unload).
 - **methods:** `update(dto)`, `setActive(id)`, `setLive(id,live)`, `setAttention(id,val)`,
   `setPresence(id,state)`, `selectByOffset(dir,{liveOnly})`, `selectByIndex(n)`, `setError(msg)`,
-  `clearError()`, `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update bar). These
-  plus `onUpdate`/`onUpdateDismiss` are the **current** per-app updater seam; per the dividing-line
-  decision above, the check/download/relaunch/cadence are being consolidated into this crate (each app
-  keeping only its endpoint/pubkey/plugin config), so this callback seam will fold into a core-owned
-  self-update capability.
+  `clearError()`, `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update-bar view),
+  **`checkForUpdateNow()`** (the menu "Check for Updates…" path — check + announce the result; the app
+  forwards its own app-named menu event here), and **`destroy()`** (stop the recurring update check —
+  the only long-lived resource the component holds).
 
 **Dot slots (fixed order): attention · presence · live/unload.** Attention = amber dot, rendered as a
 count pill when `attention` is a number (curator's unread count). Presence = cyan on/off (warden's
