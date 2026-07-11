@@ -132,6 +132,11 @@ Each app is a **build-dependency** consumer pinned by `rev`; its `build.rs` writ
 each app. **Pin this crate by `rev` and bump it in lockstep with config-core and the Rust toolchain
 pin** across curator + warden (the same lockstep discipline those already follow).
 
+The `rev` **is** this crate's version identity — the Cargo `version` field is inert (`publish = false`,
+nothing reads it) and stays parked at `0.1.0`, matching config-core / shell-core. Footgun: don't bump it
+or cut GitHub releases — an earlier habit did both (v0.1.4/v0.1.5, versions to 0.1.9) and it drifted,
+since no consumer pins by version. Re-pin the rev instead; that's the whole mechanism.
+
 Dev iteration on the chrome from inside an app is higher-friction behind a pinned rev — so each app
 ships **`just chrome-dev`** (build against a local `../chrome-core` checkout via a normally-commented
 `[patch]`) and **`just chrome-pin`** (re-pin the app's rev to `../chrome-core`'s pushed HEAD and
