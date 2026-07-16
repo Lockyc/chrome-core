@@ -30,7 +30,13 @@
     <meta charset="utf-8" />
     <link rel="stylesheet" href="assets/sidebar.css" />
     <style>
-      html, body { margin: 0; background: #0c0f12; }
+      /* `font-family` must match what the consuming apps set (warden and curator both use
+         system-ui) — sidebar.css deliberately sets none, inheriting the host page's. Without it
+         the preview renders in the browser's default serif, so every glyph falls back through a
+         DIFFERENT face and the preview silently misrepresents the app: text metrics, and above
+         all the confirm-row glyphs (☠/⏻/↩︎), whose optical corrections are calibrated against
+         the faces system-ui resolves. Dropping it makes this a measuring tool that lies. */
+      html, body { margin: 0; background: #0c0f12; font-family: system-ui, sans-serif; }
       #sidebar { width: 300px; }
       /* Neutral stand-in for a consumer's `header` slot (curator's nav pill). Preview-only — sized
          to the real pill row (2px pad + 26px buttons = 30px) so the banner-height parity check is

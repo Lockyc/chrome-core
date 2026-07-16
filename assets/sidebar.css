@@ -509,23 +509,30 @@
   color: rgba(255, 255, 255, 0.5);
 }
 /* Optical sizing — the three glyphs resolve to DIFFERENT fallback faces, so at one shared
- * font-size their ink boxes differ in height and sit on different optical centres (measured at
- * 700 13px: ☠ 8.00px tall and 0.44px low, ↩︎ 8.75px and 1.69px high, vs ⏻ 9.38px). The boxes are
- * already identical for all three (16px, flex-centred) — only the ink is off, so the correction
- * belongs on the glyph, not the layout. ⏻ is the reference: scale ☠ to its ink height (1.18×
- * measures 9.38px — an exact match) and nudge both strays onto its optical centre. The ratio +
- * em units keep this true at BOTH density tokens (13px/12px) rather than pinning it to one.
- * Nudge with `top`, NOT `transform` — `.cc-tab.killing .cc-pressed` animates transform and would
- * drop the offset for the length of each press. Re-measure if a glyph changes: these constants
- * are properties of the chosen faces, not of the font-size. */
+ * font-size their ink boxes differ in height and sit on different optical centres. Measured at
+ * 13px under the host page's `system-ui` stack: ☠ is 8.00px tall sitting 0.94px low and ↩︎ is
+ * 8.75px sitting 1.18px high, against ⏻'s 11.12px. The 16px boxes are already identical for all
+ * three — only the ink is off, so the correction belongs on the glyph, not the layout. ⏻ is the
+ * reference: scale ☠ to its ink height (1.41× measures 11.12px — an exact match) and nudge both
+ * strays onto its centre. Ratio + em so it holds at both density tokens rather than being pinned
+ * to one. Nudge with `top`, NOT `transform` — `.cc-tab.killing .cc-pressed` animates transform
+ * and would drop the offset for the length of each press.
+ *
+ * MEASURE UNDER `system-ui`, NOT A BARE PAGE. These constants are properties of the resolved
+ * faces, so they only hold for the font stack the glyphs actually fall back through. This file
+ * sets no font-family by design (it inherits the host app's), and the apps set `system-ui` —
+ * so a calibration harness must set it too. A bare harness falls back to the default serif,
+ * picks *different* faces, and yields a confidently wrong ratio (measuring ⏻ at 9.38px rather
+ * than its real 11.12px — a 1.18× "fix" that visibly under-sizes ☠ in the app). preview.html
+ * sets it for the same reason. */
 .cc-confirm-kill-close {
-  font-size: calc(var(--cc-glyph-confirm) * 1.18);
+  font-size: calc(var(--cc-glyph-confirm) * 1.41);
   position: relative;
-  top: -0.024em;
+  top: -0.075em;
 }
 .cc-confirm-cancel {
   position: relative;
-  top: 0.125em;
+  top: 0.09em;
 }
 .cc-confirm-kill-close:hover,
 .cc-confirm-kill:hover {
