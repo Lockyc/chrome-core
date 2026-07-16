@@ -97,7 +97,7 @@ in — the row-click activation path starts it instead); the gating lives in `pr
 The confirm row carries an **optional third control, `☠` (kill-both)**, rendered left of `⏻`
 **only when the app supplied an `onKillClose(id)` callback** — capability by callback presence, so an
 app that doesn't offer it (curator) is untouched. It is a second *terminal action off the same armed
-row*: it reads the same `armedKill`, shares `_playKillFeedback`, and disarms identically — it does
+row*: it reads the same `armedKill`, shares `_makeConfirmControl`, and disarms identically — it does
 **not** add a second arming path. What "close" means is the app's business (warden: kill the session,
 then unload the terminal); the component only reports the click.
 
