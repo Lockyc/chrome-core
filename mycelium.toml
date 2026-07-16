@@ -1,0 +1,14 @@
+name    = "chrome-core"
+summary = "The shared sidebar chrome for warden and curator — a framework-free CSS + vanilla-JS component embedded in a thin Rust crate, consumed as a build-dependency"
+kind    = "library"
+status  = "active"
+tags    = ["sidebar", "ui", "shared-core", "tauri", "macos"]
+stack   = ["rust", "css", "javascript"]
+
+[[provides]]
+name    = "sidebar-chrome"
+summary = "The ChromeSidebar view — banner + accent tint, grouped tab rows (letter tile, title, status/action dot slots), kill-confirm overlay, density tokens, resize-drag, error bar. Each app supplies a normalized tab DTO plus callbacks."
+
+[[provides]]
+name    = "self-update"
+summary = "App-agnostic self-update owned here, not per-app: check cadence, update bar, install/relaunch. A consuming app supplies only its updater identity (endpoint/pubkey) — config, not logic."
