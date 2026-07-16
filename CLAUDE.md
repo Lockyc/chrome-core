@@ -44,7 +44,8 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 
 `ChromeSidebar.mount(container, callbacks, config) -> instance`
 
-- **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onKill(id)`, `onStart(id)`, `onResize(width)`,
+- **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onKill(id)`, `onKillClose(id)` (optional —
+  see below), `onStart(id)`, `onResize(width)`,
   `onRescan(group)`. (The update bar is wired **internally** — self-update is a core capability, see
   the dividing-line decision above — so there is **no** `onUpdate`/`onUpdateDismiss` callback.)
 - **config:** `{ header: Node|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
@@ -92,6 +93,13 @@ hides the dots, shows ⏻/↩); gated on `killable` (curator: always false). The
 and the tab is *live* it **starts** — a single click firing `onStart` (gated on `startable`, curator:
 always false), re-running the tab's command. Absent+cold shows no start affordance (no shell to run
 in — the row-click activation path starts it instead); the gating lives in `presenceClass`.
+
+The confirm row carries an **optional third control, `☠` (kill-both)**, rendered left of `⏻`
+**only when the app supplied an `onKillClose(id)` callback** — capability by callback presence, so an
+app that doesn't offer it (curator) is untouched. It is a second *terminal action off the same armed
+row*: it reads the same `armedKill`, shares `_playKillFeedback`, and disarms identically — it does
+**not** add a second arming path. What "close" means is the app's business (warden: kill the session,
+then unload the terminal); the component only reports the click.
 
 The component owns `cc-`-prefixed IDs (`#cc-banner`, `#cc-tab-list`, `#cc-error`, `#cc-resize`) so
 they never collide with an app's page-shell IDs; the mount container itself carries the `.cc-root`

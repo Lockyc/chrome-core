@@ -481,6 +481,7 @@
 .cc-tab.confirming .cc-dot {
   display: none;
 }
+.cc-confirm-kill-close,
 .cc-confirm-kill,
 .cc-confirm-cancel {
   flex: none;
@@ -494,17 +495,20 @@
   font-size: var(--cc-glyph-confirm);
   font-weight: 700;
 }
+.cc-tab.confirming .cc-confirm-kill-close,
 .cc-tab.confirming .cc-confirm-kill,
 .cc-tab.confirming .cc-confirm-cancel {
   display: inline-flex;
 }
-/* Destructive reads destructive: ⏻ bright red, ↩ muted grey. */
+/* Destructive reads destructive: ☠/⏻ bright red, ↩ muted grey. */
+.cc-confirm-kill-close,
 .cc-confirm-kill {
   color: #ff5b52;
 }
 .cc-confirm-cancel {
   color: rgba(255, 255, 255, 0.5);
 }
+.cc-confirm-kill-close:hover,
 .cc-confirm-kill:hover {
   background: rgba(255, 91, 82, 0.2);
   border-radius: 4px;
@@ -521,7 +525,7 @@
 .cc-tab.killing {
   animation: cc-confirm-pulse 180ms ease-out;
 }
-.cc-tab.killing .cc-confirm-kill {
+.cc-tab.killing .cc-pressed {
   animation: cc-confirm-press 180ms ease-out;
 }
 @keyframes cc-confirm-pulse {

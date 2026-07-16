@@ -432,9 +432,12 @@ class Sidebar {
     dot.title = live ? "Unload" : "";
   }
 
-  _appendConfirmControls(row, id) {
-    const kill = el("span", { class: "cc-confirm-kill", title: "terminate session" }, "⏻");
-    kill.addEventListener("click", (e) => {
+  /** One armed-row confirm action (⏻ or ☠). They differ only in glyph + which callback fires, so
+   *  the click contract lives here once: swallow the row click, ignore a re-click mid-animation,
+   *  fire against the row that is actually armed, then press + pulse (~180ms) and disarm. */
+  _makeConfirmControl(row, { cls, title, glyph, fire }) {
+    const ctl = el("span", { class: cls, title }, glyph);
+    ctl.addEventListener("click", (e) => {
       e.stopPropagation();
       if (row.classList.contains("killing")) return;
       const armed = this.armedKill;
@@ -442,22 +445,51 @@ class Sidebar {
         this._disarmKill();
         return;
       }
-      if (this.cb.onKill) this.cb.onKill(armed);
+      fire(armed);
       row.classList.add("killing");
+      ctl.classList.add("cc-pressed");
       const finish = () => {
         row.removeEventListener("animationend", finish);
         row.classList.remove("killing");
+        ctl.classList.remove("cc-pressed");
         if (this.armedKill === armed) this._disarmKill();
       };
       row.addEventListener("animationend", finish);
       setTimeout(finish, 250); // fallback if animationend doesn't fire
     });
+    return ctl;
+  }
+
+  _appendConfirmControls(row, id) {
+    // Kill-both (☠) — terminate the session AND close the terminal. Opt-in: rendered only when the
+    // app supplied `onKillClose` (curator supplies none, so its rows never grow one). It is a second
+    // terminal action off the SAME armed row — no new arming path, no second state machine.
+    if (this.cb.onKillClose) {
+      row.append(
+        this._makeConfirmControl(row, {
+          cls: "cc-confirm-kill-close",
+          title: "terminate session + close terminal",
+          glyph: "☠",
+          fire: (armed) => this.cb.onKillClose(armed),
+        }),
+      );
+    }
+    row.append(
+      this._makeConfirmControl(row, {
+        cls: "cc-confirm-kill",
+        title: "terminate session",
+        glyph: "⏻",
+        fire: (armed) => {
+          if (this.cb.onKill) this.cb.onKill(armed);
+        },
+      }),
+    );
     const cancel = el("span", { class: "cc-confirm-cancel", title: "cancel" }, "↩︎");
     cancel.addEventListener("click", (e) => {
       e.stopPropagation();
       this._disarmKill();
     });
-    row.append(kill, cancel);
+    row.append(cancel);
   }
 
   _rowById(id) {

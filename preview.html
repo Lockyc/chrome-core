@@ -91,7 +91,7 @@
       }
       const sb = window.ChromeSidebar.mount(
         document.getElementById("sidebar"),
-        { onSelect() {}, onUnload() {}, onKill() {}, onStart() {}, onRescan() {}, onResize() {} },
+        { onSelect() {}, onUnload() {}, onKill() {}, onKillClose() {}, onStart() {}, onRescan() {}, onResize() {} },
         { storageKey: "preview", header }
       );
       sb.update(dto);
