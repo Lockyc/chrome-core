@@ -131,7 +131,7 @@ class Sidebar {
     this.root = container;
     this.cb = callbacks || {};
     this.cfg = Object.assign(
-      { header: null, minWidth: 120, maxWidth: 400, maxFraction: 0.4, defaultWidth: 240, autoUpdate: false },
+      { header: null, appName: null, minWidth: 120, maxWidth: 400, maxFraction: 0.4, defaultWidth: 240, autoUpdate: false },
       config || {}
     );
     this.active = null;
@@ -153,6 +153,10 @@ class Sidebar {
   _buildShell() {
     this.root.classList.add("cc-root");
     this.root.innerHTML = "";
+    // The traffic-light strip. Only exists when the consumer names itself — a host without an
+    // appName (preview.html) renders exactly as before, so the field is purely additive.
+    this.titlebarEl = this.cfg.appName ? el("div", { id: "cc-titlebar" }) : null;
+    if (this.titlebarEl) this.titlebarEl.textContent = this.cfg.appName;
     this.banner = el("div", { id: "cc-banner" });
     if (this.cfg.header) this.banner.appendChild(this.cfg.header);
     this.nameEl = el("span", { class: "cc-name" });
@@ -189,6 +193,7 @@ class Sidebar {
     this.updateBar.append(this._updateText, this._updateBtn, this._updateClose);
     this.list = el("div", { id: "cc-tab-list" });
     this.resizeEl = el("div", { id: "cc-resize" });
+    if (this.titlebarEl) this.root.append(this.titlebarEl);
     this.root.append(this.banner, this.errorBar, this.updateBar, this.list, this.resizeEl);
   }
 
@@ -210,6 +215,7 @@ class Sidebar {
 
     this.nameEl.textContent = dto.title || "";
     this.banner.style.background = this.windowColour;
+    if (this.titlebarEl) this.titlebarEl.style.background = this.windowColour;
     const tint = tintOverBase(this.windowColour, 0.12);
     this.root.style.background = tint;
     this.root.style.setProperty("--cc-active-bg", tintOverBase(this.windowColour, 0.28));
@@ -223,6 +229,7 @@ class Sidebar {
     // its `sidebar_drag` config. Applied every render so a hot-reload toggle takes effect; group
     // headers get it in the loop below.
     const drag = dto.windowDrag !== false;
+    if (this.titlebarEl) this._setDrag(this.titlebarEl, drag);
     this._setDrag(this.banner, drag);
     this._setDrag(this.nameEl, drag);
     this._setDrag(this.list, drag);

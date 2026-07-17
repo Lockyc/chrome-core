@@ -52,7 +52,15 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   see below), `onStart(id)`, `onResize(width)`,
   `onRescan(group)`. (The update bar is wired **internally** — self-update is a core capability, see
   the dividing-line decision above — so there is **no** `onUpdate`/`onUpdateDismiss` callback.)
-- **config:** `{ header: Node|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
+- **config:** `{ header: Node|null, appName: string|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
+  **`appName`** (default null) names the host app in a strip above the banner, beside the macOS
+  traffic lights. Every consumer uses `TitleBarStyle::Overlay`, which hides the native window title
+  entirely — so without this the app's own name appears nowhere on screen. chrome-core owns the
+  strip (`#cc-titlebar`, `--cc-titlebar-h` tall, `--cc-lights-inset` of left padding to clear the
+  lights); before it, each app reserved the same zone with its own `#sidebar { padding-top: 28px }`
+  and drew nothing in it — **a consumer passing `appName` must drop that padding**, or the strip
+  lands below the lights instead of beside them. Absent/null → no strip, and the layout is exactly
+  as it was (so `preview.html` and any slot-less host are untouched).
   **`autoUpdate`** (bool, default false) is the app's config gate for self-update: when true *and* the
   Tauri runtime is present, the component runs a launch check + the recurring re-check; the menu path
   (`checkForUpdateNow()`) works regardless of it. See the dividing-line decision above.
