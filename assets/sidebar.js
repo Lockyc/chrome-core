@@ -64,13 +64,19 @@ function resolveOffset(ids, active, dir) {
   return ids[(base + dir + ids.length) % ids.length];
 }
 
-/** Class list for a presence dot given session state + capabilities. `on` = a probe reported a
- *  session → a kill affordance when `killable`; `off` = configured-but-absent → a *start* affordance
- *  (re-run the tab's command) only when `startable` AND the tab is `live` — a cold tab has no shell
- *  to type into, and is started by activating the row instead. */
+/** Class list for a presence dot given session state + capabilities. Three states:
+ *  `on` = a probe reported a live session → a kill affordance when `killable`;
+ *  `ghost` = no live session, but the host reports a *recoverable* one (warden: a crashed amux
+ *  session a plain launch would offer to restore) → decoration on the same start affordance;
+ *  `off` = configured-but-absent.
+ *  `on` and `ghost` are mutually exclusive. The *start* affordance (re-run the tab's command) is
+ *  offered for BOTH non-`on` states, and only when `startable` AND the tab is `live` — a cold tab
+ *  has no shell to type into, and is started by activating the row instead. `ghost` never gets a
+ *  kill affordance: a recoverable drop is on a dead server, so there is nothing to kill. */
 function presenceClass(state, killable, startable, live) {
   const on = state === "on";
-  let cls = "cc-presence " + (on ? "on" : "off");
+  const ghost = state === "ghost";
+  let cls = "cc-presence " + (on ? "on" : ghost ? "ghost" : "off");
   if (on && killable) cls += " kill";
   if (!on && startable && live) cls += " start";
   return cls;
@@ -414,9 +420,13 @@ class Sidebar {
     span.dataset.start = startable ? "1" : "";
     span.title = span.classList.contains("kill")
       ? "Kill session"
-      : span.classList.contains("start")
-        ? "Start session"
-        : "";
+      : span.classList.contains("ghost")
+        ? span.classList.contains("start")
+          ? "Crashed session — start to restore it"
+          : "Crashed session — restorable"
+        : span.classList.contains("start")
+          ? "Start session"
+          : "";
   }
 
   /** Re-evaluate a row's presence dot after a live-state change — the `start` affordance is gated on
@@ -424,7 +434,9 @@ class Sidebar {
   _refreshPresenceLive(row, live) {
     const s = row.querySelector(".cc-presence");
     if (!s) return;
-    const state = s.classList.contains("on") ? "on" : "off";
+    // Re-derive all THREE states — reading only `on` would collapse a ghost to `off` on every
+    // load/unload repaint, silently losing the recoverable signal.
+    const state = s.classList.contains("on") ? "on" : s.classList.contains("ghost") ? "ghost" : "off";
     this._paintPresence(s, row.dataset.id, state, s.dataset.kill === "1", s.dataset.start === "1", live);
   }
 

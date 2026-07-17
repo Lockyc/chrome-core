@@ -43,6 +43,10 @@
    * the app name starts after them. */
   --cc-titlebar-h: 28px;
   --cc-lights-inset: 78px;
+  /* Ghost presence mark — a scale-free vector silhouette, sized off --cc-dot-size in the
+   * .cc-presence.ghost::before rule, so (like --cc-tree-glyph) it needs no per-density
+   * restatement in the compact override block below. */
+  --cc-ghost-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 1.4c-3 0-5.3 2.4-5.3 5.3v6.7c0 .5.6.8 1 .5l1.3-1a.6.6 0 0 1 .8 0l1.2 1a.6.6 0 0 0 .8 0l1.2-1a.6.6 0 0 1 .8 0l1.3 1c.4.3 1 0 1-.5V6.7c0-2.9-2.3-5.3-5.3-5.3zM6.3 6.1a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8zm3.4 0a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8z"/></svg>');
 }
 [data-density="compact"] {
   --cc-title-font: 14px;
@@ -441,6 +445,32 @@
 }
 .cc-presence.on::before {
   background: #56b4e9;
+}
+/* ── Ghost ── a recoverable crashed session: no live session, but the host says one can be
+ * restored (warden: a crashed amux session a plain launch would offer to restore). Reads as
+ * "something's still here" without reading as an error — same cyan family as the live dot,
+ * dimmed, so it sits between the filled dot (live) and the hollow ring (nothing). The silhouette
+ * is a mask so it inherits the accent rather than hard-coding a fill twice. */
+.cc-presence.ghost::before {
+  width: calc(var(--cc-dot-size) + 2px);
+  height: calc(var(--cc-dot-size) + 2px);
+  border-radius: 0;
+  background: rgba(86, 180, 233, 0.75);
+  -webkit-mask-image: var(--cc-ghost-mask);
+  mask-image: var(--cc-ghost-mask);
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+.cc-presence.ghost.start {
+  cursor: pointer;
+}
+.cc-presence.ghost.start:hover::before {
+  background: #56b4e9; /* brighten — foreshadows the restore picker coming up */
+  filter: drop-shadow(0 0 3px rgba(86, 180, 233, 0.55));
 }
 .cc-presence.on.kill {
   cursor: pointer;

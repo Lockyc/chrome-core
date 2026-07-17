@@ -58,6 +58,23 @@ test("presenceClass: kill affordance when on+killable, start affordance when off
   assert.equal(presenceClass("off", true, true, true), "cc-presence off start"); // killable ignored while off
 });
 
+test("presenceClass: ghost is the third state — start affordance, never kill", () => {
+  // A recoverable drop lives on a DEAD server — there is nothing to kill.
+  assert.equal(presenceClass("ghost", true, false, true), "cc-presence ghost");
+  // The ghost is decoration on start: clicking types `cmd`, amux's picker offers the restore.
+  assert.equal(presenceClass("ghost", false, true, true), "cc-presence ghost start");
+  // Cold: no live shell to type into — activating the row lazy-spawns and runs `cmd` instead.
+  assert.equal(presenceClass("ghost", false, true, false), "cc-presence ghost");
+  // killable is ignored while ghost, exactly as it is while off.
+  assert.equal(presenceClass("ghost", true, true, true), "cc-presence ghost start");
+});
+
+test("presenceClass: on and off are unchanged by the ghost state", () => {
+  assert.equal(presenceClass("on", true, false, true), "cc-presence on kill");
+  assert.equal(presenceClass("off", false, true, true), "cc-presence off start");
+  assert.equal(presenceClass("off", false, true, false), "cc-presence off");
+});
+
 test("buildTree compresses single-child chains", () => {
   const rows = [
     { id: "/d/gh/lockyc/warden", treePath: ["gh", "lockyc"] },
