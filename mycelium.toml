@@ -1,5 +1,5 @@
 name    = "chrome-core"
-summary = "The shared sidebar chrome for warden and curator — a framework-free CSS + vanilla-JS component embedded in a thin Rust crate, consumed as a build-dependency"
+summary = "The shared sidebar chrome for warden, curator, and lector — a framework-free CSS + vanilla-JS component embedded in a thin Rust crate, consumed as a build-dependency"
 kind    = "library"
 status  = "active"
 tags    = ["sidebar", "ui", "shared-core", "tauri", "macos"]

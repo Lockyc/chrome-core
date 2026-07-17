@@ -1,7 +1,8 @@
 # chrome-core — agent notes
 
-The shared sidebar chrome for **curator** and **warden** (sibling public macOS Tauri apps). One
-component, consumed by both, so a look/behaviour change is made once and both apps move together.
+The shared sidebar chrome for **curator**, **warden**, and **lector** (sibling public macOS Tauri
+apps). One component, consumed by all three, so a look/behaviour change is made once and every
+app moves together.
 
 ## What this is
 
@@ -18,13 +19,13 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 
 - **Stays in the app** — behaviour tied to *what the app is*: app-specific Tauri command *names*,
   `#terminal-hole`/`reportRect` (warden's native-surface plumbing), browser-nav logic. Divergence
-  between the two apps enters **only** through the DTO, the callbacks, and the optional `header` slot;
+  between apps enters **only** through the DTO, the callbacks, and the optional `header` slot;
   each app keeps a thin controller binding those to its backend.
 - **Belongs in the core** — capabilities that are the same for *any* app regardless of what it hosts.
   **Self-update is the exemplar:** checking for a release, the update bar, download/install/relaunch,
-  the session-dismiss behaviour, and the re-check cadence are identical whether the app hosts terminals
-  or webviews — so they live **once, here**, and every consuming app inherits them. An updater is not a
-  terminal feature or a browser feature; it's an *app* feature.
+  the session-dismiss behaviour, and the re-check cadence are identical whether the app hosts terminals,
+  webviews, or local doc sites — so they live **once, here**, and every consuming app inherits them. An
+  updater is not a terminal feature or a browser feature; it's an *app* feature.
 
 > **Decision (2026-07-08): app-agnostic capabilities (self-update first) are owned by chrome-core, not
 > reimplemented per app.** Status: **active; implemented.** The earlier framing — "the component is a
@@ -34,7 +35,10 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 > app is the anti-pattern a shared-components repo exists to remove. A shared capability may use a
 > platform primitive that *all* consumers share (the Tauri runtime): the core **feature-detects** it
 > (`window.__TAURI__?.updater`) so the isolated `preview.html` — which has no Tauri — no-ops, while
-> both real apps get the full capability. The per-app *identity* a universal capability still needs —
+> every real app's Tauri runtime is presented the full capability (each app's own capabilities file
+> must still separately grant the updater permission for the plugin call to succeed — lector's
+> doesn't yet, a known gap tracked in lector's own CLAUDE.md, not a chrome-core concern). The per-app
+> *identity* a universal capability still needs —
 > the release endpoint, the signing pubkey, the Rust plugin registration, the `auto_update` gate — is
 > config, not logic, and stays in the app. **Where it lives:** `sidebar.js`'s self-update section
 > (`checkForUpdate`/`_installUpdate`/`_startUpdater` + `UPDATE_CHECK_INTERVAL_MS`); each app passes
@@ -54,8 +58,9 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   (`checkForUpdateNow()`) works regardless of it. See the dividing-line decision above.
   `maxFraction` caps the sidebar at a share of `window.innerWidth`; pass a **falsy** value (e.g. `0`)
   to skip that cap. The cap is only meaningful when the sidebar's `innerWidth` IS the host window's
-  width — i.e. the sidebar is the window's full-size main webview, which **both** current consumers
-  are (curator + warden are hole-punch main webviews), so both pass a real `maxFraction`. A consumer
+  width — i.e. the sidebar is the window's full-size main webview, which **all three** current
+  consumers are (curator, warden, and lector are hole-punch main webviews), so each passes a real
+  `maxFraction`. A consumer
   whose sidebar were instead an isolated child webview (its `innerWidth` = the sidebar's own width,
   not the window's) would have the cap pin every drag to `minWidth`, so it would pass a falsy value
   and enforce the share-of-window limit backend-side. `storageKey` doubles as the
@@ -86,12 +91,12 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 
 **Dot slots (fixed order): attention · presence · live/unload.** Attention = amber dot, rendered as a
 count pill when `attention` is a number (curator's unread count). Presence = cyan on/off (warden's
-probe; curator never sets it). Live/unload = green live ↔ hover-✕ unload / hollow cold.
+probe; curator and lector never set it). Live/unload = green live ↔ hover-✕ unload / hollow cold.
 **Kill-confirm is a row-overlay state, not a slot** (clicking a killable presence dot reddens the row,
-hides the dots, shows ⏻/↩); gated on `killable` (curator: always false). The presence dot is a
-**session toggle**: when the session is *present* it kills (2-step confirm, `killable`); when *absent*
-and the tab is *live* it **starts** — a single click firing `onStart` (gated on `startable`, curator:
-always false), re-running the tab's command. Absent+cold shows no start affordance (no shell to run
+hides the dots, shows ⏻/↩); gated on `killable` (curator and lector: always false). The presence dot
+is a **session toggle**: when the session is *present* it kills (2-step confirm, `killable`); when
+*absent* and the tab is *live* it **starts** — a single click firing `onStart` (gated on `startable`,
+curator and lector: always false), re-running the tab's command. Absent+cold shows no start affordance (no shell to run
 in — the row-click activation path starts it instead); the gating lives in `presenceClass`.
 
 The confirm row carries an **optional third control, `☠` (kill-both)**, rendered left of `⏻`
@@ -113,9 +118,10 @@ sized to curator's nav-pill row (2px pad + 26px `.nav-btn` = 30px, plus that den
 don't — pinning it makes `min-height` mean the total strip height in every host. **Footgun:** this couples
 chrome-core to curator's `.nav-btn`/`.nav-pill` height, which live in curator's `chrome.css` (the slot content
 is app-owned) — CSS can't import across the repo boundary, so if curator changes that pill height, bump
-`--cc-banner-min` to match (the chrome-core-rev lockstep bump across both apps is where this is caught).
+`--cc-banner-min` to match (the chrome-core-rev lockstep bump across every consuming app is where this is caught).
 
-**Project-tree sections** (`tree`/`treePath` on `TabDTO`, warden-only — curator never sets them): a
+**Project-tree sections** (`tree`/`treePath` on `TabDTO`, warden-only — curator and lector never
+set them): a
 run of consecutive same-`group` tabs whose rows carry `tree: true` renders as a collapsible folder
 tree instead of a flat group. `treePath` is the folder-segment chain between the tree's root and the
 project (empty for a project sitting directly in the root, or for a non-tree row). The pure helper
@@ -135,10 +141,10 @@ rows (`.cc-tab.cc-tree-row`) is driven by an inline `--cc-depth` custom property
 ## Consumption (build-dep + build.rs) and pinning
 
 Each app is a **build-dependency** consumer pinned by `rev`; its `build.rs` writes `SIDEBAR_CSS`/
-`SIDEBAR_JS` into the app's `frontendDist` (`src/` for curator, `ui/` for warden) as
+`SIDEBAR_JS` into the app's `frontendDist` (`src/` for curator and lector, `ui/` for warden) as
 `chrome-core.{css,js}` before `generate_context!` embeds it. The generated files are git-ignored in
 each app. **Pin this crate by `rev` and bump it in lockstep with config-core and the Rust toolchain
-pin** across curator + warden (the same lockstep discipline those already follow).
+pin** across curator, warden, and lector (the same lockstep discipline those already follow).
 
 The `rev` **is** this crate's version identity — the Cargo `version` field is inert (`publish = false`,
 nothing reads it) and stays parked at `0.1.0`, matching config-core / shell-core. Footgun: don't bump it
@@ -149,7 +155,7 @@ Dev iteration on the chrome from inside an app is higher-friction behind a pinne
 ships **`just chrome-dev`** (build against a local `../chrome-core` checkout via a normally-commented
 `[patch]`) and **`just chrome-pin`** (re-pin the app's rev to `../chrome-core`'s pushed HEAD and
 re-comment the patch before you commit); `just gate` in each app refuses a left-active patch. Reach
-this repo's preview from either app with **`just chrome-preview`**. See warden's / curator's CLAUDE.md.
+this repo's preview from any app with **`just chrome-preview`**. See warden's / curator's / lector's CLAUDE.md.
 
 For **visual** tweaks, skip the app round-trip entirely: the checked-in **`preview.html`** mounts the
 component in isolation with a representative DTO (loose tabs, a plain group, and a project-tree with
@@ -168,4 +174,4 @@ iterating on `sidebar.{css,js}`; the pinned-rev round-trip through an app is onl
 `just test` (`node --test`) unit-tests the pure logic (`tileColour`/`tintOverBase`/`clampWidth`/
 `resolveOffset`/`buildTree`); `just gate` runs rustfmt-check + tests + build together. DOM/visual
 behaviour has no unit coverage — iterate it with `just preview` / `just shot` (above) and confirm
-integration by running the two apps.
+integration by running the consuming apps.
