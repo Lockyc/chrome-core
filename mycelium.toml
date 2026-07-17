@@ -12,3 +12,7 @@ summary = "The ChromeSidebar view — banner + accent tint, grouped tab rows (le
 [[provides]]
 name    = "self-update"
 summary = "App-agnostic self-update owned here, not per-app: check cadence, update bar, install/relaunch. A consuming app supplies only its updater identity (endpoint/pubkey) — config, not logic."
+
+[[provides]]
+name    = "app-name-strip"
+summary = "The appName mount-config field: a title-bar strip beside the macOS traffic lights naming the host app, since every consumer hides the native window title (TitleBarStyle::Overlay). Owns the traffic-light inset outright — a consumer passing appName drops its own padding-top, removing a magic-number duplication each app used to carry."
