@@ -2,7 +2,7 @@
 name = "chrome-core"
 version = "0.1.0" # inert — consumed by rev, publish=false; never bumped or released (see CLAUDE.md)
 edition = "2021"
-description = "Shared sidebar chrome (CSS + vanilla JS) for curator and warden, embedded as string consts."
+description = "Shared sidebar chrome (CSS + vanilla JS) for curator, warden, and lector, embedded as string consts."
 license = "MIT"
 repository = "https://github.com/Lockyc/chrome-core"
 publish = false
