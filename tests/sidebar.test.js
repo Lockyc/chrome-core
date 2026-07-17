@@ -7,6 +7,7 @@ const {
   clampWidth,
   resolveOffset,
   presenceClass,
+  derivePresenceState,
   buildTree,
 } = require("../assets/sidebar.js");
 
@@ -73,6 +74,18 @@ test("presenceClass: on and off are unchanged by the ghost state", () => {
   assert.equal(presenceClass("on", true, false, true), "cc-presence on kill");
   assert.equal(presenceClass("off", false, true, true), "cc-presence off start");
   assert.equal(presenceClass("off", false, true, false), "cc-presence off");
+});
+
+test("derivePresenceState: reads state back from a dot's class list — regression guard for the " +
+  "ghost-preservation repaint fix (a `contains(\"on\") ? \"on\" : \"off\"` derivation would " +
+  "collapse a ghost dot to `off` on every load/unload repaint)", () => {
+  assert.equal(derivePresenceState(["cc-presence", "on", "kill"]), "on");
+  assert.equal(derivePresenceState(["cc-presence", "ghost", "start"]), "ghost");
+  assert.equal(derivePresenceState(["cc-presence", "off"]), "off");
+  assert.equal(derivePresenceState(["cc-presence", "off", "start"]), "off");
+  // on and ghost never co-occur in practice, but on must win if they did (matches presenceClass's
+  // own precedence — `on` is checked before `ghost`).
+  assert.equal(derivePresenceState(["cc-presence", "on", "ghost"]), "on");
 });
 
 test("buildTree compresses single-child chains", () => {

@@ -82,6 +82,16 @@ function presenceClass(state, killable, startable, live) {
   return cls;
 }
 
+/** Re-derive a dot's presence state ("on" | "ghost" | "off") from its painted class list — the
+ *  inverse of `presenceClass`'s state→class mapping, used to repaint a dot (e.g. on a live-state
+ *  change) without re-fetching the session state that produced it. Pure — takes a plain array of
+ *  class names, not a live classList, so it's testable with no DOM (a caller with a DOMTokenList
+ *  passes `Array.from(el.classList)`). Must check BOTH `on` and `ghost`: reading only `on` would
+ *  collapse a ghost back to `off` on every repaint, silently losing the recoverable signal. */
+function derivePresenceState(classNames) {
+  return classNames.includes("on") ? "on" : classNames.includes("ghost") ? "ghost" : "off";
+}
+
 /** Opaque dark base the sidebar tint composites over (matches the CSS `.cc-root` fallback). */
 const SIDEBAR_BASE = [21, 25, 30]; // #15191e
 const NEUTRAL_COLOUR = "#6b7280";
@@ -434,9 +444,7 @@ class Sidebar {
   _refreshPresenceLive(row, live) {
     const s = row.querySelector(".cc-presence");
     if (!s) return;
-    // Re-derive all THREE states — reading only `on` would collapse a ghost to `off` on every
-    // load/unload repaint, silently losing the recoverable signal.
-    const state = s.classList.contains("on") ? "on" : s.classList.contains("ghost") ? "ghost" : "off";
+    const state = derivePresenceState(Array.from(s.classList));
     this._paintPresence(s, row.dataset.id, state, s.dataset.kill === "1", s.dataset.start === "1", live);
   }
 
@@ -828,7 +836,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, clampWidth, resolveOffset, presenceClass, buildTree };
+  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, clampWidth, resolveOffset, presenceClass, derivePresenceState, buildTree };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;
