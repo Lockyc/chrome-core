@@ -33,7 +33,9 @@ shot density="comfortable":
       --screenshot="$dir/preview.png" "file://$dir/preview.html?density={{density}}"
     echo "✓ wrote preview.png ({{density}})"
 
-# Unit-test the pure JS logic (tileColour / tintOverBase / clampWidth / resolveOffset / buildTree)
+# Covers: tileInitial, tileColour, tintOverBase, clampWidth, presenceClass, derivePresenceState,
+# resolveOffset, buildTree. DOM/visual behaviour is out of scope — use `just preview` / `just shot`.
+# Unit-test the component's pure JS logic (zero deps, node:test)
 [group("check")]
 test:
     node --test

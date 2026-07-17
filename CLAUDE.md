@@ -76,7 +76,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   sidebar, its literal contents don't matter beyond that.
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
   windowDrag?: bool, active?: id, tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null,
-  live: bool, attention: null|true|number, presence: null|'on'|'off', killable: bool, startable: bool,
+  live: bool, attention: null|true|number, presence: null|'on'|'ghost'|'off', killable: bool, startable: bool,
   warn: bool, tree?: bool, treePath?: string[] }`.
   **`windowDrag`** (default **on** when absent) makes the non-interactive chrome — banner, name, the
   empty area of the tab list, group headers — a `data-tauri-drag-region` so a drag there moves the
@@ -98,14 +98,36 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   the only long-lived resource the component holds).
 
 **Dot slots (fixed order): attention · presence · live/unload.** Attention = amber dot, rendered as a
-count pill when `attention` is a number (curator's unread count). Presence = cyan on/off (warden's
-probe; curator and lector never set it). Live/unload = green live ↔ hover-✕ unload / hollow cold.
+count pill when `attention` is a number (curator's unread count). Live/unload = green live ↔ hover-✕
+unload / hollow cold.
+
+**Presence is three-state — `on` | `ghost` | `off`** (warden's probe drives it; curator and lector
+never set it, passing `null` = no dot). `on` = cyan, a probe reported a live session. **`ghost` = a
+*recoverable* session** — none live, but the host reports one a plain launch would restore (warden:
+a crashed amux session, probe exit 3); it paints the ghost mask (`--cc-ghost-mask`) rather than a
+cyan dot. `off` = configured-but-absent, hollow. `on` and `ghost` are mutually exclusive. The
+authority is `presenceClass` (state + `killable`/`startable`/`live` → class list); `derivePresenceState`
+is its inverse, reading the state back off a painted dot.
+
 **Kill-confirm is a row-overlay state, not a slot** (clicking a killable presence dot reddens the row,
 hides the dots, shows ⏻/↩); gated on `killable` (curator and lector: always false). The presence dot
-is a **session toggle**: when the session is *present* it kills (2-step confirm, `killable`); when
-*absent* and the tab is *live* it **starts** — a single click firing `onStart` (gated on `startable`,
-curator and lector: always false), re-running the tab's command. Absent+cold shows no start affordance (no shell to run
-in — the row-click activation path starts it instead); the gating lives in `presenceClass`.
+is a **session toggle**:
+- **`on` + `killable`** → kills (2-step confirm).
+- **`ghost` or `off`, + `startable` + the tab is `live`** → **starts**: a single click firing `onStart`
+  (curator and lector: `startable` always false), re-running the tab's command. The start affordance is
+  offered for **both** non-`on` states — a ghost is decoration *on* that same affordance, not a
+  separate path.
+- **`ghost` never gets a kill affordance** — a recoverable drop is already a dead session, so there's
+  nothing to kill.
+- **Cold (not `live`)** shows no start affordance regardless of state (no shell to type into — the
+  row-click activation path starts it instead).
+
+> **Footgun — `ghost` is easy to erase.** It reads as a cosmetic variant of `off`, so both a
+> `state === "on" ? … : "off"` collapse in `presenceClass` and a `classNames.includes("on") ? "on" : "off"`
+> collapse in `derivePresenceState` look like harmless simplifications. The second is the nastier one:
+> it silently downgrades a ghost to `off` **on every repaint** (load/unload, live-state change), so the
+> recoverable signal decays away with no error — the dot is simply wrong a moment later. `tests/sidebar.test.js`
+> guards both; don't "simplify" either mapping to two states.
 
 The confirm row carries an **optional third control, `☠` (kill-both)**, rendered left of `⏻`
 **only when the app supplied an `onKillClose(id)` callback** — capability by callback presence, so an
@@ -179,7 +201,8 @@ iterating on `sidebar.{css,js}`; the pinned-rev round-trip through an app is onl
 ## Build / test
 
 `just build` (`cargo build`) compiles the `include_str!` constants (catches a missing/renamed asset).
-`just test` (`node --test`) unit-tests the pure logic (`tileColour`/`tintOverBase`/`clampWidth`/
-`resolveOffset`/`buildTree`); `just gate` runs rustfmt-check + tests + build together. DOM/visual
+`just test` (`node --test`) unit-tests the pure logic (`tileInitial`/`tileColour`/`tintOverBase`/
+`clampWidth`/`presenceClass`/`derivePresenceState`/`resolveOffset`/`buildTree`); `just gate` runs
+rustfmt-check + tests + build together. DOM/visual
 behaviour has no unit coverage — iterate it with `just preview` / `just shot` (above) and confirm
 integration by running the consuming apps.
