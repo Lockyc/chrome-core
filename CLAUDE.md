@@ -35,10 +35,10 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 > app is the anti-pattern a shared-components repo exists to remove. A shared capability may use a
 > platform primitive that *all* consumers share (the Tauri runtime): the core **feature-detects** it
 > (`window.__TAURI__?.updater`) so the isolated `preview.html` — which has no Tauri — no-ops, while
-> every real app's Tauri runtime is presented the full capability (each app's own capabilities file
-> must still separately grant the updater permission for the plugin call to succeed — lector's
-> doesn't yet, a known gap tracked in lector's own CLAUDE.md, not a chrome-core concern). The per-app
-> *identity* a universal capability still needs —
+> every real app's Tauri runtime is presented the full capability. Each app's own capabilities file
+> must still separately grant the updater permission for the plugin call to succeed — a chrome-core-
+> external concern owned by each app's own `capabilities/*.json` and CLAUDE.md, not this file. The
+> per-app *identity* a universal capability still needs —
 > the release endpoint, the signing pubkey, the Rust plugin registration, the `auto_update` gate — is
 > config, not logic, and stays in the app. **Where it lives:** `sidebar.js`'s self-update section
 > (`checkForUpdate`/`_installUpdate`/`_startUpdater` + `UPDATE_CHECK_INTERVAL_MS`); each app passes
