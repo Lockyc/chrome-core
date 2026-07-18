@@ -550,13 +550,14 @@
   align-items: center;
   justify-content: center;
   border-radius: inherit;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: calc(var(--cc-tile-size) * 0.7);
+  font-size: calc(var(--cc-tile-size) * 0.95); /* fill the tile — a big, obvious button */
   line-height: 1;
   cursor: pointer;
 }
-.cc-icon:hover .cc-icon-pop {
+/* Revealed on hover of the whole row, not just the tile — easier to find and hit. */
+.cc-tab:hover .cc-icon-pop {
   display: flex;
 }
 /* Un-mute a detached row on hover so its pop-in overlay reads as clearly actionable. */

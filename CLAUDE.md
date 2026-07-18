@@ -113,10 +113,11 @@ unload / hollow cold. (Pop-out is **not** a dot slot — it's a hover overlay on
 **Pop-out / pop-in — a hover overlay ON the initial tile, not a trailing slot** (`.cc-icon-pop`, built
 in `_renderRow`). Opt-in by capability-by-callback-presence like `onKillClose`: rendered only when the
 app supplied `onPopOut(id)`. It's absolutely-positioned to fill the `.cc-icon` square (which is now
-`position: relative`), hidden until the **tile is hovered** (`.cc-icon:hover .cc-icon-pop`), with a dark
-scrim + solid-white glyph sized to the tile (`calc(--cc-tile-size * 0.7)`) so it reads as a deliberate
-button rather than a faint dot. A **docked** tab shows **`⤢`** and fires `onPopOut(id)`; a **detached**
-tab shows **`↩`** and fires **`onPopIn(id)`** — dock it back into a tab. `onPopIn` is a **separate opt-in
+`position: relative`), hidden until the **whole row is hovered** (`.cc-tab:hover .cc-icon-pop`), with a
+dark scrim + solid-white glyph nearly filling the tile (`calc(--cc-tile-size * 0.95)`) so it reads as a
+big, obvious button rather than a faint dot. A **docked** tab shows **`⤢`** and fires `onPopOut(id)`; a
+**detached** tab shows **`⇱`** (arrow into the corner) and fires **`onPopIn(id)`** — dock it back into a
+tab. `onPopIn` is a **separate opt-in
 callback**: the pop-in overlay renders only when the app supplied it (a docked tab needs only `onPopOut`;
 a detached tab's pop-in needs `onPopIn`). Both fire immediately on click (`e.stopPropagation()`); what
 each means is the app's business (warden: pop out = own window / pop in = close that window → redock).

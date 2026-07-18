@@ -377,9 +377,9 @@ class Sidebar {
     icon.style.background = tileColour(t.title);
     // Pop-out / pop-in as a hover overlay ON the initial tile (opt-in: capability-by-callback-
     // presence, like onKillClose). A docked tab shows ⤢ and pops out into its own window
-    // (onPopOut); a detached tab shows the pop-in glyph and docks back (onPopIn). Revealed only
-    // on hover of the tile and sized to fill it — larger and more deliberate than the old faint
-    // dot-slot glyph, and out of the right-hand indicator cluster entirely.
+    // (onPopOut); a detached tab shows ⇱ and docks back (onPopIn). Revealed on hover of the whole
+    // ROW (`.cc-tab:hover`) and sized to fill the tile — large and deliberate, and out of the
+    // right-hand indicator cluster entirely.
     if (this.cb.onPopOut) {
       const detached = !!t.detached;
       if (!detached || this.cb.onPopIn) {
@@ -389,7 +389,7 @@ class Sidebar {
             class: "cc-icon-pop",
             title: detached ? "Pop back into a tab" : "Pop out into its own window",
           },
-          detached ? "↩" : "⤢", // ↩ pop-in / ⤢ pop-out
+          detached ? "⇱" : "⤢", // ⇱ pop-in (arrow into the corner) / ⤢ pop-out
         );
         act.addEventListener("click", (e) => {
           e.stopPropagation();
