@@ -390,6 +390,19 @@ class Sidebar {
     });
     row.appendChild(dot);
 
+    // Pop-out affordance: opt-in per app (capability-by-callback-presence, like onKillClose).
+    // Fires immediately on click (the tree-head rescan model), not the armed-kill state machine.
+    // `!t.detached` guards against offering to pop out a tab already in its own window — a
+    // follow-on `TabDTO` field, always falsy (and so a no-op guard) until that field ships.
+    if (this.cb.onPopOut && !t.detached) {
+      const pop = el("span", { class: "cc-popout", title: "Pop out into its own window" }, "⤢");
+      pop.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.cb.onPopOut(t.id);
+      });
+      row.appendChild(pop);
+    }
+
     // Kill-confirm controls (only for killable rows; hidden until `.confirming`).
     if (t.killable) this._appendConfirmControls(row, t.id);
     return row;

@@ -526,6 +526,26 @@
   font-weight: 700;
 }
 
+/* ── Pop-out slot ── opt-in per app (rendered only when the consumer supplies `onPopOut`): pop the
+ * tab into its own window. Muted glyph that brightens on hover — the same fire-immediately model as
+ * the tree-head `.cc-rescan` control, sized to match the other row slots (`.cc-dot` / `.cc-presence`)
+ * and using the confirm-row's glyph-size token since ⤢ is a similarly small symbol. */
+.cc-popout {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  cursor: pointer;
+  font-size: var(--cc-glyph-confirm);
+  color: rgba(238, 238, 238, 0.4);
+}
+.cc-popout:hover {
+  color: #fff;
+}
+
 /* ── Kill-confirm: a row-overlay state (NOT a slot). Clicking a killable presence dot reddens the
  * whole row, hides the three dots, and shows ⏻ (terminate) / ↩ (cancel). `!important` beats the
  * inline active-tint JS sets, so an armed active row still reads red. */

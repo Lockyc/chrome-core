@@ -57,8 +57,9 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 
 - **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onKill(id)`, `onKillClose(id)` (optional —
   see below), `onStart(id)`, `onResize(width)`,
-  `onRescan(group)`. (The update bar is wired **internally** — self-update is a core capability, see
-  the dividing-line decision above — so there is **no** `onUpdate`/`onUpdateDismiss` callback.)
+  `onRescan(group)`, `onPopOut(id)` (optional — see below). (The update bar is wired **internally** —
+  self-update is a core capability, see the dividing-line decision above — so there is **no**
+  `onUpdate`/`onUpdateDismiss` callback.)
 - **config:** `{ header: Node|null, appName: string|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
   **`appName`** (default null) names the host app in a strip above the banner, beside the macOS
   traffic lights. Every consumer uses `TitleBarStyle::Overlay`, which hides the native window title
@@ -104,9 +105,16 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   forwards its own app-named menu event here), and **`destroy()`** (stop the recurring update check —
   the only long-lived resource the component holds).
 
-**Dot slots (fixed order): attention · presence · live/unload.** Attention = amber dot, rendered as a
+**Dot slots (fixed order): attention · presence · live/unload · pop-out.** Attention = amber dot, rendered as a
 count pill when `attention` is a number (curator's unread count). Live/unload = green live ↔ hover-✕
-unload / hollow cold.
+unload / hollow cold. **Pop-out (`⤢`)** is an **optional trailing control, rendered only when the app
+supplied an `onPopOut(id)` callback** — capability by callback presence, the same idiom as
+`onKillClose` below. It fires immediately on click (`e.stopPropagation()`), the same fire-immediately
+model as the tree-head `.cc-rescan` button — **not** the armed-kill state machine. What "pop out" means
+is entirely the app's business (the component only reports the click); no app wires it yet. The row
+render also guards on `!t.detached` — a `TabDTO` field a follow-on task adds to suppress the glyph on a
+tab already popped into its own window — so the guard is inert (every tab reads `detached` as
+undefined/falsy) until that field ships.
 
 **Presence is three-state — `on` | `ghost` | `off`** (warden's probe drives it; curator and lector
 never set it, passing `null` = no dot). `on` = cyan, a probe reported a live session. **`ghost` = a
