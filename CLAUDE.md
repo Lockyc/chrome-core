@@ -116,12 +116,16 @@ is entirely the app's business (the component only reports the click); no app wi
 
 **`detached: true` on a `TabDTO` row means that tab is already popped out into its own window** —
 opt-in, like `onPopOut` itself: absent/falsy on every row until an app's DTO sets it. It changes a row
-in three ways, all in `_renderRow`: (1) the row gets class `.cc-tab.detached`, muted via `opacity: 0.6`
+in four ways, all in `_renderRow`: (1) the row gets class `.cc-tab.detached`, muted via `opacity: 0.6`
 (the same disabled-affordance treatment `#cc-update-btn:disabled` uses) — **shown, not removed or
 reshuffled**, same row height and slot layout as any other row; (2) the interactive `⤢` pop-out control
 is suppressed (the existing `!t.detached` guard on `onPopOut`'s render) and replaced with a **static**
 `⤢` (`.cc-popout.detached-mark`, same glyph/slot, no independent hover/cursor styling since it isn't
-its own control); (3) the row's normal click → `onSelect(id)` wiring is **left unchanged** — the
+its own control); (3) the **live/unload dot shows live regardless of `t.live`** (`_makeDot(t.detached
+|| t.live)`) — a detached tab is always running, just in another window, so `t.live` (a *local*-surface
+signal) would misleadingly show it cold — and its **unload click is unwired** (you don't unload a tab
+that lives elsewhere; the click falls through to the row's `onSelect` → raise the popped window);
+(4) the row's normal click → `onSelect(id)` wiring is **left unchanged** — the
 component adds no new callback for this. **The app is what gives that click meaning**: it interprets
 `onSelect` firing on a tab it already knows is detached as "raise the popped-out window" rather than
 "activate this tab in this window." This lives in the core (not per-app) per the dividing-line

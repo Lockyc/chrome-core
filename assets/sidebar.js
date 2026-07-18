@@ -386,12 +386,19 @@ class Sidebar {
     if (t.presence != null) row.appendChild(this._makePresence(t, t.presence));
 
     // Live/unload slot (green live ↔ hover-✕ / hollow cold). Always present.
-    const dot = this._makeDot(t.live);
-    dot.addEventListener("click", (e) => {
-      if (!dot.classList.contains("live")) return; // cold: nothing to unload
-      e.stopPropagation();
-      if (this.cb.onUnload) this.cb.onUnload(t.id);
-    });
+    // A detached tab is ALWAYS live — it's running in its own popped-out window — so its dot
+    // shows live regardless of `t.live` (which reports only a LOCAL surface). It is NOT an
+    // unload affordance there, though: you don't unload a tab that lives in another window, you
+    // raise that window — so the click stays unwired and falls through to the row's onSelect
+    // (which the app maps to "raise the popped-out window").
+    const dot = this._makeDot(t.detached || t.live);
+    if (!t.detached) {
+      dot.addEventListener("click", (e) => {
+        if (!dot.classList.contains("live")) return; // cold: nothing to unload
+        e.stopPropagation();
+        if (this.cb.onUnload) this.cb.onUnload(t.id);
+      });
+    }
     row.appendChild(dot);
 
     // Pop-out affordance: opt-in per app (capability-by-callback-presence, like onKillClose).
