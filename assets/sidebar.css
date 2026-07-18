@@ -378,6 +378,15 @@
   background: var(--cc-active-bg, #094771);
 }
 
+/* Detached: the tab is popped out into its own window. Muted, not removed — same row height and
+ * slots, just quieter (the family's disabled-affordance treatment: convey state via opacity, the
+ * same 0.6 `#cc-update-btn:disabled` uses, not by hiding anything). The row keeps its normal click
+ * → onSelect wiring (see `_renderRow`); the app interprets a click on a detached row as "raise the
+ * popped-out window" — no new callback needed. */
+.cc-tab.detached {
+  opacity: 0.6;
+}
+
 /* Letter/colour tile (initial + title-hashed colour) — at-a-glance scanning. */
 .cc-icon {
   flex: none;
@@ -545,6 +554,15 @@
 .cc-popout:hover {
   color: #fff;
 }
+/* Detached's static replacement for the interactive control above: no independent hover/cursor
+ * treatment, since it isn't its own control — the row's own hover/click already covers it (a click
+ * anywhere on a detached row fires onSelect, which the app maps to "raise the window"). */
+.cc-popout.detached-mark {
+  cursor: default;
+}
+.cc-popout.detached-mark:hover {
+  color: rgba(238, 238, 238, 0.4);
+}
 
 /* ── Kill-confirm: a row-overlay state (NOT a slot). Clicking a killable presence dot reddens the
  * whole row, hides the three dots, and shows ⏻ (terminate) / ↩ (cancel). `!important` beats the
@@ -556,7 +574,8 @@
 }
 .cc-tab.confirming .cc-attention,
 .cc-tab.confirming .cc-presence,
-.cc-tab.confirming .cc-dot {
+.cc-tab.confirming .cc-dot,
+.cc-tab.confirming .cc-popout {
   display: none;
 }
 .cc-confirm-kill-close,

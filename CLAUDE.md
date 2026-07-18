@@ -85,7 +85,8 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
   windowDrag?: bool, active?: id, tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null,
   live: bool, attention: null|true|number, presence: null|'on'|'ghost'|'off', killable: bool, startable: bool,
-  warn: bool, tree?: bool, treePath?: string[] }`.
+  warn: bool, tree?: bool, treePath?: string[], detached?: bool }`. **`detached`** is opt-in (absent/falsy
+  on every row until an app's DTO sets it) — see the pop-out section below for what it does to a row.
   **`windowDrag`** (default **on** when absent) makes the non-interactive chrome — banner, name, the
   empty area of the tab list, group headers — a `data-tauri-drag-region` so a drag there moves the
   host window (interactive descendants stay clickable; Tauri drags only when the mousedown target
@@ -111,10 +112,23 @@ unload / hollow cold. **Pop-out (`⤢`)** is an **optional trailing control, ren
 supplied an `onPopOut(id)` callback** — capability by callback presence, the same idiom as
 `onKillClose` below. It fires immediately on click (`e.stopPropagation()`), the same fire-immediately
 model as the tree-head `.cc-rescan` button — **not** the armed-kill state machine. What "pop out" means
-is entirely the app's business (the component only reports the click); no app wires it yet. The row
-render also guards on `!t.detached` — a `TabDTO` field a follow-on task adds to suppress the glyph on a
-tab already popped into its own window — so the guard is inert (every tab reads `detached` as
-undefined/falsy) until that field ships.
+is entirely the app's business (the component only reports the click); no app wires it yet.
+
+**`detached: true` on a `TabDTO` row means that tab is already popped out into its own window** —
+opt-in, like `onPopOut` itself: absent/falsy on every row until an app's DTO sets it. It changes a row
+in three ways, all in `_renderRow`: (1) the row gets class `.cc-tab.detached`, muted via `opacity: 0.6`
+(the same disabled-affordance treatment `#cc-update-btn:disabled` uses) — **shown, not removed or
+reshuffled**, same row height and slot layout as any other row; (2) the interactive `⤢` pop-out control
+is suppressed (the existing `!t.detached` guard on `onPopOut`'s render) and replaced with a **static**
+`⤢` (`.cc-popout.detached-mark`, same glyph/slot, no independent hover/cursor styling since it isn't
+its own control); (3) the row's normal click → `onSelect(id)` wiring is **left unchanged** — the
+component adds no new callback for this. **The app is what gives that click meaning**: it interprets
+`onSelect` firing on a tab it already knows is detached as "raise the popped-out window" rather than
+"activate this tab in this window." This lives in the core (not per-app) per the dividing-line
+decision — like `onKillClose`, it's an app-agnostic row affordance, just one whose semantics the
+consuming app supplies. Kill-confirm's row-overlay (below) hides the pop-out glyph too
+(`.cc-tab.confirming .cc-popout`), covering both the interactive and the static `.detached-mark`
+variant with the one rule, since a killable row's confirm overlay already hides the other slots.
 
 **Presence is three-state — `on` | `ghost` | `off`** (warden's probe drives it; curator and lector
 never set it, passing `null` = no dot). `on` = cyan, a probe reported a live session. **`ghost` = a

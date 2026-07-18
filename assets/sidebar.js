@@ -367,6 +367,10 @@ class Sidebar {
 
   _renderRow(t) {
     const row = el("div", { class: "cc-tab", "data-id": t.id });
+    if (t.detached) row.classList.add("detached");
+    // Row click keeps its normal onSelect wiring even when detached — the app interprets
+    // onSelect-on-a-detached-tab as "raise the popped-out window" (see CLAUDE.md). No new
+    // callback: this IS the raise affordance.
     row.addEventListener("click", () => this.select(t.id));
 
     const icon = el("span", { class: "cc-icon" }, tileInitial(t.title));
@@ -392,8 +396,7 @@ class Sidebar {
 
     // Pop-out affordance: opt-in per app (capability-by-callback-presence, like onKillClose).
     // Fires immediately on click (the tree-head rescan model), not the armed-kill state machine.
-    // `!t.detached` guards against offering to pop out a tab already in its own window — a
-    // follow-on `TabDTO` field, always falsy (and so a no-op guard) until that field ships.
+    // `!t.detached` guards against offering to pop out a tab already in its own window.
     if (this.cb.onPopOut && !t.detached) {
       const pop = el("span", { class: "cc-popout", title: "Pop out into its own window" }, "⤢");
       pop.addEventListener("click", (e) => {
@@ -401,6 +404,14 @@ class Sidebar {
         this.cb.onPopOut(t.id);
       });
       row.appendChild(pop);
+    }
+    // Detached: a static (non-interactive) popped-out indicator in place of the pop-out control.
+    // The row's own click → onSelect wiring above is unchanged — the app maps a click on a
+    // detached row to "raise the popped-out window" (no new callback needed).
+    if (t.detached) {
+      const mark = el("span", { class: "cc-popout detached-mark" }, "⤢");
+      mark.title = "Popped out — click the row to raise its window";
+      row.appendChild(mark);
     }
 
     // Kill-confirm controls (only for killable rows; hidden until `.confirming`).
