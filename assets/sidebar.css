@@ -552,9 +552,12 @@
   border-radius: inherit;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: calc(var(--cc-tile-size) * 0.95); /* fill the tile — a big, obvious button */
-  line-height: 1;
   cursor: pointer;
+}
+.cc-icon-pop svg {
+  display: block;
+  width: 72%; /* the SVG art fills ~80% of its own box, so this reads as a big tile-filling icon */
+  height: 72%;
 }
 /* Revealed on hover of the whole row, not just the tile — easier to find and hit. */
 .cc-tab:hover .cc-icon-pop {

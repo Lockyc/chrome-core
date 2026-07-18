@@ -96,6 +96,16 @@ function derivePresenceState(classNames) {
 const SIDEBAR_BASE = [21, 25, 30]; // #15191e
 const NEUTRAL_COLOUR = "#6b7280";
 
+// Pop-out / pop-in icon (svgrepo "pop-in": a window frame + an arrow). The frame is shared; the
+// arrow points INTO the frame for pop-in and is reversed (180° about its own centre) to point OUT
+// for pop-out. `fill: currentColor` so it inherits `.cc-icon-pop`'s white.
+const POP_FRAME =
+  "M37,35.3h-4c-0.6,0-1,0.4-1,1v5.5c0,0.1,0,0.1,0,0.2v0.5c0,0.8-0.7,1.5-1.5,1.5h-21C8.7,44,8,43.3,8,42.5v-21C8,20.7,8.7,20,9.4,20h6.3c0.6,0,1-0.4,1-1v-4c0-0.6-0.4-1-1-1H6.2C6.1,14,6,14,6,14c-2.2,0-4,1.8-4,4v28c0,2.2,1.8,4,4,4h28c2.2,0,4-1.8,4-4v-4.2v-2.9v-2.6C38,35.7,37.6,35.3,37,35.3z";
+const POP_ARROW =
+  "M22,31.3h19.1c0.8,0,1.6-0.5,1.6-1.3v-3c0-0.8-0.7-1.7-1.6-1.7h-7.9c-0.9,0-1.4-1-0.7-1.6l17-17c0.6-0.6,0.6-1.5,0-2.1l-2.1-2.1c-0.6-0.6-1.5-0.6-2.1,0l-17,17c-0.6,0.6-1.6,0.2-1.6-0.7v-7.9c0-0.8-0.8-1.7-1.6-1.7h-2.9c-0.8,0-1.5,0.9-1.5,1.7v19C20.8,30.8,21.2,31.2,22,31.3z";
+const POP_IN_SVG = `<svg viewBox="0 0 52 52" fill="currentColor" aria-hidden="true"><path d="${POP_ARROW}"/><path d="${POP_FRAME}"/></svg>`;
+const POP_OUT_SVG = `<svg viewBox="0 0 52 52" fill="currentColor" aria-hidden="true"><path transform="rotate(180 31.5 17.65)" d="${POP_ARROW}"/><path d="${POP_FRAME}"/></svg>`;
+
 /** Build a nested folder tree from flat rows carrying `treePath` segment arrays.
  *  Single-child folder chains are compressed (label joined with "/"). Pure — tested. */
 function buildTree(rows) {
@@ -376,21 +386,18 @@ class Sidebar {
     const icon = el("span", { class: "cc-icon" }, tileInitial(t.title));
     icon.style.background = tileColour(t.title);
     // Pop-out / pop-in as a hover overlay ON the initial tile (opt-in: capability-by-callback-
-    // presence, like onKillClose). A docked tab shows ⤢ and pops out into its own window
-    // (onPopOut); a detached tab shows ⇱ and docks back (onPopIn). Revealed on hover of the whole
-    // ROW (`.cc-tab:hover`) and sized to fill the tile — large and deliberate, and out of the
-    // right-hand indicator cluster entirely.
+    // presence, like onKillClose). A docked tab shows the pop-OUT icon (window + arrow leaving)
+    // and fires onPopOut; a detached tab shows the pop-IN icon (arrow entering) and fires onPopIn.
+    // Revealed on hover of the whole ROW (`.cc-tab:hover`) and sized to fill the tile — large and
+    // deliberate, and out of the right-hand indicator cluster entirely.
     if (this.cb.onPopOut) {
       const detached = !!t.detached;
       if (!detached || this.cb.onPopIn) {
-        const act = el(
-          "span",
-          {
-            class: "cc-icon-pop",
-            title: detached ? "Pop back into a tab" : "Pop out into its own window",
-          },
-          detached ? "⇱" : "⤢", // ⇱ pop-in (arrow into the corner) / ⤢ pop-out
-        );
+        const act = el("span", {
+          class: "cc-icon-pop",
+          title: detached ? "Pop back into a tab" : "Pop out into its own window",
+        });
+        act.innerHTML = detached ? POP_IN_SVG : POP_OUT_SVG;
         act.addEventListener("click", (e) => {
           e.stopPropagation();
           if (detached) this.cb.onPopIn(t.id);
