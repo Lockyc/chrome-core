@@ -375,6 +375,30 @@ class Sidebar {
 
     const icon = el("span", { class: "cc-icon" }, tileInitial(t.title));
     icon.style.background = tileColour(t.title);
+    // Pop-out / pop-in as a hover overlay ON the initial tile (opt-in: capability-by-callback-
+    // presence, like onKillClose). A docked tab shows ⤢ and pops out into its own window
+    // (onPopOut); a detached tab shows the pop-in glyph and docks back (onPopIn). Revealed only
+    // on hover of the tile and sized to fill it — larger and more deliberate than the old faint
+    // dot-slot glyph, and out of the right-hand indicator cluster entirely.
+    if (this.cb.onPopOut) {
+      const detached = !!t.detached;
+      if (!detached || this.cb.onPopIn) {
+        const act = el(
+          "span",
+          {
+            class: "cc-icon-pop",
+            title: detached ? "Pop back into a tab" : "Pop out into its own window",
+          },
+          detached ? "↩" : "⤢", // ↩ pop-in / ⤢ pop-out
+        );
+        act.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (detached) this.cb.onPopIn(t.id);
+          else this.cb.onPopOut(t.id);
+        });
+        icon.appendChild(act);
+      }
+    }
     row.appendChild(icon);
 
     row.appendChild(el("span", { class: "cc-title" }, (t.title || "") + (t.warn ? "  ⚠" : "")));
@@ -401,25 +425,7 @@ class Sidebar {
     }
     row.appendChild(dot);
 
-    // Pop-out affordance: opt-in per app (capability-by-callback-presence, like onKillClose).
-    // Fires immediately on click (the tree-head rescan model), not the armed-kill state machine.
-    // `!t.detached` guards against offering to pop out a tab already in its own window.
-    if (this.cb.onPopOut && !t.detached) {
-      const pop = el("span", { class: "cc-popout", title: "Pop out into its own window" }, "⤢");
-      pop.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this.cb.onPopOut(t.id);
-      });
-      row.appendChild(pop);
-    }
-    // Detached: a static (non-interactive) popped-out indicator in place of the pop-out control.
-    // The row's own click → onSelect wiring above is unchanged — the app maps a click on a
-    // detached row to "raise the popped-out window" (no new callback needed).
-    if (t.detached) {
-      const mark = el("span", { class: "cc-popout detached-mark" }, "⤢");
-      mark.title = "Popped out — click the row to raise its window";
-      row.appendChild(mark);
-    }
+    // (Pop-out / pop-in now lives as a hover overlay on the icon tile above, not a trailing slot.)
 
     // Kill-confirm controls (only for killable rows; hidden until `.confirming`).
     if (t.killable) this._appendConfirmControls(row, t.id);

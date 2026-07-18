@@ -389,6 +389,7 @@
 
 /* Letter/colour tile (initial + title-hashed colour) — at-a-glance scanning. */
 .cc-icon {
+  position: relative; /* positioning context for the pop-out/pop-in hover overlay */
   flex: none;
   width: var(--cc-tile-size);
   height: var(--cc-tile-size);
@@ -539,29 +540,28 @@
  * tab into its own window. Muted glyph that brightens on hover — the same fire-immediately model as
  * the tree-head `.cc-rescan` control, sized to match the other row slots (`.cc-dot` / `.cc-presence`)
  * and using the confirm-row's glyph-size token since ⤢ is a similarly small symbol. */
-.cc-popout {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  display: inline-flex;
+/* Pop-out (⤢) / pop-in (↩) overlay: fills the initial tile, hidden until the tile is hovered.
+ * A dark scrim + solid-white glyph keeps it legible over any tile colour, and it's sized to the
+ * tile so it reads as a prominent button rather than the old faint trailing dot-slot glyph. */
+.cc-icon-pop {
+  position: absolute;
+  inset: 0;
+  display: none;
   align-items: center;
   justify-content: center;
+  border-radius: inherit;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: calc(var(--cc-tile-size) * 0.7);
   line-height: 1;
   cursor: pointer;
-  font-size: var(--cc-glyph-confirm);
-  color: rgba(238, 238, 238, 0.4);
 }
-.cc-popout:hover {
-  color: #fff;
+.cc-icon:hover .cc-icon-pop {
+  display: flex;
 }
-/* Detached's static replacement for the interactive control above: no independent hover/cursor
- * treatment, since it isn't its own control — the row's own hover/click already covers it (a click
- * anywhere on a detached row fires onSelect, which the app maps to "raise the window"). */
-.cc-popout.detached-mark {
-  cursor: default;
-}
-.cc-popout.detached-mark:hover {
-  color: rgba(238, 238, 238, 0.4);
+/* Un-mute a detached row on hover so its pop-in overlay reads as clearly actionable. */
+.cc-tab.detached:hover {
+  opacity: 1;
 }
 
 /* ── Kill-confirm: a row-overlay state (NOT a slot). Clicking a killable presence dot reddens the
@@ -575,7 +575,7 @@
 .cc-tab.confirming .cc-attention,
 .cc-tab.confirming .cc-presence,
 .cc-tab.confirming .cc-dot,
-.cc-tab.confirming .cc-popout {
+.cc-tab.confirming .cc-icon-pop {
   display: none;
 }
 .cc-confirm-kill-close,

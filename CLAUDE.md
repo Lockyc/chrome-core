@@ -57,7 +57,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 
 - **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onKill(id)`, `onKillClose(id)` (optional —
   see below), `onStart(id)`, `onResize(width)`,
-  `onRescan(group)`, `onPopOut(id)` (optional — see below). (The update bar is wired **internally** —
+  `onRescan(group)`, `onPopOut(id)` + `onPopIn(id)` (optional pair — see below). (The update bar is wired **internally** —
   self-update is a core capability, see the dividing-line decision above — so there is **no**
   `onUpdate`/`onUpdateDismiss` callback.)
 - **config:** `{ header: Node|null, appName: string|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
@@ -106,36 +106,39 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   forwards its own app-named menu event here), and **`destroy()`** (stop the recurring update check —
   the only long-lived resource the component holds).
 
-**Dot slots (fixed order): attention · presence · live/unload · pop-out.** Attention = amber dot, rendered as a
+**Dot slots (fixed order): attention · presence · live/unload.** Attention = amber dot, rendered as a
 count pill when `attention` is a number (curator's unread count). Live/unload = green live ↔ hover-✕
-unload / hollow cold. **Pop-out (`⤢`)** is an **optional trailing control, rendered only when the app
-supplied an `onPopOut(id)` callback** — capability by callback presence, the same idiom as
-`onKillClose` below. It fires immediately on click (`e.stopPropagation()`), the same fire-immediately
-model as the tree-head `.cc-rescan` button — **not** the armed-kill state machine. What "pop out" means
-is entirely the app's business (the component only reports the click); no app wires it yet.
+unload / hollow cold. (Pop-out is **not** a dot slot — it's a hover overlay on the icon tile, below.)
+
+**Pop-out / pop-in — a hover overlay ON the initial tile, not a trailing slot** (`.cc-icon-pop`, built
+in `_renderRow`). Opt-in by capability-by-callback-presence like `onKillClose`: rendered only when the
+app supplied `onPopOut(id)`. It's absolutely-positioned to fill the `.cc-icon` square (which is now
+`position: relative`), hidden until the **tile is hovered** (`.cc-icon:hover .cc-icon-pop`), with a dark
+scrim + solid-white glyph sized to the tile (`calc(--cc-tile-size * 0.7)`) so it reads as a deliberate
+button rather than a faint dot. A **docked** tab shows **`⤢`** and fires `onPopOut(id)`; a **detached**
+tab shows **`↩`** and fires **`onPopIn(id)`** — dock it back into a tab. `onPopIn` is a **separate opt-in
+callback**: the pop-in overlay renders only when the app supplied it (a docked tab needs only `onPopOut`;
+a detached tab's pop-in needs `onPopIn`). Both fire immediately on click (`e.stopPropagation()`); what
+each means is the app's business (warden: pop out = own window / pop in = close that window → redock).
+Kill-confirm's row-overlay hides the tile overlay too (`.cc-tab.confirming .cc-icon-pop`).
 
 **`detached: true` on a `TabDTO` row means that tab is already popped out into its own window** —
 opt-in, like `onPopOut` itself: absent/falsy on every row until an app's DTO sets it. It changes a row
-in four ways, all in `_renderRow`: (1) the row gets class `.cc-tab.detached`, muted via `opacity: 0.6`
+in three ways, all in `_renderRow`: (1) the row gets class `.cc-tab.detached`, muted via `opacity: 0.6`
 (the same disabled-affordance treatment `#cc-update-btn:disabled` uses) — **shown, not removed or
-reshuffled**, same row height and slot layout as any other row; (2) the interactive `⤢` pop-out control
-is suppressed (the existing `!t.detached` guard on `onPopOut`'s render) and replaced with a **static**
-`⤢` (`.cc-popout.detached-mark`, same glyph/slot, no independent hover/cursor styling since it isn't
-its own control); (3) the **live/unload dot shows live regardless of `t.live`** (`_makeDot(t.detached
+reshuffled**, same row height and slot layout as any other row; the muting is the persistent
+"popped-out" signal (it un-mutes on hover, `.cc-tab.detached:hover`, so the pop-in overlay reads as
+actionable). (2) the **live/unload dot shows live regardless of `t.live`** (`_makeDot(t.detached
 || t.live)`) — a detached tab is always running, just in another window, so `t.live` (a *local*-surface
 signal) would misleadingly show it cold — and its **unload click is unwired** (you don't unload a tab
-that lives elsewhere; the click falls through to the row's `onSelect` → raise the popped window);
-(4) clicking the row still fires `onSelect(id)` but **`select()` short-circuits for a detached
-tab — it does NOT move the highlight** (`this.active`). The component adds no new callback: **the app
-gives that click meaning**, interpreting `onSelect` on a tab it knows is detached as "raise the
-popped-out window," not "activate this tab here." Not moving the highlight is load-bearing — the
-detached tab is shown in *another* window, so highlighting its row would steal the selection indicator
-from the terminal actually displayed in *this* window (the "clicking a popped-out tab steals the
-sidebar focus indicator" bug). This lives in the core (not per-app) per the dividing-line
-decision — like `onKillClose`, it's an app-agnostic row affordance, just one whose semantics the
-consuming app supplies. Kill-confirm's row-overlay (below) hides the pop-out glyph too
-(`.cc-tab.confirming .cc-popout`), covering both the interactive and the static `.detached-mark`
-variant with the one rule, since a killable row's confirm overlay already hides the other slots.
+that lives elsewhere). (3) the icon-tile overlay flips to the pop-in glyph (above), **and** clicking the
+row still fires `onSelect(id)` while **`select()` short-circuits for a detached tab — it does NOT move
+the highlight** (`this.active`). The app gives the row-click meaning ("raise the popped-out window") and
+the tile-overlay meaning ("dock it back"). Not moving the highlight is load-bearing — the detached tab is
+shown in *another* window, so highlighting its row would steal the selection indicator from the terminal
+actually displayed in *this* window (the "clicking a popped-out tab steals the sidebar focus indicator"
+bug). This all lives in the core (not per-app) per the dividing-line decision — like `onKillClose`,
+app-agnostic row affordances whose semantics the consuming app supplies.
 
 **Presence is three-state — `on` | `ghost` | `off`** (warden's probe drives it; curator and lector
 never set it, passing `null` = no dot). `on` = cyan, a probe reported a live session. **`ghost` = a
