@@ -1,3 +1,10 @@
+---
+type: architecture
+links:
+  - rel: see-also
+    to: README.md
+---
+
 # chrome-core — agent notes
 
 The shared sidebar chrome for **curator**, **warden**, and **lector** (sibling public macOS Tauri
