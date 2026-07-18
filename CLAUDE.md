@@ -125,10 +125,13 @@ its own control); (3) the **live/unload dot shows live regardless of `t.live`** 
 || t.live)`) — a detached tab is always running, just in another window, so `t.live` (a *local*-surface
 signal) would misleadingly show it cold — and its **unload click is unwired** (you don't unload a tab
 that lives elsewhere; the click falls through to the row's `onSelect` → raise the popped window);
-(4) the row's normal click → `onSelect(id)` wiring is **left unchanged** — the
-component adds no new callback for this. **The app is what gives that click meaning**: it interprets
-`onSelect` firing on a tab it already knows is detached as "raise the popped-out window" rather than
-"activate this tab in this window." This lives in the core (not per-app) per the dividing-line
+(4) clicking the row still fires `onSelect(id)` but **`select()` short-circuits for a detached
+tab — it does NOT move the highlight** (`this.active`). The component adds no new callback: **the app
+gives that click meaning**, interpreting `onSelect` on a tab it knows is detached as "raise the
+popped-out window," not "activate this tab here." Not moving the highlight is load-bearing — the
+detached tab is shown in *another* window, so highlighting its row would steal the selection indicator
+from the terminal actually displayed in *this* window (the "clicking a popped-out tab steals the
+sidebar focus indicator" bug). This lives in the core (not per-app) per the dividing-line
 decision — like `onKillClose`, it's an app-agnostic row affordance, just one whose semantics the
 consuming app supplies. Kill-confirm's row-overlay (below) hides the pop-out glyph too
 (`.cc-tab.confirming .cc-popout`), covering both the interactive and the static `.detached-mark`

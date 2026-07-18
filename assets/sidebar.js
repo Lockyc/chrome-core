@@ -577,6 +577,16 @@ class Sidebar {
    *  notification focus path. */
   select(id) {
     this._disarmKill();
+    // A detached tab lives in its OWN window — selecting it means "raise that window" (the app's
+    // onSelect), never "make it the shown tab in this window". So fire onSelect but do NOT move the
+    // highlight: stealing the selection indicator here would leave it pointing at a tab that isn't
+    // the terminal actually displayed in this window (the "clicking a popped-out tab steals the
+    // sidebar focus indicator" bug). The highlight stays on whatever this window is really showing.
+    const t = this.tabs.find((x) => x.id === id);
+    if (t && t.detached) {
+      if (this.cb.onSelect) this.cb.onSelect(id, { wasActive: false });
+      return;
+    }
     const wasActive = this.active === id;
     this.active = id;
     this._paint();
