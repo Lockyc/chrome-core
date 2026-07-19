@@ -2,8 +2,11 @@ name    = "chrome-core"
 summary = "The shared sidebar UI for the warden, curator, and lector apps — the grouped tab rows, resize-drag and density styling, written once as framework-free CSS + vanilla JS the apps embed at build time."
 kind    = "library"
 status  = "active"
-tags    = ["sidebar", "ui", "shared-core", "tauri", "macos"]
+tags    = ["ui", "shared-core", "tauri", "macos"]
 stack   = ["rust", "css", "javascript"]
+
+[github]
+topics_extra = ["sidebar"]
 
 [[provides]]
 name    = "sidebar-chrome"
