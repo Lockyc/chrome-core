@@ -74,6 +74,7 @@
           T("/p/dotfiles", "dotfiles", null, false, [], { live: true, presence: "on" }),
           T("/p/blog", "blog", null, false, [], { live: true, presence: "off" }),
           T("/p/notes", "notes", null, false, [], { presence: "off" }),
+          T("/p/agent", "agent (crashed)", null, false, [], { presence: "ghost", startable: true }),
           T("/p/scratch", "scratch (popped out)", null, false, [], { presence: "off", detached: true }),
           // A plain [[window.group]] section (tree:false) — flat rows under a labelled header.
           T("/g/api", "api", "backend", false, [], { killable: true, presence: "on", live: true }),

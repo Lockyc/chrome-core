@@ -45,8 +45,15 @@
   --cc-lights-inset: 78px;
   /* Ghost presence mark — a scale-free vector silhouette, sized off --cc-dot-size in the
    * .cc-presence.ghost::before rule, so (like --cc-tree-glyph) it needs no per-density
-   * restatement in the compact override block below. */
-  --cc-ghost-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 1.4c-3 0-5.3 2.4-5.3 5.3v6.7c0 .5.6.8 1 .5l1.3-1a.6.6 0 0 1 .8 0l1.2 1a.6.6 0 0 0 .8 0l1.2-1a.6.6 0 0 1 .8 0l1.3 1c.4.3 1 0 1-.5V6.7c0-2.9-2.3-5.3-5.3-5.3zM6.3 6.1a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8zm3.4 0a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8z"/></svg>');
+   * restatement in the compact override block below.
+   * The viewBox is TIGHT to the silhouette's ink (2.5 1.2 10 13), NOT the path's native
+   * 0 0 16 16 — load-bearing. The path carries ~3px of transparent margin per side inside
+   * a 16×16 canvas, and the ::before uses `mask-size: contain`, which fits the *canvas*, not
+   * the ink. Left at 0 0 16 16, `contain` shrinks the whole padded square into the box, so the
+   * visible glyph lands ~30% smaller than a same-box dot — the "ghost is too small" bug. Cropping
+   * the viewBox to the ink makes `contain` fit the glyph, so the box size maps 1:1 to visual size.
+   * Do NOT "tidy" this back to 0 0 16 16 (same margin-baked-into-art footgun as the app icon). */
+  --cc-ghost-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="2.5 1.2 10 13"><path fill-rule="evenodd" d="M8 1.4c-3 0-5.3 2.4-5.3 5.3v6.7c0 .5.6.8 1 .5l1.3-1a.6.6 0 0 1 .8 0l1.2 1a.6.6 0 0 0 .8 0l1.2-1a.6.6 0 0 1 .8 0l1.3 1c.4.3 1 0 1-.5V6.7c0-2.9-2.3-5.3-5.3-5.3zM6.3 6.1a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8zm3.4 0a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8z"/></svg>');
 }
 [data-density="compact"] {
   --cc-title-font: 14px;
