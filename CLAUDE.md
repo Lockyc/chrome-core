@@ -31,15 +31,14 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 - **Belongs in the core** — capabilities that are the same for *any* app regardless of what it hosts.
   **Self-update is the exemplar:** checking for a release, the update bar, download/install/relaunch,
   the session-dismiss behaviour, and the re-check cadence are identical whether the app hosts terminals,
-  webviews, or local doc sites — so they live **once, here**, and every consuming app inherits them. An
-  updater is not a terminal feature or a browser feature; it's an *app* feature.
+  webviews, or local doc sites — so every consuming app inherits them from the core. An updater is not
+  a terminal feature or a browser feature; it's an *app* feature.
 
 > **Decision (2026-07-08): app-agnostic capabilities (self-update first) are owned by chrome-core, not
 > reimplemented per app.** Status: **active; implemented.** The earlier framing — "the component is a
 > VIEW only; the consumer owns the updater" — was backwards: it demoted a universal capability to an
 > app concern, which led to the updater being copy-pasted into both app controllers. **Do not
-> re-litigate this** (it was questioned once already): reimplementing an app-agnostic capability per
-> app is the anti-pattern a shared-components repo exists to remove. A shared capability may use a
+> re-litigate this** (it was questioned once already). A shared capability may use a
 > platform primitive that *all* consumers share (the Tauri runtime): the core **feature-detects** it
 > (`window.__TAURI__?.updater`) so the isolated `preview.html` — which has no Tauri — no-ops, while
 > every real app's Tauri runtime is presented the full capability. Each app's own capabilities file
@@ -162,12 +161,10 @@ is a **session toggle**:
 - **Cold (not `live`)** shows no start affordance regardless of state (no shell to type into — the
   row-click activation path starts it instead).
 
-> **Footgun — `ghost` is easy to erase.** It reads as a cosmetic variant of `off`, so both a
-> `state === "on" ? … : "off"` collapse in `presenceClass` and a `classNames.includes("on") ? "on" : "off"`
-> collapse in `derivePresenceState` look like harmless simplifications. The second is the nastier one:
-> it silently downgrades a ghost to `off` **on every repaint** (load/unload, live-state change), so the
-> recoverable signal decays away with no error — the dot is simply wrong a moment later. `tests/sidebar.test.js`
-> guards both; don't "simplify" either mapping to two states.
+> **Footgun — `ghost` is easy to erase.** Both `presenceClass` and `derivePresenceState` must
+> check `ghost`, never collapse to `on`/`off` — the two-state collapse silently downgrades a ghost
+> to `off` on every repaint, losing the recoverable signal with no error. Guarded at
+> `assets/sidebar.js:89` and pinned in `tests/sidebar.test.js`; don't "simplify" either mapping.
 
 The confirm row carries an **optional third control, `☠` (kill-both)**, rendered left of `⏻`
 **only when the app supplied an `onKillClose(id)` callback** — capability by callback presence, so an
@@ -217,9 +214,9 @@ each app. **Pin this crate by `rev` and bump it in lockstep with config-core and
 pin** across curator, warden, and lector (the same lockstep discipline those already follow).
 
 The `rev` **is** this crate's version identity — the Cargo `version` field is inert (`publish = false`,
-nothing reads it) and stays parked at `0.1.0`, matching config-core / shell-core. Footgun: don't bump it
-or cut GitHub releases — an earlier habit did both (v0.1.4/v0.1.5, versions to 0.1.9) and it drifted,
-since no consumer pins by version. Re-pin the rev instead; that's the whole mechanism.
+nothing reads it) and stays parked at `0.1.0`, matching config-core / shell-core. Footgun: don't bump the
+version or cut GitHub releases — no consumer pins by version, so a version bump drifts against the rev that
+is the real identity while changing nothing. Re-pin the rev instead; that's the whole mechanism.
 
 Dev iteration on the chrome from inside an app is higher-friction behind a pinned rev — so each app
 ships **`just chrome-dev`** (build against a local `../chrome-core` checkout via a normally-commented
