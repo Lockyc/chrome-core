@@ -4,6 +4,7 @@ const {
   tileInitial,
   tileColour,
   tintOverBase,
+  liftColour,
   clampWidth,
   resolveOffset,
   presenceClass,
@@ -31,6 +32,33 @@ test("tintOverBase: opaque rgb; ratio 0 = base, ratio 1 = colour", () => {
   assert.equal(tintOverBase("#ffffff", 1, [21, 25, 30]), "rgb(255,255,255)");
   // halfway between base #15191e and #ffffff
   assert.equal(tintOverBase("#ffffff", 0.5, [21, 25, 30]), "rgb(138,140,143)");
+});
+
+test("liftColour: floors lightness, preserves hue, leaves bright colours alone", () => {
+  const hsl = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const mx = Math.max(r, g, b);
+    const mn = Math.min(r, g, b);
+    let h = 0;
+    if (mx !== mn) {
+      const d = mx - mn;
+      h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      h = (h / 6) * 360;
+    }
+    return { h, l: (mx + mn) / 2 };
+  };
+  // A near-black navy is the case the whole helper exists for: it must come back at the floor,
+  // still the same hue. Untouched, it is far too dark to tint a visible highlight out of.
+  const navy = liftColour("#002b49", 0.42);
+  assert.ok(Math.abs(hsl(navy).l - 0.42) < 0.01, `lightness floored, got ${hsl(navy).l}`);
+  assert.ok(Math.abs(hsl(navy).h - hsl("#002b49").h) < 1, "hue preserved");
+  // Already at or above the floor → returned verbatim (no round-trip drift through HSL).
+  assert.equal(liftColour("#6b7280", 0.42), "#6b7280");
+  assert.equal(liftColour("#ffffff", 0.42), "#ffffff");
+  // Achromatic input stays achromatic — saturation is never raised (keeps the neutral fallback grey).
+  const grey = liftColour("#000000", 0.5);
+  assert.equal(grey.slice(1, 3), grey.slice(3, 5));
+  assert.equal(grey.slice(3, 5), grey.slice(5, 7));
 });
 
 test("clampWidth: [min, min(max, fraction*window)]", () => {

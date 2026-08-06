@@ -363,6 +363,7 @@
 
 /* Tab row: tile · title · [attention] · [presence] · live/unload. */
 .cc-tab {
+  position: relative; /* positioning context for the active row's accent bar */
   display: flex;
   align-items: center;
   gap: var(--cc-row-gap);
@@ -377,12 +378,26 @@
 .cc-tab:hover:not(.active) {
   background: #2a2a2a;
 }
-/* Active highlight: JS sets an inline window-tinted background; these rules cover text weight and the
- * neutral fallback when no colour is configured. */
+/* Active highlight: a fill PLUS a left accent bar, both read from `--cc-active-*`, which `update()`
+ * sets per window from the LIGHTNESS-LIFTED window colour (see `liftColour` in sidebar.js — it
+ * carries the why; short version: tinting the RAW colour made the highlight invisible for a dark
+ * accent). Two signals rather than one, so the selection still reads if a fill ever comes out
+ * subtle: the bar is a saturated 3px stripe against a dark sidebar, which carries at any hue. The
+ * literals here are the no-var fallback only. */
 .cc-tab.active {
   color: #fff;
   font-weight: 600;
   background: var(--cc-active-bg, #094771);
+}
+.cc-tab.active::before {
+  content: "";
+  position: absolute; /* out of flow — an in-flow ::before becomes a flex item and shifts the row */
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 5px 0 0 5px; /* matches the row radius so the bar's ends aren't clipped square */
+  background: var(--cc-active-bar, #4aa3e0);
 }
 
 /* Detached: the tab is popped out into its own window. Muted, not removed — same row height and
@@ -576,13 +591,15 @@
 }
 
 /* ── Kill-confirm: a row-overlay state (NOT a slot). Clicking a killable presence dot reddens the
- * whole row, hides the three dots, and shows ⏻ (terminate) / ↩ (cancel). `!important` beats the
- * inline active-tint JS sets, so an armed active row still reads red. */
+ * whole row, hides the three dots, and shows ⏻ (terminate) / ↩ (cancel). `!important` beats
+ * `.cc-tab.active`'s fill, so an armed active row still reads red — and the active accent bar is
+ * dropped below for the same reason the dots are: the armed row must read as one unbroken red. */
 .cc-tab.confirming,
 .cc-tab.confirming:hover {
   background: #5a1f1f !important;
   color: #fff;
 }
+.cc-tab.confirming::before,
 .cc-tab.confirming .cc-attention,
 .cc-tab.confirming .cc-presence,
 .cc-tab.confirming .cc-dot,

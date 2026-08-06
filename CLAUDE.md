@@ -173,6 +173,18 @@ row*: it reads the same `armedKill`, shares `_makeConfirmControl`, and disarms i
 **not** add a second arming path. What "close" means is the app's business (warden: kill the session,
 then unload the terminal); the component only reports the click.
 
+**The active-row highlight is derived from a lightness-LIFTED window colour, never the raw one**
+(`liftColour`), and `update()` publishes it as `--cc-active-bg` (fill) + `--cc-active-bar` (the 3px
+left stripe) — the single place either is computed. `_paint()` only toggles `.active`.
+
+> **Footgun — bumping the tint ratio does not fix a dark accent.** The obvious tune when a selected
+> row reads faintly is to raise the mix ratio, because the sidebar and the active row are the same
+> colour at different strengths. It cannot work: at ratio 1.0 the row *is* the accent, and for a
+> near-black one (`#002B49`, L≈14%) that is still nearly the background — the old 0.28 mix moved the
+> row by `[-3,+3,+7]`, red going *down*. Contrast has to stop being a function of the accent's own
+> luminance, which is what lifting to a lightness floor buys. Saturation is deliberately *not*
+> floored: that would tint the neutral no-colour fallback blue. Pinned in `tests/sidebar.test.js`.
+
 The component owns `cc-`-prefixed IDs (`#cc-banner`, `#cc-tab-list`, `#cc-error`, `#cc-resize`) so
 they never collide with an app's page-shell IDs; the mount container itself carries the `.cc-root`
 class (not an id).
@@ -239,7 +251,7 @@ iterating on `sidebar.{css,js}`; the pinned-rev round-trip through an app is onl
 
 `just build` (`cargo build`) compiles the `include_str!` constants (catches a missing/renamed asset).
 `just test` (`node --test`) unit-tests the pure logic (`tileInitial`/`tileColour`/`tintOverBase`/
-`clampWidth`/`presenceClass`/`derivePresenceState`/`resolveOffset`/`buildTree`); `just gate` runs
+`liftColour`/`clampWidth`/`presenceClass`/`derivePresenceState`/`resolveOffset`/`buildTree`); `just gate` runs
 rustfmt-check + tests + build together. DOM/visual
 behaviour has no unit coverage — iterate it with `just preview` / `just shot` (above) and confirm
 integration by running the consuming apps.

@@ -42,6 +42,48 @@ function tintOverBase(hex, ratio, base) {
   return "rgb(" + ch(0) + "," + ch(1) + "," + ch(2) + ")";
 }
 
+/** Raise a hex colour's HSL lightness to a floor, preserving hue and saturation. Returns hex.
+ *
+ *  This is what makes the active-row highlight readable for ANY window colour. Tinting the *raw*
+ *  window colour makes the highlight's contrast a function of how dark the user happened to pick
+ *  it: the sidebar is that colour at 0.12 and the active row was the same colour at 0.28, so the
+ *  only thing separating them was 0.16 of the accent's own luminance. A dark accent has almost none
+ *  to give — `#002B49` moved the active row by `[-3,+3,+7]` (the RED channel going *down*), i.e.
+ *  the selected tab was effectively invisible, while a brighter `#33673B` read fine. Lifting the
+ *  accent to a lightness floor first decouples the highlight's contrast from the accent's
+ *  luminance while keeping its hue, so a window still highlights in *its own* colour.
+ *
+ *  Saturation is deliberately left alone (no floor): a floor would push the neutral no-colour
+ *  fallback (`NEUTRAL_COLOUR`, a near-grey slate) into a tinted blue, and every accent saturated
+ *  enough to be worth calling a window colour already clears any floor worth setting. */
+function liftColour(hex, minL) {
+  const [r, g, b] = hexToRgb(hex).map((v) => v / 255);
+  const mx = Math.max(r, g, b);
+  const mn = Math.min(r, g, b);
+  const d = mx - mn;
+  let h = 0;
+  let s = 0;
+  let l = (mx + mn) / 2;
+  if (d) {
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h /= 6;
+  }
+  if (l >= minL) return hex;
+  l = minL;
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const chan = (t) => {
+    t = (t + 1) % 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  const to = (v) => Math.round(v * 255).toString(16).padStart(2, "0");
+  return "#" + to(chan(h + 1 / 3)) + to(chan(h)) + to(chan(h - 1 / 3));
+}
+
 /** Clamp a desired sidebar width into [min, min(max, fraction*windowWidth)]. `fraction` caps the
  *  sidebar at a share of the window, but is only meaningful when `windowWidth` (the sidebar view's
  *  own `window.innerWidth`) IS the host window's width — i.e. the sidebar is the window's full-size
@@ -95,6 +137,14 @@ function derivePresenceState(classNames) {
 /** Opaque dark base the sidebar tint composites over (matches the CSS `.cc-root` fallback). */
 const SIDEBAR_BASE = [21, 25, 30]; // #15191e
 const NEUTRAL_COLOUR = "#6b7280";
+
+/** Active-row highlight, all three derived from the window colour via `liftColour` (read its
+ *  comment first — it carries the why). The fill is the lifted accent mixed over the sidebar base;
+ *  the bar is lifted harder because it is only 3px wide and has to carry the highlight on its own
+ *  when the fill is subtle. */
+const ACTIVE_FILL_MIN_L = 0.42;
+const ACTIVE_FILL_MIX = 0.42;
+const ACTIVE_BAR_MIN_L = 0.62;
 
 // Pop-out / pop-in icon (svgrepo "pop-in": a window frame + an arrow). The frame is shared; the
 // arrow points INTO the frame for pop-in and is reversed (180° about its own centre) to point OUT
@@ -244,7 +294,13 @@ class Sidebar {
     if (this.titlebarEl) this.titlebarEl.style.background = this.windowColour;
     const tint = tintOverBase(this.windowColour, 0.12);
     this.root.style.background = tint;
-    this.root.style.setProperty("--cc-active-bg", tintOverBase(this.windowColour, 0.28));
+    // Active-row highlight — the ONE place it is computed. `_paint` only toggles the `.active`
+    // class; the CSS reads these two vars, so the ratios live here and nowhere else.
+    this.root.style.setProperty(
+      "--cc-active-bg",
+      tintOverBase(liftColour(this.windowColour, ACTIVE_FILL_MIN_L), ACTIVE_FILL_MIX),
+    );
+    this.root.style.setProperty("--cc-active-bar", liftColour(this.windowColour, ACTIVE_BAR_MIN_L));
 
     // Window-move drag surface. Unless `windowDrag` is explicitly false, the NON-interactive chrome
     // (banner, name, the list container's empty area, group headers) carries `data-tauri-drag-region`
@@ -571,7 +627,6 @@ class Sidebar {
     for (const row of this.list.querySelectorAll(".cc-tab")) {
       const isActive = row.dataset.id === this.active;
       row.classList.toggle("active", isActive);
-      row.style.background = isActive ? tintOverBase(this.windowColour, 0.28) : "";
       // The active tab always has a live surface (selecting it activates/creates it), so upgrade its
       // dot to live even if the last DTO snapshot caught it cold. Without this the loaded dot never
       // fills after a lazy select, and the unload ✕ (gated on .live) can never fire.
@@ -890,7 +945,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, clampWidth, resolveOffset, presenceClass, derivePresenceState, buildTree };
+  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, derivePresenceState, buildTree };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;
