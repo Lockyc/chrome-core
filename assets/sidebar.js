@@ -106,6 +106,26 @@ function resolveOffset(ids, active, dir) {
   return ids[(base + dir + ids.length) % ids.length];
 }
 
+/** Write a targeted setter's signal onto the stored tab record, so any later re-render paints from
+ *  it. Returns whether a record matched (an unknown id is a no-op, not a throw).
+ *
+ *  **Load-bearing: `this.tabs` is the state, the DOM is only its projection.** The targeted setters
+ *  (`setLive`/`setAttention`/`setPresence`) exist to patch one hot signal without a full re-render,
+ *  and they used to touch the DOM *alone*. That silently loses the signal on any re-render that does
+ *  not go through `update()` — and a tree section has exactly one: `_renderTreeSection`'s `repaint`,
+ *  which rebuilds its rows from these records on every folder expand/collapse. A host that emits
+ *  such a signal only *on change* (warden's probe scheduler does — a settled window re-emits
+ *  nothing) then never re-sends it, so a lit presence dot inside a `tree: true` section reverted to
+ *  hollow the first time any folder in that section was toggled, and stayed hollow for the life of
+ *  the process. Flat rows never showed the bug: they are only ever rebuilt by `update()`, whose DTO
+ *  the host rebuilds from its own copy of the signal. */
+function patchTab(tabs, id, patch) {
+  const t = (tabs || []).find((x) => x.id === id);
+  if (!t) return false;
+  Object.assign(t, patch);
+  return true;
+}
+
 /** Class list for a presence dot given session state + capabilities. Three states:
  *  `on` = a probe reported a live session → a kill affordance when `killable`;
  *  `ghost` = no live session, but the host reports a *recoverable* one (warden: a crashed amux
@@ -691,6 +711,7 @@ class Sidebar {
   // ── targeted setters (patch a hot signal without a full re-render) ──
 
   setLive(id, live) {
+    patchTab(this.tabs, id, { live });
     const row = this._rowById(id);
     if (!row) return;
     const dot = row.querySelector(".cc-dot");
@@ -699,6 +720,7 @@ class Sidebar {
   }
 
   setAttention(id, val) {
+    patchTab(this.tabs, id, { attention: val == null ? null : val });
     const row = this._rowById(id);
     if (!row) return;
     let a = row.querySelector(".cc-attention");
@@ -718,6 +740,7 @@ class Sidebar {
   }
 
   setPresence(id, state) {
+    patchTab(this.tabs, id, { presence: state == null ? null : state });
     const row = this._rowById(id);
     if (!row) return;
     let s = row.querySelector(".cc-presence");
@@ -945,7 +968,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, derivePresenceState, buildTree };
+  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, derivePresenceState, buildTree, patchTab };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;

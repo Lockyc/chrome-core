@@ -10,6 +10,7 @@ const {
   presenceClass,
   derivePresenceState,
   buildTree,
+  patchTab,
 } = require("../assets/sidebar.js");
 
 test("tileInitial: first alphanumeric, uppercased; bullet fallback", () => {
@@ -195,4 +196,28 @@ test("resolveOffset: cycles among ids with wraparound; null when empty", () => {
   // unknown active steps in from the end opposite the direction of travel
   assert.equal(resolveOffset(ids, "zzz", 1), "a");
   assert.equal(resolveOffset(ids, "zzz", -1), "c");
+});
+
+test("patchTab: a targeted setter's signal lands on the stored tab, so a re-render keeps it", () => {
+  const tabs = [
+    { id: "/d/a", presence: "off", attention: null, live: false },
+    { id: "/d/b", presence: "off", attention: null, live: false },
+  ];
+  assert.equal(patchTab(tabs, "/d/a", { presence: "on" }), true);
+  assert.equal(tabs[0].presence, "on");
+  assert.equal(tabs[1].presence, "off", "siblings are untouched");
+  // A tree section repaints itself from these records on every folder toggle, so the record —
+  // not the painted DOM — is what survives. Clearing writes null rather than deleting the key.
+  assert.equal(patchTab(tabs, "/d/a", { presence: null }), true);
+  assert.equal(tabs[0].presence, null);
+  assert.equal(patchTab(tabs, "/d/b", { attention: 3, live: true }), true);
+  assert.equal(tabs[1].attention, 3);
+  assert.equal(tabs[1].live, true);
+});
+
+test("patchTab: unknown id or missing list is a no-op, not a throw", () => {
+  const tabs = [{ id: "/d/a", presence: "off" }];
+  assert.equal(patchTab(tabs, "/d/nope", { presence: "on" }), false);
+  assert.equal(tabs[0].presence, "off");
+  assert.equal(patchTab(undefined, "/d/a", { presence: "on" }), false);
 });

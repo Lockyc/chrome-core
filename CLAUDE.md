@@ -105,6 +105,15 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   forwards its own app-named menu event here), and **`destroy()`** (stop the recurring update check —
   the only long-lived resource the component holds).
 
+> **Footgun — a targeted setter must write its signal back to `this.tabs`, not just the DOM.**
+> `setLive` / `setAttention` / `setPresence` each call `patchTab(this.tabs, id, …)` before touching a
+> row: the tab record is the state, the painted row only its projection. A `tree: true` section
+> repaints itself from those records on every folder expand/collapse (`_renderTreeSection`'s
+> `repaint`), which never goes through `update()` — so a DOM-only patch is silently reverted there,
+> and a host that emits the signal only *on change* never re-sends it. Flat rows hide the bug (only
+> `update()` rebuilds them). Any new targeted setter takes the same write-back. Full mechanism:
+> `patchTab`'s comment in `assets/sidebar.js`.
+
 **Dot slots (fixed order): attention · presence · live/unload.** Attention = amber dot, rendered as a
 count pill when `attention` is a number (curator's unread count). Live/unload = green live ↔ hover-✕
 unload / hollow cold. (Pop-out is **not** a dot slot — it's a hover overlay on the icon tile, below.)
