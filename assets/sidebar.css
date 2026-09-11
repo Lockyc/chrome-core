@@ -291,11 +291,18 @@
    *
    * A hard ceiling can't strand space here, which is what makes it the right shape: every tab in
    * this section is ALSO a row in the main list, so the section can never need more room than the
-   * list below it does. `flex-shrink` is left at its default 1 (and `min-height: 0` allows it to
-   * act) so a short window takes the space back off this section rather than crushing the main
-   * list — the pinned section yields first, since its rows are all duplicated below anyway. */
-  flex: 0 1 auto;
-  min-height: 0;
+   * list below it does.
+   *
+   * FOOTGUN: `flex-shrink` MUST be 0. It is tempting to leave it at the default 1 so a very short
+   * window can take height back off this section (its rows being duplicated below anyway) — but
+   * flex shrink applies whenever the CONTAINER overflows, and the container overflows whenever the
+   * main list is longer than the sidebar, which is the ordinary case. The section then gets
+   * squeezed proportionally on every long list and starts scrolling at three or four rows, nowhere
+   * near the ceiling — a scrollbar on a section occupying a fifth of the window. `max-height` is
+   * the ONLY thing that may bound this section. (The degenerate case that shrink was guarding does
+   * not exist: --cc-open-max could only exceed the list's own height in a window shorter than the
+   * banner it carries.) */
+  flex: 0 0 auto;
   max-height: var(--cc-open-max);
   overflow-y: auto;
 }

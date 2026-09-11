@@ -242,12 +242,21 @@ out, and each section scrolls on its own: the pinned one is content-sized up to 
 (2/5 of the window) and then scrolls within itself, the main one takes the rest. Paging through a
 long project list therefore never pushes the open tabs off the top, which is the whole point of
 pinning them. A hard ceiling can't strand space here — every tab in the pinned section is also a row
-in the main list, so the section can never need more room than the list below it does — and the
-section keeps `flex-shrink: 1` so a short window takes height back off *it* rather than crushing the
-main list, its rows being duplicated below anyway. Both need `min-height: 0` (a flex item's
-automatic minimum size is its content height, which would otherwise defeat every one of these caps),
-and `flex-shrink: 0` on the ROWS is scoped inside the sections — at `#cc-tab-list > *` it would pin
-the sections themselves and the yielding above could never happen.
+in the main list, so the section can never need more room than the list below it does. `.cc-main`
+needs `min-height: 0` (a flex item's automatic minimum size is its content height, which would
+otherwise defeat the cap and grow the list instead of scrolling it), and `flex-shrink: 0` on the
+ROWS is scoped inside the sections rather than at `#cc-tab-list > *`, which would also pin the
+sections themselves.
+
+> **Footgun — `.cc-open` must be `flex-shrink: 0`; `max-height` is the only thing allowed to bound
+> it.** Leaving shrink at the default 1 looks like a free safety valve (a very short window takes
+> height back off the pinned section, whose rows are all duplicated below anyway). It isn't: flex
+> shrink applies whenever the CONTAINER overflows, and the container overflows whenever the main
+> list is longer than the sidebar — the ordinary case. The section is then squeezed *proportionally
+> on every long list* and starts scrolling at three or four rows, nowhere near the ceiling, which
+> reads as a scrollbar on a section occupying a fifth of the window. Shipped exactly that way once.
+> The degenerate case shrink was guarding does not exist: `--cc-open-max` could only exceed the
+> list's own height in a window shorter than the banner it carries.
 
 `.cc-main` also lets the CSS address the main list as a unit, which buys two more things. `.cc-group:first-child` means "first header of its own list" again in both containers — the
 pinned section is always the list's first child, so without the split the main list's first header
