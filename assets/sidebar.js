@@ -248,6 +248,8 @@ class Sidebar {
     this._pendingUpdate = null;
     this._updateDismissed = false;
     this._updateTimer = null;
+    // When the host last reported the pointer leaving (`pointerAway`); 0 = never.
+    this._awayAt = 0;
     this._buildShell();
     this._initResize();
     this._restoreWidth();
@@ -258,8 +260,17 @@ class Sidebar {
     this.root.classList.add("cc-root");
     this.root.innerHTML = "";
     // Any pointer activity inside the chrome cancels `cc-away` (see `pointerAway`) — the page can
-    // see the pointer again, so `:hover` is authoritative from here.
-    this.root.addEventListener("pointermove", () => this.root.classList.remove("cc-away"));
+    // see the pointer again, so `:hover` is authoritative from here. STALE moves must not cancel
+    // it: the host's signal and the page's own pointer events arrive by different routes (an IPC
+    // hop vs. the webview's event queue), so a move the page queued while the pointer was still
+    // inside can be dispatched *after* the away signal. That is the medium-speed window — slow
+    // leaves no backlog, fast has it coalesced away — and it un-muted the list right back. An event
+    // older than the moment we were told the pointer left describes where it used to be, so it
+    // decides nothing; `timeStamp` shares `performance.now()`'s time origin.
+    this.root.addEventListener("pointermove", (e) => {
+      if (e.timeStamp < this._awayAt) return;
+      this.root.classList.remove("cc-away");
+    });
     // The traffic-light strip. Only exists when the consumer names itself — a host without an
     // appName (preview.html) renders exactly as before, so the field is purely additive.
     this.titlebarEl = this.cfg.appName ? el("div", { id: "cc-titlebar" }) : null;
@@ -317,6 +328,9 @@ class Sidebar {
    * pointer event inside the chrome clears it again. Hosts with no native overlay (curator, lector,
    * preview.html) never call it and lose nothing. */
   pointerAway() {
+    // Timestamped so a pointer event the page queued *before* this — see the pointermove listener
+    // in `_buildShell` — can't cancel it on arrival.
+    this._awayAt = performance.now();
     this.root.classList.add("cc-away");
   }
 

@@ -287,7 +287,12 @@ just be an unreadable sidebar), and `.cc-main` takes `flex-grow: 1` so the hover
 > quickly" and not as a dead feature.) The escape hatch is **`pointerAway()`**: the host calls it
 > from the signal it *can* see (its own native mouse-entered), setting `cc-away` on the root, and
 > the hover rule is written `.cc-root:not(.cc-away) …` so the class suppresses it; the next
-> `pointermove` inside the chrome clears it. A host with no native overlay never calls it. **Any
+> `pointermove` inside the chrome clears it — but only one that is NOT older than the away signal:
+> the two travel different routes (an IPC hop vs. the webview's own event queue), so a move queued
+> while the pointer was still inside can arrive after `pointerAway()` and un-mute the list right
+> back. That is the medium-speed window (slow leaves no backlog, fast has it coalesced away), and it
+> is why `_awayAt` is a timestamp rather than a bare flag. A host with no native overlay never calls
+> it. **Any
 > future hover-driven affordance in this component inherits the same trap** — gate it on `.cc-away`
 > too rather than adding a second mechanism.
 
