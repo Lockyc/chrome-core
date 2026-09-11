@@ -248,6 +248,16 @@ otherwise defeat the cap and grow the list instead of scrolling it), and `flex-s
 ROWS is scoped inside the sections rather than at `#cc-tab-list > *`, which would also pin the
 sections themselves.
 
+> **Footgun — the section scrollers must carry no `padding-top`.** A sticky header's `top: 0` is
+> measured from the scrollport's *padding* box while overflow is clipped at that same box, so top
+> padding on the scroller parks every stuck header that far down and leaves the rows scrolling past
+> visible in the strip above it — a sliver of the row underneath, riding over the header. This was
+> live for as long as the sticky headers were: `#cc-tab-list` was the scroller and carried
+> `padding: 8px 0`, leaking exactly 8px (measured: 8.00px stuck, versus 0.00px with no scroller
+> padding). It keeps that padding today only because it no longer scrolls. Space the first header
+> with its own `padding-top` (`--cc-group-first-top`, inside the painted box), never with padding on
+> a scroller.
+
 > **Footgun — `.cc-open` must be `flex-shrink: 0`; `max-height` is the only thing allowed to bound
 > it.** Leaving shrink at the default 1 looks like a free safety valve (a very short window takes
 > height back off the pinned section, whose rows are all duplicated below anyway). It isn't: flex

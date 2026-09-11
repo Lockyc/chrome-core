@@ -247,7 +247,17 @@
 }
 
 /* Sticky section header. Its opaque background is set by JS to the same window tint as the sidebar
- * so rows scroll invisibly under it; this is the pre-paint fallback. */
+ * so rows scroll invisibly under it; this is the pre-paint fallback.
+ *
+ * FOOTGUN: the SCROLLER this sticks inside must have no `padding-top`. `top: 0` is measured from the
+ * scrollport's PADDING box, but overflow is clipped at that same box — so a scroller with top padding
+ * parks the stuck header that far down while scrolled rows stay visible in the strip above it, and a
+ * sliver of the row underneath shows over the header. `#cc-tab-list` carried `padding: 8px 0` while
+ * it was the scroller and leaked exactly 8px of row text above every stuck header, for as long as
+ * the sticky headers existed. It keeps that padding now only because it no longer scrolls — the
+ * sections do, and they have none. Give a section top padding and the leak comes straight back;
+ * space the first header with its own `padding-top` (`--cc-group-first-top`, which is inside the
+ * painted box) instead. */
 .cc-group {
   position: sticky;
   top: 0;
