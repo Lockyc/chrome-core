@@ -278,6 +278,19 @@ gated on the section being **non-empty**, not merely opted in (muting the only l
 just be an unreadable sidebar), and `.cc-main` takes `flex-grow: 1` so the hover region includes the
 **empty space under the last row**, which reads as part of the list and would otherwise stay dim.
 
+> **Footgun — `:hover` is not self-clearing for a host that composites a NATIVE surface over the
+> webview.** CSS recomputes hover only on a pointer event the page actually receives; warden's
+> terminal `NSView` sits above the webview and takes the pointer the instant it crosses out of the
+> chrome, so a fast flick out of the main list delivers no further event and the list stays
+> un-muted until the pointer returns. (Moving slowly worked only because the gutter between the list
+> and the surface caught an event on the way past — which is why this reads as "only when I move
+> quickly" and not as a dead feature.) The escape hatch is **`pointerAway()`**: the host calls it
+> from the signal it *can* see (its own native mouse-entered), setting `cc-away` on the root, and
+> the hover rule is written `.cc-root:not(.cc-away) …` so the class suppresses it; the next
+> `pointermove` inside the chrome clears it. A host with no native overlay never calls it. **Any
+> future hover-driven affordance in this component inherits the same trap** — gate it on `.cc-away`
+> too rather than adding a second mechanism.
+
 > **Footgun — one tab id can own TWO rows, so row lookup is `_rowsById` (plural).** Everything that
 > patches a row by id must loop: `setLive`, `setAttention`, `setPresence`, and the kill-confirm
 > arm/disarm. A singular lookup compiles and looks right — it silently paints one row and leaves the

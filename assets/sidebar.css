@@ -347,7 +347,13 @@
   filter: saturate(0.25) opacity(0.5);
   transition: filter 160ms ease;
 }
-.cc-open:not(:empty) ~ .cc-main:hover {
+/* The un-mute is gated on `.cc-away` being absent, not on `:hover` alone: a host that composites a
+ * NATIVE surface above the webview (warden's terminal NSView) swallows the pointer the instant it
+ * crosses out of the chrome, so on a fast flick the page's last mousemove is still inside this list
+ * and `:hover` never clears — the list stayed lit until the pointer came back. Such a host calls
+ * `pointerAway()` from its own native mouse-entered event; see the `cc-away` comment in sidebar.js.
+ * A host with no native overlay never sets the class and this reads exactly as `:hover` alone. */
+.cc-root:not(.cc-away) .cc-open:not(:empty) ~ .cc-main:hover {
   filter: none;
 }
 /* Honour a reduced-motion preference: the state change still happens, it just doesn't animate. */

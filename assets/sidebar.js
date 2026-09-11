@@ -257,6 +257,9 @@ class Sidebar {
   _buildShell() {
     this.root.classList.add("cc-root");
     this.root.innerHTML = "";
+    // Any pointer activity inside the chrome cancels `cc-away` (see `pointerAway`) — the page can
+    // see the pointer again, so `:hover` is authoritative from here.
+    this.root.addEventListener("pointermove", () => this.root.classList.remove("cc-away"));
     // The traffic-light strip. Only exists when the consumer names itself — a host without an
     // appName (preview.html) renders exactly as before, so the field is purely additive.
     this.titlebarEl = this.cfg.appName ? el("div", { id: "cc-titlebar" }) : null;
@@ -299,6 +302,22 @@ class Sidebar {
     this.resizeEl = el("div", { id: "cc-resize" });
     if (this.titlebarEl) this.root.append(this.titlebarEl);
     this.root.append(this.banner, this.errorBar, this.updateBar, this.list, this.resizeEl);
+  }
+
+  /** The pointer has left the sidebar, as reported by the HOST rather than observed by the page.
+   *
+   * Hover state here is CSS (`.cc-main:hover` un-mutes the de-emphasised main list), and CSS only
+   * recomputes it when the page receives a pointer event. A host that composites a native surface
+   * above the webview — warden's terminal `NSView` — takes the pointer the moment it crosses out of
+   * the chrome, so a fast flick out of the list delivers no further event to the page: the last one
+   * it saw was still inside, and the list stayed un-muted indefinitely. Moving slowly worked only
+   * because the gutter between the list and the surface caught an event on the way past.
+   *
+   * The host calls this from the signal it *can* see (its own native mouse-entered), and the next
+   * pointer event inside the chrome clears it again. Hosts with no native overlay (curator, lector,
+   * preview.html) never call it and lose nothing. */
+  pointerAway() {
+    this.root.classList.add("cc-away");
   }
 
   // ── rendering ──
