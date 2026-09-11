@@ -23,6 +23,9 @@
                           rows above the main list for every `live` or `detached` tab, which in
                           this fixture pulls rows out of all three section kinds (loose, a plain
                           group, and a project tree) while leaving every one of them in place.
+                          The main list below renders de-emphasised while the section is showing —
+                          hover anywhere in it (the empty space under the last row counts) to
+                          bring it back.
 
      Raw headless invocation (what `just shot` wraps):
        chrome --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 \

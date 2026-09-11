@@ -252,12 +252,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* The pinned "Open" section is always the list's first child, so the first section of the MAIN list
- * is `:first-child` only while that section is empty — hence the second selector. Without it, an app
- * that never opts in (curator, lector: the wrapper is present but empty) would lose this rule and
- * grow a stray top border + margin above its first group. */
-.cc-group:first-child,
-.cc-open:empty + .cc-group {
+/* Flush against the top of whichever list it heads — the main list or the pinned section, each of
+ * which is its own container, so `:first-child` means the same thing in both. */
+.cc-group:first-child {
   margin-top: 0;
   border-top: none;
   padding-top: var(--cc-group-first-top);
@@ -278,6 +275,40 @@
 }
 .cc-open:empty {
   display: none;
+}
+
+/* ── The main list ── everything that is not the pinned section. It is a container only so the CSS
+ * can address it as a unit; it re-states the list's column flow for the same reason `.cc-open` does.
+ *
+ * When the pinned section is showing, the main list is no longer where you are working — it is the
+ * index you occasionally reach into — so it is de-emphasised until pointed at: colour drains out and
+ * the whole block dims, and a hover anywhere in it brings it back. Gated on the section being
+ * NON-EMPTY, not merely opted in: with nothing open there is nothing for the eye to prefer, and
+ * muting the only list on screen would be an unreadable sidebar. `filter` is the right tool over
+ * per-property fades because the rows carry many colours (tile, three dot states, the accent
+ * highlight) and this must desaturate all of them at once, including ones added later. */
+.cc-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Grow into the list's leftover space so the region the pointer must enter to un-mute the main
+   * list includes the EMPTY area under the last row — that blank space reads as part of the list,
+   * and a hover target that stopped at the last row would leave it stubbornly dim. (`#cc-tab-list
+   * > *` pins flex-shrink at 0; only growth is added here.) */
+  flex-grow: 1;
+}
+.cc-open:not(:empty) ~ .cc-main {
+  filter: saturate(0.25) opacity(0.5);
+  transition: filter 160ms ease;
+}
+.cc-open:not(:empty) ~ .cc-main:hover {
+  filter: none;
+}
+/* Honour a reduced-motion preference: the state change still happens, it just doesn't animate. */
+@media (prefers-reduced-motion: reduce) {
+  .cc-open:not(:empty) ~ .cc-main {
+    transition: none;
+  }
 }
 
 /* ── Project-tree section ── a `.cc-group` variant for a run of rows tagged `tree: true` (warden's

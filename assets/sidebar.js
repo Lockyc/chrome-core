@@ -354,6 +354,12 @@ class Sidebar {
     this.openEl = el("div", { class: "cc-open" });
     this.list.appendChild(this.openEl);
     this._paintOpenSection();
+    // Everything that is not the pinned section lives in one container, so the CSS can address
+    // "the main list" as a unit — it is the hover target that lifts the de-emphasis the pinned
+    // section puts on it, and it restores `.cc-group:first-child` to meaning the first header of
+    // the main list (the pinned section would otherwise always be the list's first child).
+    this.mainEl = el("div", { class: "cc-main" });
+    this.list.appendChild(this.mainEl);
 
     let lastGroup;
     let i = 0;
@@ -373,10 +379,10 @@ class Sidebar {
         const h = el("div", { class: "cc-group" }, g);
         h.style.background = tint; // sticky header matches the tinted sidebar
         this._setDrag(h, drag);
-        this.list.appendChild(h);
+        this.mainEl.appendChild(h);
       }
       lastGroup = g;
-      this.list.appendChild(this._renderRow(t));
+      this.mainEl.appendChild(this._renderRow(t));
       i++;
     }
 
@@ -445,10 +451,10 @@ class Sidebar {
       if (this.cb.onRescan) this.cb.onRescan(group);
     });
     head.appendChild(rescan);
-    this.list.appendChild(head);
+    this.mainEl.appendChild(head);
 
     const body = el("div", { class: "cc-tree-body" });
-    this.list.appendChild(body);
+    this.mainEl.appendChild(body);
 
     const tree = buildTree(rows);
     const repaint = () => {

@@ -236,6 +236,18 @@ in its own group/tree as well, so the main list never shuffles as terminals come
 repaints whole (`_paintOpenSection`) rather than patching a row in or out, from `update()` and from
 `setLive` — which is the only targeted setter that can change membership.
 
+The tab list therefore has **two containers, always both present**: `.cc-open` and `.cc-main`
+(everything else). `.cc-main` exists so the CSS can address the main list as a unit, which buys two
+things. `.cc-group:first-child` means "first header of its own list" again in both containers — the
+pinned section is always the list's first child, so without the split the main list's first header
+would permanently lose its flush-top treatment. And while the pinned section is showing, the main
+list is **de-emphasised until pointed at** (`filter: saturate() opacity()`, lifted on `:hover`,
+`transition` dropped under `prefers-reduced-motion`): with the open tabs pinned above, the list below
+is the index you reach into, not where you are working. Two deliberate details: the de-emphasis is
+gated on the section being **non-empty**, not merely opted in (muting the only list on screen would
+just be an unreadable sidebar), and `.cc-main` takes `flex-grow: 1` so the hover region includes the
+**empty space under the last row**, which reads as part of the list and would otherwise stay dim.
+
 > **Footgun — one tab id can own TWO rows, so row lookup is `_rowsById` (plural).** Everything that
 > patches a row by id must loop: `setLive`, `setAttention`, `setPresence`, and the kill-confirm
 > arm/disarm. A singular lookup compiles and looks right — it silently paints one row and leaves the
@@ -274,7 +286,8 @@ in the banner's `header` slot (curator's nav pill; warden leaves it empty) and a
 `#cc-banner`'s measured height — which must be identical with and without `?header=1`, the check that
 `--cc-banner-min` keeps the banner one height regardless of the slot; **`?open=1`** mounts the pinned
 "Open" section (the fixture's live/detached rows span all three section kinds, so it shows mirrors
-being drawn without the originals moving). This is the fast loop for
+being drawn without the originals moving, and the main list below rendered in its de-emphasised
+state — hover it to see it come back). This is the fast loop for
 iterating on `sidebar.{css,js}`; the pinned-rev round-trip through an app is only for shipping.
 
 ## Build / test
