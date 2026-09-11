@@ -11,6 +11,7 @@ const {
   derivePresenceState,
   buildTree,
   patchTab,
+  openTabs,
 } = require("../assets/sidebar.js");
 
 test("tileInitial: first alphanumeric, uppercased; bullet fallback", () => {
@@ -220,4 +221,24 @@ test("patchTab: unknown id or missing list is a no-op, not a throw", () => {
   assert.equal(patchTab(tabs, "/d/nope", { presence: "on" }), false);
   assert.equal(tabs[0].presence, "off");
   assert.equal(patchTab(undefined, "/d/a", { presence: "on" }), false);
+});
+
+test("openTabs: membership is `live || detached`, in the DTO's own order", () => {
+  const tabs = [
+    { id: "/a", live: false },
+    { id: "/b", live: true },
+    // Detached counts: the tab IS open, just in its own popped-out window. `live` reports only a
+    // LOCAL surface, so a detached tab is routinely `live: false`.
+    { id: "/c", live: false, detached: true },
+    { id: "/d", live: true, detached: true },
+    // `presence` is a session probe, not openness — a cold tab with a live amux session is NOT open.
+    { id: "/e", live: false, presence: "on" },
+  ];
+  assert.deepEqual(openTabs(tabs).map((t) => t.id), ["/b", "/c", "/d"]);
+});
+
+test("openTabs: empty or missing list is an empty section, not a throw", () => {
+  assert.deepEqual(openTabs([]), []);
+  assert.deepEqual(openTabs(undefined), []);
+  assert.deepEqual(openTabs([{ id: "/a" }, { id: "/b", live: false }]), []);
 });

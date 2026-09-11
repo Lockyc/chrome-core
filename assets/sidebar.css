@@ -252,10 +252,32 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.cc-group:first-child {
+/* The pinned "Open" section is always the list's first child, so the first section of the MAIN list
+ * is `:first-child` only while that section is empty — hence the second selector. Without it, an app
+ * that never opts in (curator, lector: the wrapper is present but empty) would lose this rule and
+ * grow a stray top border + margin above its first group. */
+.cc-group:first-child,
+.cc-open:empty + .cc-group {
   margin-top: 0;
   border-top: none;
   padding-top: var(--cc-group-first-top);
+}
+
+/* ── The pinned "Open" section ── mirror rows for the tabs with a terminal/view standing, above the
+ * main list (warden's `open_tabs_section`). A plain container so the section can be repainted on its
+ * own; it re-states the list's own column flow because wrapping the rows takes them out of it, and
+ * closes with a heavier rule than a group border so the mirrors read as a separate list rather than
+ * as the first group of the main one. Empty (not opted in, or nothing open) → gone entirely. */
+.cc-open {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+  border-bottom: 2px solid #313640;
+  padding-bottom: 8px;
+}
+.cc-open:empty {
+  display: none;
 }
 
 /* ── Project-tree section ── a `.cc-group` variant for a run of rows tagged `tree: true` (warden's

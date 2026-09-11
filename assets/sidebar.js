@@ -106,6 +106,14 @@ function resolveOffset(ids, active, dir) {
   return ids[(base + dir + ids.length) % ids.length];
 }
 
+/** The tabs the pinned "Open" section mirrors, in the DTO's own order. Open = has a terminal/view
+ *  standing: a live local surface, or a detached one (running in its own popped-out window, where
+ *  `live` reports only the LOCAL surface and is routinely false). A session probe (`presence`) is
+ *  deliberately NOT openness — a cold tab with a live amux session behind it is not open. */
+function openTabs(tabs) {
+  return (tabs || []).filter((t) => t.live || t.detached);
+}
+
 /** Write a targeted setter's signal onto the stored tab record, so any later re-render paints from
  *  it. Returns whether a record matched (an unknown id is a no-op, not a throw).
  *
@@ -337,6 +345,16 @@ class Sidebar {
     this._setDrag(this.list, drag);
 
     this.list.innerHTML = "";
+    // The pinned "Open" section, opt-in per window DTO (warden's `open_tabs_section`). It lives in
+    // its own container at the top of the list so `setLive` can rebuild JUST it when a tab's
+    // membership changes, without a full re-render.
+    this.openSection = dto.openSection === true;
+    this.tint = tint;
+    this.drag = drag;
+    this.openEl = el("div", { class: "cc-open" });
+    this.list.appendChild(this.openEl);
+    this._paintOpenSection();
+
     let lastGroup;
     let i = 0;
     while (i < this.tabs.length) {
@@ -377,6 +395,37 @@ class Sidebar {
       if (this.active && this.active !== prevActive && this.cb.onSelect) {
         this.cb.onSelect(this.active, { wasActive: false });
       }
+    }
+  }
+
+  // ── the pinned "Open" section (opt-in: `openSection` on the DTO) ──
+
+  /** Rebuild the pinned section from `this.tabs` — a header plus a MIRROR row for every open tab.
+   *
+   *  The rows are duplicates: an open tab keeps its row in its own group/tree as well, so the main
+   *  list never shuffles as terminals come and go. **The DTO is not duplicated** — `this.tabs` stays
+   *  one record per tab, so `patchTab` and every id → record lookup are unaffected. What IS newly
+   *  true is that one id can own TWO rows, which is why row lookup is `_rowsById` (plural, every
+   *  match) and why the mirrors carry `data-mirror` so keyboard nav can skip them (they would
+   *  otherwise shift every ⌘1–9 index and make live-only cycling visit each open tab twice).
+   *
+   *  Membership is a function of `live`/`detached`, so it changes on a targeted `setLive` as well as
+   *  a full `update()` — both repaint the whole section rather than patching a row in or out, which
+   *  is cheap (open tabs are few) and keeps the section's order derived from one place. */
+  _paintOpenSection() {
+    if (!this.openEl) return;
+    this.openEl.innerHTML = "";
+    if (!this.openSection) return;
+    const rows = openTabs(this.tabs);
+    if (!rows.length) return; // no header over an empty section
+    const head = el("div", { class: "cc-group" }, "Open");
+    head.style.background = this.tint; // sticky header matches the tinted sidebar
+    this._setDrag(head, this.drag);
+    this.openEl.appendChild(head);
+    for (const t of rows) {
+      const row = this._renderRow(t);
+      row.dataset.mirror = "1";
+      this.openEl.appendChild(row);
     }
   }
 
@@ -639,8 +688,11 @@ class Sidebar {
     row.append(cancel);
   }
 
-  _rowById(id) {
-    return this.list.querySelector('.cc-tab[data-id="' + (window.CSS ? CSS.escape(id) : id) + '"]');
+  /** EVERY row for `id` — plural because the pinned "Open" section mirrors an open tab's row, so one
+   *  id can own two. A singular lookup here silently patched only the first, leaving the twin's dot,
+   *  badge or presence stale. */
+  _rowsById(id) {
+    return [...this.list.querySelectorAll('.cc-tab[data-id="' + (window.CSS ? CSS.escape(id) : id) + '"]')];
   }
 
   _paint() {
@@ -693,7 +745,7 @@ class Sidebar {
    *  cold tabs; curator passes liveOnly:false). */
   selectByOffset(dir, opts) {
     const liveOnly = opts && opts.liveOnly;
-    const rows = [...this.list.querySelectorAll(".cc-tab")].filter(
+    const rows = this._navRows().filter(
       (r) => !liveOnly || r.querySelector(".cc-dot.live")
     );
     const ids = rows.map((r) => r.dataset.id);
@@ -704,62 +756,73 @@ class Sidebar {
 
   /** Jump to the 1-based position `n` → onSelect. No-op past the last tab. */
   selectByIndex(n) {
-    const ids = [...this.list.querySelectorAll(".cc-tab")].map((r) => r.dataset.id);
+    const ids = this._navRows().map((r) => r.dataset.id);
     if (n >= 1 && n <= ids.length) this.select(ids[n - 1]);
+  }
+
+  /** The rows keyboard navigation walks: the main list in DTO order, with the pinned section's
+   *  MIRRORS excluded. Including them would shift every ⌘1–9 index by however many tabs happened
+   *  to be open, and make ⌘⇧[ / ⌘⇧] visit each open tab twice per lap. */
+  _navRows() {
+    return [...this.list.querySelectorAll(".cc-tab:not([data-mirror])")];
   }
 
   // ── targeted setters (patch a hot signal without a full re-render) ──
 
   setLive(id, live) {
     patchTab(this.tabs, id, { live });
-    const row = this._rowById(id);
-    if (!row) return;
-    const dot = row.querySelector(".cc-dot");
-    if (dot) this._paintDot(dot, live);
-    this._refreshPresenceLive(row, live); // live gates the presence `start` affordance
+    // Live-state IS the pinned section's membership, so this repaints it (the record is already
+    // patched above, so the mirror renders correct on birth) before patching the standing rows.
+    this._paintOpenSection();
+    this._paint(); // a freshly-built mirror of the active tab needs its `.active` class
+    for (const row of this._rowsById(id)) {
+      const dot = row.querySelector(".cc-dot");
+      if (dot) this._paintDot(dot, live);
+      this._refreshPresenceLive(row, live); // live gates the presence `start` affordance
+    }
   }
 
   setAttention(id, val) {
     patchTab(this.tabs, id, { attention: val == null ? null : val });
-    const row = this._rowById(id);
-    if (!row) return;
-    let a = row.querySelector(".cc-attention");
-    if (val == null) {
-      if (a) a.remove();
-      return;
-    }
-    if (!a) {
-      a = this._makeAttention(val);
-      // keep order [attention][presence][live]: insert before presence if present, else the dot
-      row.insertBefore(a, row.querySelector(".cc-presence") || row.querySelector(".cc-dot"));
-    } else {
-      const fresh = this._makeAttention(val);
-      a.className = fresh.className;
-      a.textContent = fresh.textContent;
+    for (const row of this._rowsById(id)) {
+      let a = row.querySelector(".cc-attention");
+      if (val == null) {
+        if (a) a.remove();
+        continue;
+      }
+      if (!a) {
+        a = this._makeAttention(val);
+        // keep order [attention][presence][live]: insert before presence if present, else the dot
+        row.insertBefore(a, row.querySelector(".cc-presence") || row.querySelector(".cc-dot"));
+      } else {
+        const fresh = this._makeAttention(val);
+        a.className = fresh.className;
+        a.textContent = fresh.textContent;
+      }
     }
   }
 
   setPresence(id, state) {
     patchTab(this.tabs, id, { presence: state == null ? null : state });
-    const row = this._rowById(id);
-    if (!row) return;
-    let s = row.querySelector(".cc-presence");
-    if (state == null) {
-      if (s) s.remove();
-      if (this.armedKill === id) this._disarmKill();
-      return;
+    for (const row of this._rowsById(id)) {
+      let s = row.querySelector(".cc-presence");
+      if (state == null) {
+        if (s) s.remove();
+        continue;
+      }
+      const killable = s ? s.dataset.kill === "1" : false;
+      const startable = s ? s.dataset.start === "1" : false;
+      const live = !!row.querySelector(".cc-dot.live");
+      if (!s) {
+        const t = this.tabs.find((x) => x.id === id) || {};
+        s = this._makePresence(t, state);
+        row.insertBefore(s, row.querySelector(".cc-dot"));
+      } else {
+        this._paintPresence(s, id, state, killable, startable, live);
+      }
     }
-    const killable = s ? s.dataset.kill === "1" : false;
-    const startable = s ? s.dataset.start === "1" : false;
-    const live = !!row.querySelector(".cc-dot.live");
-    if (!s) {
-      const t = this.tabs.find((x) => x.id === id) || {};
-      s = this._makePresence(t, state);
-      row.insertBefore(s, row.querySelector(".cc-dot"));
-    } else {
-      this._paintPresence(s, id, state, killable, startable, live);
-    }
-    if (state !== "on" && this.armedKill === id) this._disarmKill(); // session gone → nothing to kill
+    // Session gone → nothing left to kill, on either row.
+    if (state !== "on" && this.armedKill === id) this._disarmKill();
   }
 
   // ── kill-confirm state machine ──
@@ -774,8 +837,9 @@ class Sidebar {
     };
     this._onArmOutside = (e) => {
       if (!this.armedKill) return;
-      const row = this._rowById(this.armedKill);
-      if (row && row.contains(e.target)) return; // inside the armed row → its ⏻/↩ handle it
+      // Inside the armed row → its ⏻/↩ handle it. Only ONE of an id's rows is ever armed (the one
+      // clicked), but checking them all is the same answer and needs no record of which.
+      if (this._rowsById(this.armedKill).some((row) => row.contains(e.target))) return;
       this._disarmKill();
     };
     document.addEventListener("keydown", this._onArmKey);
@@ -789,8 +853,7 @@ class Sidebar {
     if (this._onArmOutside) document.removeEventListener("click", this._onArmOutside, true);
     this._onArmKey = this._onArmOutside = null;
     if (prev) {
-      const row = this._rowById(prev);
-      if (row) row.classList.remove("confirming");
+      for (const row of this._rowsById(prev)) row.classList.remove("confirming");
     }
   }
 
@@ -968,7 +1031,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, derivePresenceState, buildTree, patchTab };
+  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, derivePresenceState, buildTree, patchTab, openTabs };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;

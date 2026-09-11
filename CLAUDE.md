@@ -82,7 +82,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   per-instance namespace for tree-collapse persistence (below) — it need only be unique per mounted
   sidebar, its literal contents don't matter beyond that.
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
-  windowDrag?: bool, active?: id, tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null,
+  windowDrag?: bool, openSection?: bool, active?: id, tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null,
   live: bool, attention: null|true|number, presence: null|'on'|'ghost'|'off', killable: bool, startable: bool,
   warn: bool, tree?: bool, treePath?: string[], detached?: bool }`. **`detached`** is opt-in (absent/falsy
   on every row until an app's DTO sets it) — see the pop-out section below for what it does to a row.
@@ -91,6 +91,8 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   host window (interactive descendants stay clickable; Tauri drags only when the mousedown target
   itself carries the attr). Re-applied every `update`, so a consumer can hot-reload the toggle. A
   consumer opts out with `windowDrag: false`; warden drives it from its `sidebar_drag` config.
+  **`openSection`** (default **off** when absent) pins an "Open" section above the main list —
+  see *The pinned "Open" section* below; warden drives it from its `open_tabs_section` config.
   **`active`** selects the ownership model: **present** ⇒ the app owns selection (curator, whose Rust
   side is authoritative) — the component honours it and does NOT fire `onSelect`; **absent** ⇒ the
   component owns it (warden) — it preserves the current selection, falls back to the first tab, and
@@ -226,6 +228,23 @@ level (depth 0) expanded, deeper folders collapsed. Depth indentation for both f
 rows (`.cc-tab.cc-tree-row`) is driven by an inline `--cc-depth` custom property against the
 `--cc-indent` density token.
 
+**The pinned "Open" section** (`openSection` on the window DTO; warden's `open_tabs_section`, off for
+curator and lector): a `.cc-open` container pinned above the main list holding an "Open" header and a
+**mirror row** for every tab the pure helper `openTabs(tabs)` (exported for tests) selects — `live ||
+detached`. A session probe (`presence`) is deliberately not openness. The mirrored tab keeps its row
+in its own group/tree as well, so the main list never shuffles as terminals come and go; the section
+repaints whole (`_paintOpenSection`) rather than patching a row in or out, from `update()` and from
+`setLive` — which is the only targeted setter that can change membership.
+
+> **Footgun — one tab id can own TWO rows, so row lookup is `_rowsById` (plural).** Everything that
+> patches a row by id must loop: `setLive`, `setAttention`, `setPresence`, and the kill-confirm
+> arm/disarm. A singular lookup compiles and looks right — it silently paints one row and leaves the
+> twin's dot, badge or presence stale. **The DTO is NOT duplicated**: `this.tabs` stays one record
+> per tab, so `patchTab` and every id → record lookup are untouched by this. Mirrors carry
+> `data-mirror` and are excluded from `_navRows()`, which is what `selectByOffset`/`selectByIndex`
+> walk — counting them would shift every ⌘1–9 index by however many tabs happened to be open and
+> make live-only cycling visit each open tab twice per lap.
+
 ## Consumption (build-dep + build.rs) and pinning
 
 Each app is a **build-dependency** consumer pinned by `rev`; its `build.rs` writes `SIDEBAR_CSS`/
@@ -253,7 +272,9 @@ folders + leaves, across the dot states). **`just preview`** opens it in a brows
 params compose: **`?density=compact`** previews the compact scale, **`?header=1`** mounts a stand-in
 in the banner's `header` slot (curator's nav pill; warden leaves it empty) and a corner readout shows
 `#cc-banner`'s measured height — which must be identical with and without `?header=1`, the check that
-`--cc-banner-min` keeps the banner one height regardless of the slot. This is the fast loop for
+`--cc-banner-min` keeps the banner one height regardless of the slot; **`?open=1`** mounts the pinned
+"Open" section (the fixture's live/detached rows span all three section kinds, so it shows mirrors
+being drawn without the originals moving). This is the fast loop for
 iterating on `sidebar.{css,js}`; the pinned-rev round-trip through an app is only for shipping.
 
 ## Build / test

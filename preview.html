@@ -19,6 +19,10 @@
                           its job). The stand-in is a neutral placeholder sized to curator's real
                           nav-pill row (30px) — the pill's own styling is app-owned (curator's
                           chrome.css), so it deliberately does NOT live here.
+       ?open=1            mount the pinned "Open" section (warden's `open_tabs_section`): mirror
+                          rows above the main list for every `live` or `detached` tab, which in
+                          this fixture pulls rows out of all three section kinds (loose, a plain
+                          group, and a project tree) while leaving every one of them in place.
 
      Raw headless invocation (what `just shot` wraps):
        chrome --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 \
@@ -59,6 +63,9 @@
       const params = new URLSearchParams(location.search);
       const density = params.get("density") || "comfortable";
       const withHeader = params.get("header") === "1";
+      // ?open=1 → the pinned "Open" section (warden's `open_tabs_section`); off by default, as it is
+      // for every app that does not opt in.
+      const openSection = params.get("open") === "1";
       const T = (id, title, group, tree, treePath, extra = {}) => ({
         id, title, group, tree, treePath,
         live: false, attention: null, presence: null, killable: false, startable: false, warn: false,
@@ -69,6 +76,7 @@
         colour: "#1a9e8f",
         density,
         windowDrag: false,
+        openSection,
         tabs: [
           // Loose tabs (no group) — the flat, un-sectioned rows.
           T("/p/dotfiles", "dotfiles", null, false, [], { live: true, presence: "on" }),
@@ -120,7 +128,7 @@
       // Readout: mode + measured banner height. The height must be identical with/without ?header=1.
       const bh = document.getElementById("cc-banner").offsetHeight;
       document.getElementById("readout").textContent =
-        `density: ${density}\nheader:  ${withHeader ? "on" : "off"}\nbanner:  ${bh}px`;
+        `density: ${density}\nheader:  ${withHeader ? "on" : "off"}\nopen:    ${openSection ? "on" : "off"}\nbanner:  ${bh}px`;
     </script>
   </body>
 </html>
