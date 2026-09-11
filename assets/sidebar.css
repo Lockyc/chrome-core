@@ -29,6 +29,11 @@
   --cc-glyph-confirm: 13px;
   --cc-sidebar-w: 240px;
   --cc-indent: 14px;
+  /* Ceiling on the pinned "Open" section before it scrolls within itself — a share of the WINDOW,
+   * not of the tab list, so it doesn't move when an error or update bar appears above the list.
+   * Not restated per density: it is a fraction of the window either way, and a compact scale simply
+   * fits more rows inside the same ceiling, which is the point of compact. */
+  --cc-open-max: 40vh;
   /* Banner (title strip) height, held CONSTANT whether or not the header slot is filled, so
    * curator (nav pill in the slot) and warden (no slot) get an identical-height title strip.
    * Sized to curator's nav-pill row: pill = 2px pad + 26px .nav-btn = 30px, + this density's
@@ -214,22 +219,30 @@
   opacity: 1;
 }
 
-/* Scrollable tab list. No horizontal padding: group headers run full-bleed (their separator spans
- * the sidebar) while rows inset themselves via margin to read as chips. */
+/* The tab list. No horizontal padding: group headers run full-bleed (their separator spans the
+ * sidebar) while rows inset themselves via margin to read as chips.
+ *
+ * It is NOT itself a scroller — it is the column that lays out its two sections, each of which
+ * scrolls on its own (see `.cc-open` / `.cc-main`). `min-height: 0` is what lets it be shorter than
+ * its content: without it a flex item's automatic minimum size is its content height, so the list
+ * would grow past the sidebar instead of handing the overflow to the sections. */
 #cc-tab-list {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  min-height: 0;
   padding: 8px 0;
-  overflow-y: auto;
+  overflow: hidden;
 }
-/* List children never shrink. This is a scroll container (`overflow-y: auto`), so when the rows +
- * headers are taller than the sidebar the overflow must SCROLL — not compress the items. Without
+/* Section children never shrink. Each section is a scroll container (`overflow-y: auto`), so when
+ * its rows + headers are taller than it the overflow must SCROLL — not compress the items. Without
  * this, flex-shrink crushes the shrinkable items: `.cc-group` (with `overflow: hidden`) collapses
  * to a sliver and clips its header text to the bottom of the glyphs. The tempting "fix" is to make
- * the header taller / bump its colour, but the box is being squeezed — pin the children instead. */
-#cc-tab-list > * {
+ * the header taller / bump its colour, but the box is being squeezed — pin the children instead.
+ * Scoped to the SECTIONS, not to `#cc-tab-list > *`: the sections themselves must be free to
+ * shrink, which is how the pinned one yields space to the main list in a short window. */
+.cc-open > *,
+.cc-main > * {
   flex-shrink: 0;
 }
 
@@ -272,6 +285,19 @@
   margin-bottom: 8px;
   border-bottom: 2px solid #313640;
   padding-bottom: 8px;
+  /* The two sections scroll INDEPENDENTLY, and this one is sized to its content up to a ceiling of
+   * --cc-open-max of the window, then scrolls within itself. So paging through a long project list
+   * never pushes the open tabs off the top — the thing the section exists to keep in view.
+   *
+   * A hard ceiling can't strand space here, which is what makes it the right shape: every tab in
+   * this section is ALSO a row in the main list, so the section can never need more room than the
+   * list below it does. `flex-shrink` is left at its default 1 (and `min-height: 0` allows it to
+   * act) so a short window takes the space back off this section rather than crushing the main
+   * list — the pinned section yields first, since its rows are all duplicated below anyway. */
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: var(--cc-open-max);
+  overflow-y: auto;
 }
 .cc-open:empty {
   display: none;
@@ -291,11 +317,14 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  /* Grow into the list's leftover space so the region the pointer must enter to un-mute the main
-   * list includes the EMPTY area under the last row — that blank space reads as part of the list,
-   * and a hover target that stopped at the last row would leave it stubbornly dim. (`#cc-tab-list
-   * > *` pins flex-shrink at 0; only growth is added here.) */
-  flex-grow: 1;
+  /* Take the list's leftover space, for two reasons: the region the pointer must enter to un-mute
+   * this list then includes the EMPTY area under the last row (that blank space reads as part of
+   * the list, and a hover target stopping at the last row would leave it stubbornly dim), and this
+   * is the section that absorbs the height the pinned one doesn't take. `min-height: 0` lets it be
+   * shorter than its content so the overflow scrolls here rather than growing the list. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 .cc-open:not(:empty) ~ .cc-main {
   filter: saturate(0.25) opacity(0.5);

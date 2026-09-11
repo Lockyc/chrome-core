@@ -337,7 +337,9 @@ class Sidebar {
     // resize handle) stay attribute-free and clickable. Defaults ON when the field is absent (standard
     // macOS sidebar behaviour); a consumer opts out with `windowDrag: false`. warden drives it from
     // its `sidebar_drag` config. Applied every render so a hot-reload toggle takes effect; group
-    // headers get it in the loop below.
+    // headers get it in the loop below, and the two SECTIONS get it where they are built — the
+    // list's own box is fully covered by them, so the empty area a user actually grabs belongs to
+    // a section, not to `this.list`.
     const drag = dto.windowDrag !== false;
     if (this.titlebarEl) this._setDrag(this.titlebarEl, drag);
     this._setDrag(this.banner, drag);
@@ -352,13 +354,17 @@ class Sidebar {
     this.tint = tint;
     this.drag = drag;
     this.openEl = el("div", { class: "cc-open" });
+    this._setDrag(this.openEl, drag);
     this.list.appendChild(this.openEl);
     this._paintOpenSection();
     // Everything that is not the pinned section lives in one container, so the CSS can address
     // "the main list" as a unit — it is the hover target that lifts the de-emphasis the pinned
     // section puts on it, and it restores `.cc-group:first-child` to meaning the first header of
     // the main list (the pinned section would otherwise always be the list's first child).
+    // It is also its own scroll container: the two sections scroll INDEPENDENTLY, so paging through
+    // a long project list never pushes the open tabs off the top (see the CSS).
     this.mainEl = el("div", { class: "cc-main" });
+    this._setDrag(this.mainEl, drag);
     this.list.appendChild(this.mainEl);
 
     let lastGroup;

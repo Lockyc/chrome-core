@@ -237,8 +237,19 @@ repaints whole (`_paintOpenSection`) rather than patching a row in or out, from 
 `setLive` — which is the only targeted setter that can change membership.
 
 The tab list therefore has **two containers, always both present**: `.cc-open` and `.cc-main`
-(everything else). `.cc-main` exists so the CSS can address the main list as a unit, which buys two
-things. `.cc-group:first-child` means "first header of its own list" again in both containers — the
+(everything else). **`#cc-tab-list` is no longer a scroller** — it is the column that lays the two
+out, and each section scrolls on its own: the pinned one is content-sized up to `--cc-open-max`
+(2/5 of the window) and then scrolls within itself, the main one takes the rest. Paging through a
+long project list therefore never pushes the open tabs off the top, which is the whole point of
+pinning them. A hard ceiling can't strand space here — every tab in the pinned section is also a row
+in the main list, so the section can never need more room than the list below it does — and the
+section keeps `flex-shrink: 1` so a short window takes height back off *it* rather than crushing the
+main list, its rows being duplicated below anyway. Both need `min-height: 0` (a flex item's
+automatic minimum size is its content height, which would otherwise defeat every one of these caps),
+and `flex-shrink: 0` on the ROWS is scoped inside the sections — at `#cc-tab-list > *` it would pin
+the sections themselves and the yielding above could never happen.
+
+`.cc-main` also lets the CSS address the main list as a unit, which buys two more things. `.cc-group:first-child` means "first header of its own list" again in both containers — the
 pinned section is always the list's first child, so without the split the main list's first header
 would permanently lose its flush-top treatment. And while the pinned section is showing, the main
 list is **de-emphasised until pointed at** (`filter: saturate() opacity()`, lifted on `:hover`,
