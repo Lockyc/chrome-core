@@ -292,9 +292,11 @@ just be an unreadable sidebar), and `.cc-main` takes `flex-grow: 1` so the hover
 > while the pointer was still inside can arrive after `pointerAway()` and un-mute the list right
 > back. That is the medium-speed window (slow leaves no backlog, fast has it coalesced away), and it
 > is why `_awayAt` is a timestamp rather than a bare flag. A host with no native overlay never calls
-> it. **Any
-> future hover-driven affordance in this component inherits the same trap** — gate it on `.cc-away`
-> too rather than adding a second mechanism.
+> it. **The trap is not specific to the de-emphasis — every `:hover` rule in `sidebar.css` sticks the
+> same way** (a row's highlight, its pop-out overlay and hover-✕, the resize handle), so **every one
+> is written `.cc-root:not(.cc-away) …:hover`**. A new hover rule gets the same prefix, never a second
+> mechanism — and the prefix raises its specificity, so check it doesn't now out-rank a state rule
+> meant to hide it (the pop-out overlay needed `:not(.confirming)` for exactly that).
 
 > **Footgun — one tab id can own TWO rows, so row lookup is `_rowsById` (plural).** Everything that
 > patches a row by id must loop: `setLive`, `setAttention`, `setPresence`, and the kill-confirm

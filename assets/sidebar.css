@@ -169,7 +169,7 @@
   line-height: 1;
   padding: 0 2px;
 }
-#cc-error-close:hover {
+.cc-root:not(.cc-away) #cc-error-close:hover {
   opacity: 1;
 }
 
@@ -197,7 +197,7 @@
   background: #3b82f6;
   color: #fff;
 }
-#cc-update-btn:hover {
+.cc-root:not(.cc-away) #cc-update-btn:hover {
   background: #2f6fe0;
 }
 #cc-update-btn:disabled {
@@ -215,7 +215,7 @@
   line-height: 1;
   padding: 0 2px;
 }
-#cc-update-close:hover {
+.cc-root:not(.cc-away) #cc-update-close:hover {
   opacity: 1;
 }
 
@@ -394,7 +394,7 @@
   padding: 0;
   cursor: pointer;
 }
-.cc-rescan:hover {
+.cc-root:not(.cc-away) .cc-rescan:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.14);
 }
@@ -419,7 +419,7 @@
   cursor: pointer;
   user-select: none;
 }
-.cc-folder:hover {
+.cc-root:not(.cc-away) .cc-folder:hover {
   background: #2a2a2a;
   color: #ddd;
 }
@@ -480,7 +480,7 @@
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
 }
-.cc-tab:hover:not(.active) {
+.cc-root:not(.cc-away) .cc-tab:hover:not(.active) {
   background: #2a2a2a;
 }
 /* Active highlight: a fill PLUS a left accent bar, both read from `--cc-active-*`, which `update()`
@@ -605,20 +605,20 @@
 .cc-presence.ghost.start {
   cursor: pointer;
 }
-.cc-presence.ghost.start:hover::before {
+.cc-root:not(.cc-away) .cc-presence.ghost.start:hover::before {
   background: #56b4e9; /* brighten — foreshadows the restore picker coming up */
   filter: drop-shadow(0 0 3px rgba(86, 180, 233, 0.55));
 }
 .cc-presence.on.kill {
   cursor: pointer;
 }
-.cc-presence.on.kill:hover::before {
+.cc-root:not(.cc-away) .cc-presence.on.kill:hover::before {
   box-shadow: 0 0 0 3px rgba(255, 91, 82, 0.22);
 }
 .cc-presence.off.start {
   cursor: pointer;
 }
-.cc-presence.off.start:hover::before {
+.cc-root:not(.cc-away) .cc-presence.off.start:hover::before {
   background: #56b4e9; /* fill the hollow ring — foreshadows the session coming up */
   box-shadow: 0 0 0 3px rgba(86, 180, 233, 0.22);
 }
@@ -653,10 +653,10 @@
   border-radius: 50%;
   background: #3fb950;
 }
-.cc-dot.live:hover::before {
+.cc-root:not(.cc-away) .cc-dot.live:hover::before {
   display: none;
 }
-.cc-dot.live:hover::after {
+.cc-root:not(.cc-away) .cc-dot.live:hover::after {
   content: "✕";
   color: #f85149;
   font-size: var(--cc-glyph-x);
@@ -686,12 +686,13 @@
   width: 72%; /* the SVG art fills ~80% of its own box, so this reads as a big tile-filling icon */
   height: 72%;
 }
-/* Revealed on hover of the whole row, not just the tile — easier to find and hit. */
-.cc-tab:hover .cc-icon-pop {
+/* Revealed on hover of the whole row, not just the tile — easier to find and hit. `:not(.confirming)`
+ * because the `.cc-away` gate lifts this rule's specificity past the armed row's own hide rule below. */
+.cc-root:not(.cc-away) .cc-tab:not(.confirming):hover .cc-icon-pop {
   display: flex;
 }
 /* Un-mute a detached row on hover so its pop-in overlay reads as clearly actionable. */
-.cc-tab.detached:hover {
+.cc-root:not(.cc-away) .cc-tab.detached:hover {
   opacity: 1;
 }
 
@@ -700,7 +701,7 @@
  * `.cc-tab.active`'s fill, so an armed active row still reads red — and the active accent bar is
  * dropped below for the same reason the dots are: the armed row must read as one unbroken red. */
 .cc-tab.confirming,
-.cc-tab.confirming:hover {
+.cc-root:not(.cc-away) .cc-tab.confirming:hover {
   background: #5a1f1f !important;
   color: #fff;
 }
@@ -764,13 +765,13 @@
   position: relative;
   top: 0.09em;
 }
-.cc-confirm-kill-close:hover,
-.cc-confirm-kill:hover {
+.cc-root:not(.cc-away) .cc-confirm-kill-close:hover,
+.cc-root:not(.cc-away) .cc-confirm-kill:hover {
   background: rgba(255, 91, 82, 0.2);
   border-radius: 4px;
   color: #ff7b73;
 }
-.cc-confirm-cancel:hover {
+.cc-root:not(.cc-away) .cc-confirm-cancel:hover {
   background: rgba(255, 255, 255, 0.14);
   border-radius: 4px;
   color: rgba(255, 255, 255, 0.95);
@@ -805,7 +806,7 @@
   cursor: col-resize;
   z-index: 5;
 }
-#cc-resize:hover,
+.cc-root:not(.cc-away) #cc-resize:hover,
 #cc-resize.dragging {
   background: rgba(255, 255, 255, 0.14);
 }
