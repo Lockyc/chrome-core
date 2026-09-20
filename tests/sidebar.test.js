@@ -12,6 +12,7 @@ const {
   buildTree,
   patchTab,
   openTabs,
+  mirrorContext,
 } = require("../assets/sidebar.js");
 
 test("tileInitial: first alphanumeric, uppercased; bullet fallback", () => {
@@ -241,4 +242,17 @@ test("openTabs: empty or missing list is an empty section, not a throw", () => {
   assert.deepEqual(openTabs([]), []);
   assert.deepEqual(openTabs(undefined), []);
   assert.deepEqual(openTabs([{ id: "/a" }, { id: "/b", live: false }]), []);
+});
+
+test("mirrorContext: tree row → parent folder; grouped → group; loose → null", () => {
+  // treePath excludes the project's own dir, so its last segment is the parent folder.
+  assert.equal(mirrorContext({ tree: true, group: "Developer", treePath: ["github.com", "acme"] }), "acme");
+  // A project directly under a root has no folders — the root's name is where it lives.
+  assert.equal(mirrorContext({ tree: true, group: "Developer", treePath: [] }), "Developer");
+  // A curated group: same-titled tabs in different groups come apart.
+  assert.equal(mirrorContext({ tree: false, group: "backend", treePath: [] }), "backend");
+  // treePath is only meaningful on a tree row.
+  assert.equal(mirrorContext({ tree: false, group: "tools", treePath: ["x"] }), "tools");
+  assert.equal(mirrorContext({ tree: false, group: null }), null);
+  assert.equal(mirrorContext({ group: "" }), null);
 });

@@ -534,6 +534,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* A mirror row's where-it-lives label (the pinned "Open" section only — see `mirrorContext`).
+ * Inline inside the title so one ellipsis clips the pair, and dimmed so the title still leads. */
+.cc-context {
+  margin-left: 0.5em;
+  font-weight: 400;
+  opacity: 0.5;
+}
 
 /* ── Attention slot ── amber; a bare dot, or a count pill when attention is a number (curator's
  * unread count). Sits first in the trailing group. */

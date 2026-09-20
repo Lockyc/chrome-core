@@ -234,7 +234,10 @@ curator and lector): a `.cc-open` container pinned above the main list holding a
 detached`. A session probe (`presence`) is deliberately not openness. The mirrored tab keeps its row
 in its own group/tree as well, so the main list never shuffles as terminals come and go; the section
 repaints whole (`_paintOpenSection`) rather than patching a row in or out, from `update()` and from
-`setLive` — which is the only targeted setter that can change membership.
+`setLive` — which is the only targeted setter that can change membership. A mirror row is lifted out
+of its section, so it carries a dimmed **where-it-lives label** after the title (`.cc-context`, from
+the pure `mirrorContext(t)`: a tree row's parent folder, else its group, none for a loose tab) — the
+title alone can't tell `rotary/website` from any other `website`, or two same-titled tabs apart.
 
 The tab list therefore has **two containers, always both present**: `.cc-open` and `.cc-main`
 (everything else). **`#cc-tab-list` is no longer a scroller** — it is the column that lays the two

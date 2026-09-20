@@ -114,6 +114,18 @@ function openTabs(tabs) {
   return (tabs || []).filter((t) => t.live || t.detached);
 }
 
+/** Where a tab lives, for its row in the pinned "Open" section: the parent folder of a tree row
+ *  (the last `treePath` segment — `treePath` already excludes the project's own dir), else its
+ *  group name (a curated group, or the root itself for a project directly under it); null for a
+ *  loose tab. A mirror row is lifted out of its section, so without this a title alone is all it
+ *  shows — `website` from `rotary/website` is indistinguishable from any other `website`, and two
+ *  tabs sharing a title render as two identical rows. */
+function mirrorContext(t) {
+  const path = t.tree ? t.treePath || [] : [];
+  if (path.length) return path[path.length - 1];
+  return t.group == null || t.group === "" ? null : t.group;
+}
+
 /** Write a targeted setter's signal onto the stored tab record, so any later re-render paints from
  *  it. Returns whether a record matched (an unknown id is a no-op, not a throw).
  *
@@ -468,7 +480,7 @@ class Sidebar {
     this._setDrag(head, this.drag);
     this.openEl.appendChild(head);
     for (const t of rows) {
-      const row = this._renderRow(t);
+      const row = this._renderRow(t, mirrorContext(t));
       row.dataset.mirror = "1";
       this.openEl.appendChild(row);
     }
@@ -545,7 +557,10 @@ class Sidebar {
     return depth >= 1;
   }
 
-  _renderRow(t) {
+  /** `context` (optional) is a dimmed where-it-lives label after the title — passed only for
+   *  a mirror row in the pinned "Open" section (see `mirrorContext`); a home row's own section and
+   *  tree already say it. */
+  _renderRow(t, context = null) {
     const row = el("div", { class: "cc-tab", "data-id": t.id });
     if (t.detached) row.classList.add("detached");
     // Row click keeps its normal onSelect wiring even when detached — the app interprets
@@ -578,7 +593,9 @@ class Sidebar {
     }
     row.appendChild(icon);
 
-    row.appendChild(el("span", { class: "cc-title" }, (t.title || "") + (t.warn ? "  ⚠" : "")));
+    const title = el("span", { class: "cc-title" }, (t.title || "") + (t.warn ? "  ⚠" : ""));
+    if (context) title.appendChild(el("span", { class: "cc-context" }, context));
+    row.appendChild(title);
 
     // Attention slot (amber; count pill when a number). Absent when null.
     if (t.attention != null) row.appendChild(this._makeAttention(t.attention));
@@ -1076,7 +1093,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, derivePresenceState, buildTree, patchTab, openTabs };
+  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;
