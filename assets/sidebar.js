@@ -146,6 +146,12 @@ function patchTab(tabs, id, patch) {
   return true;
 }
 
+/** Can this row arm the end-session confirm? Either ending action — ⏻ suspend (`suspendable`) or
+ *  ☠ destroy (`killable`) — is enough; the armed row shows both, disabling whichever the tab lacks. */
+function armable(t) {
+  return !!(t.killable || t.suspendable);
+}
+
 /** Class list for a presence dot given session state + capabilities. Three states:
  *  `on` = a probe reported a live session → a kill affordance when `killable`;
  *  `ghost` = no live session, but the host reports a *recoverable* one (warden: a crashed amux
@@ -571,7 +577,7 @@ class Sidebar {
     const icon = el("span", { class: "cc-icon" }, tileInitial(t.title));
     icon.style.background = tileColour(t.title);
     // Pop-out / pop-in as a hover overlay ON the initial tile (opt-in: capability-by-callback-
-    // presence, like onKillClose). A docked tab shows the pop-OUT icon (window + arrow leaving)
+    // presence — rendered only when the app supplied onPopOut). A docked tab shows the pop-OUT icon (window + arrow leaving)
     // and fires onPopOut; a detached tab shows the pop-IN icon (arrow entering) and fires onPopIn.
     // Revealed on hover of the whole ROW (`.cc-tab:hover`) and sized to fill the tile — large and
     // deliberate, and out of the right-hand indicator cluster entirely.
@@ -600,7 +606,7 @@ class Sidebar {
     // Attention slot (amber; count pill when a number). Absent when null.
     if (t.attention != null) row.appendChild(this._makeAttention(t.attention));
 
-    // Presence slot (cyan; warden probe). Absent when null. Clickable when killable + on.
+    // Presence slot (cyan; warden probe). Absent when null. Clickable when armable + on.
     if (t.presence != null) row.appendChild(this._makePresence(t, t.presence));
 
     // Live/unload slot (green live ↔ hover-✕ / hollow cold). Always present.
@@ -621,8 +627,8 @@ class Sidebar {
 
     // (Pop-out / pop-in now lives as a hover overlay on the icon tile above, not a trailing slot.)
 
-    // Kill-confirm controls (only for killable rows; hidden until `.confirming`).
-    if (t.killable) this._appendConfirmControls(row, t.id);
+    // Kill-confirm controls (only for armable rows; hidden until `.confirming`).
+    if (armable(t)) this._appendConfirmControls(row, t);
     return row;
   }
 
@@ -637,11 +643,11 @@ class Sidebar {
 
   _makePresence(t, state) {
     const s = el("span");
-    this._paintPresence(s, t.id, state, !!t.killable, !!t.startable, !!t.live);
+    this._paintPresence(s, t.id, state, armable(t), !!t.startable, !!t.live);
     // The dot is a session toggle: click a present session to kill (2-step confirm), or click an
     // absent-but-startable one to restart (single click — non-destructive). Both are gated by the
     // painted classes (`.kill` / `.start`), so a click that matches neither is inert.
-    if (t.killable || t.startable) {
+    if (armable(t) || t.startable) {
       s.addEventListener("click", (e) => {
         if (s.classList.contains("kill")) {
           e.stopPropagation();
@@ -660,7 +666,7 @@ class Sidebar {
     span.dataset.kill = killable ? "1" : "";
     span.dataset.start = startable ? "1" : "";
     span.title = span.classList.contains("kill")
-      ? "Kill session"
+      ? "End session…"
       : span.classList.contains("ghost")
         ? span.classList.contains("start")
           ? "Crashed session — start to restore it"
@@ -692,12 +698,13 @@ class Sidebar {
 
   /** One armed-row confirm action (⏻ or ☠). They differ only in glyph + which callback fires, so
    *  the click contract lives here once: swallow the row click, ignore a re-click mid-animation,
-   *  fire against the row that is actually armed, then press + pulse (~180ms) and disarm. */
-  _makeConfirmControl(row, { cls, title, glyph, fire }) {
-    const ctl = el("span", { class: cls, title }, glyph);
+   *  fire against the row that is actually armed, then press + pulse (~180ms) and disarm. A
+   *  `disabled` control stays on screen (muted, titled with why) but swallows the click inertly. */
+  _makeConfirmControl(row, { cls, title, glyph, fire, disabled }) {
+    const ctl = el("span", { class: cls + (disabled ? " cc-disabled" : ""), title }, glyph);
     ctl.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (row.classList.contains("killing")) return;
+      if (disabled || row.classList.contains("killing")) return;
       const armed = this.armedKill;
       if (!armed) {
         this._disarmKill();
@@ -718,27 +725,29 @@ class Sidebar {
     return ctl;
   }
 
-  _appendConfirmControls(row, id) {
-    // Kill-both (☠) — terminate the session AND close the terminal. Opt-in: rendered only when the
-    // app supplied `onKillClose` (curator supplies none, so its rows never grow one). It is a second
-    // terminal action off the SAME armed row — no new arming path, no second state machine.
-    if (this.cb.onKillClose) {
-      row.append(
-        this._makeConfirmControl(row, {
-          cls: "cc-confirm-kill-close",
-          title: "terminate session + close terminal",
-          glyph: "☠",
-          fire: (armed) => this.cb.onKillClose(armed),
-        }),
-      );
-    }
+  _appendConfirmControls(row, t) {
+    // Two ways to end a session off the SAME armed row — one arming path, one state machine. Both
+    // are always rendered; the one the tab can't do is disabled in place, never dropped. What each
+    // means is the app's business (warden: run the tab's `kill`/`suspend` command, then unload).
     row.append(
       this._makeConfirmControl(row, {
-        cls: "cc-confirm-kill",
-        title: "terminate session",
-        glyph: "⏻",
+        cls: "cc-confirm-destroy",
+        title: t.killable ? "Destroy session + close" : "Destroy — not configured for this tab",
+        glyph: "☠",
+        disabled: !t.killable,
         fire: (armed) => {
-          if (this.cb.onKill) this.cb.onKill(armed);
+          if (this.cb.onDestroy) this.cb.onDestroy(armed);
+        },
+      }),
+      this._makeConfirmControl(row, {
+        cls: "cc-confirm-suspend",
+        title: t.suspendable
+          ? "Suspend session + close (restorable)"
+          : "Suspend — not configured for this tab",
+        glyph: "⏻",
+        disabled: !t.suspendable,
+        fire: (armed) => {
+          if (this.cb.onSuspend) this.cb.onSuspend(armed);
         },
       }),
     );
@@ -1093,7 +1102,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext };
+  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;

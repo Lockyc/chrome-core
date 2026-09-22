@@ -8,6 +8,7 @@ const {
   clampWidth,
   resolveOffset,
   presenceClass,
+  armable,
   derivePresenceState,
   buildTree,
   patchTab,
@@ -88,6 +89,14 @@ test("presenceClass: kill affordance when on+killable, start affordance when off
   assert.equal(presenceClass("off", false, true, true), "cc-presence off start");
   assert.equal(presenceClass("off", false, true, false), "cc-presence off"); // cold: no start
   assert.equal(presenceClass("off", true, true, true), "cc-presence off start"); // killable ignored while off
+});
+
+test("armable: either ending action arms the confirm row", () => {
+  assert.equal(armable({ killable: true }), true);
+  assert.equal(armable({ suspendable: true }), true);
+  assert.equal(armable({ killable: true, suspendable: true }), true);
+  assert.equal(armable({ killable: false, suspendable: false }), false);
+  assert.equal(armable({}), false); // curator/lector send neither
 });
 
 test("presenceClass: ghost is the third state — start affordance, never kill", () => {

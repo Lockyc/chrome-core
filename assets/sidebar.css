@@ -704,7 +704,7 @@
 }
 
 /* ── Kill-confirm: a row-overlay state (NOT a slot). Clicking a killable presence dot reddens the
- * whole row, hides the three dots, and shows ⏻ (terminate) / ↩ (cancel). `!important` beats
+ * whole row, hides the three dots, and shows ☠ (destroy) / ⏻ (suspend) / ↩ (cancel). `!important` beats
  * `.cc-tab.active`'s fill, so an armed active row still reads red — and the active accent bar is
  * dropped below for the same reason the dots are: the armed row must read as one unbroken red. */
 .cc-tab.confirming,
@@ -719,8 +719,8 @@
 .cc-tab.confirming .cc-icon-pop {
   display: none;
 }
-.cc-confirm-kill-close,
-.cc-confirm-kill,
+.cc-confirm-destroy,
+.cc-confirm-suspend,
 .cc-confirm-cancel {
   flex: none;
   width: 16px;
@@ -733,18 +733,24 @@
   font-size: var(--cc-glyph-confirm);
   font-weight: 700;
 }
-.cc-tab.confirming .cc-confirm-kill-close,
-.cc-tab.confirming .cc-confirm-kill,
+.cc-tab.confirming .cc-confirm-destroy,
+.cc-tab.confirming .cc-confirm-suspend,
 .cc-tab.confirming .cc-confirm-cancel {
   display: inline-flex;
 }
 /* Destructive reads destructive: ☠/⏻ bright red, ↩ muted grey. */
-.cc-confirm-kill-close,
-.cc-confirm-kill {
+.cc-confirm-destroy,
+.cc-confirm-suspend {
   color: #ff5b52;
 }
 .cc-confirm-cancel {
   color: rgba(255, 255, 255, 0.5);
+}
+/* An action the tab can't take stays in place, muted, and ignores hover (its title says why). */
+.cc-confirm-destroy.cc-disabled,
+.cc-confirm-suspend.cc-disabled {
+  color: rgba(255, 255, 255, 0.25);
+  cursor: default;
 }
 /* Optical sizing — the three glyphs resolve to DIFFERENT fallback faces, so at one shared
  * font-size their ink boxes differ in height and sit on different optical centres. Measured at
@@ -763,7 +769,7 @@
  * picks *different* faces, and yields a confidently wrong ratio (measuring ⏻ at 9.38px rather
  * than its real 11.12px — a 1.18× "fix" that visibly under-sizes ☠ in the app). preview.html
  * sets it for the same reason. */
-.cc-confirm-kill-close {
+.cc-confirm-destroy {
   font-size: calc(var(--cc-glyph-confirm) * 1.41);
   position: relative;
   top: -0.075em;
@@ -772,8 +778,8 @@
   position: relative;
   top: 0.09em;
 }
-.cc-root:not(.cc-away) .cc-confirm-kill-close:hover,
-.cc-root:not(.cc-away) .cc-confirm-kill:hover {
+.cc-root:not(.cc-away) .cc-confirm-destroy:not(.cc-disabled):hover,
+.cc-root:not(.cc-away) .cc-confirm-suspend:not(.cc-disabled):hover {
   background: rgba(255, 91, 82, 0.2);
   border-radius: 4px;
   color: #ff7b73;

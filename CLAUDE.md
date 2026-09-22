@@ -54,8 +54,8 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 
 `ChromeSidebar.mount(container, callbacks, config) -> instance`
 
-- **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onKill(id)`, `onKillClose(id)` (optional —
-  see below), `onStart(id)`, `onResize(width)`,
+- **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onSuspend(id)` + `onDestroy(id)` (the
+  confirm row's two actions — see below), `onStart(id)`, `onResize(width)`,
   `onRescan(group)`, `onPopOut(id)` + `onPopIn(id)` (optional pair — see below). (The update bar is wired **internally** —
   self-update is a core capability, see the dividing-line decision above — so there is **no**
   `onUpdate`/`onUpdateDismiss` callback.)
@@ -83,7 +83,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   sidebar, its literal contents don't matter beyond that.
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
   windowDrag?: bool, openSection?: bool, active?: id, tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null,
-  live: bool, attention: null|true|number, presence: null|'on'|'ghost'|'off', killable: bool, startable: bool,
+  live: bool, attention: null|true|number, presence: null|'on'|'ghost'|'off', killable: bool, suspendable: bool, startable: bool,
   warn: bool, tree?: bool, treePath?: string[], detached?: bool }`. **`detached`** is opt-in (absent/falsy
   on every row until an app's DTO sets it) — see the pop-out section below for what it does to a row.
   **`windowDrag`** (default **on** when absent) makes the non-interactive chrome — banner, name, the
@@ -121,7 +121,7 @@ count pill when `attention` is a number (curator's unread count). Live/unload = 
 unload / hollow cold. (Pop-out is **not** a dot slot — it's a hover overlay on the icon tile, below.)
 
 **Pop-out / pop-in — a hover overlay ON the initial tile, not a trailing slot** (`.cc-icon-pop`, built
-in `_renderRow`). Opt-in by capability-by-callback-presence like `onKillClose`: rendered only when the
+in `_renderRow`). Opt-in by capability-by-callback-presence: rendered only when the
 app supplied `onPopOut(id)`. It's absolutely-positioned to fill the `.cc-icon` square (which is now
 `position: relative`), hidden until the **whole row is hovered** (`.cc-tab:hover .cc-icon-pop`), with a
 dark scrim + solid-white glyph nearly filling the tile (`calc(--cc-tile-size * 0.95)`) so it reads as a
@@ -148,7 +148,7 @@ the highlight** (`this.active`). The app gives the row-click meaning ("raise the
 the tile-overlay meaning ("dock it back"). Not moving the highlight is load-bearing — the detached tab is
 shown in *another* window, so highlighting its row would steal the selection indicator from the terminal
 actually displayed in *this* window (the "clicking a popped-out tab steals the sidebar focus indicator"
-bug). This all lives in the core (not per-app) per the dividing-line decision — like `onKillClose`,
+bug). This all lives in the core (not per-app) per the dividing-line decision — like the confirm row's actions,
 app-agnostic row affordances whose semantics the consuming app supplies.
 
 **Presence is three-state — `on` | `ghost` | `off`** (warden's probe drives it; curator and lector
@@ -156,13 +156,14 @@ never set it, passing `null` = no dot). `on` = cyan, a probe reported a live ses
 *recoverable* session** — none live, but the host reports one a plain launch would restore (warden:
 a crashed amux session, probe exit 3); it paints the ghost mask (`--cc-ghost-mask`) rather than a
 cyan dot. `off` = configured-but-absent, hollow. `on` and `ghost` are mutually exclusive. The
-authority is `presenceClass` (state + `killable`/`startable`/`live` → class list); `derivePresenceState`
+authority is `presenceClass` (state + armable/`startable`/`live` → class list); `derivePresenceState`
 is its inverse, reading the state back off a painted dot.
 
-**Kill-confirm is a row-overlay state, not a slot** (clicking a killable presence dot reddens the row,
-hides the dots, shows ⏻/↩); gated on `killable` (curator and lector: always false). The presence dot
-is a **session toggle**:
-- **`on` + `killable`** → kills (2-step confirm).
+**Kill-confirm is a row-overlay state, not a slot** (clicking an armable presence dot reddens the row,
+hides the dots, shows ☠/⏻/↩). A row is **armable** (`armable`) when it has either ending action:
+`killable` (☠ destroy → `onDestroy`) or `suspendable` (⏻ suspend → `onSuspend`); curator and lector set
+neither. The presence dot is a **session toggle**:
+- **`on` + armable** → arms the confirm (2-step).
 - **`ghost` or `off`, + `startable` + the tab is `live`** → **starts**: a single click firing `onStart`
   (curator and lector: `startable` always false), re-running the tab's command. The start affordance is
   offered for **both** non-`on` states — a ghost is decoration *on* that same affordance, not a
@@ -177,12 +178,11 @@ is a **session toggle**:
 > to `off` on every repaint, losing the recoverable signal with no error. Guarded at
 > `assets/sidebar.js:89` and pinned in `tests/sidebar.test.js`; don't "simplify" either mapping.
 
-The confirm row carries an **optional third control, `☠` (kill-both)**, rendered left of `⏻`
-**only when the app supplied an `onKillClose(id)` callback** — capability by callback presence, so an
-app that doesn't offer it (curator) is untouched. It is a second *terminal action off the same armed
-row*: it reads the same `armedKill`, shares `_makeConfirmControl`, and disarms identically — it does
-**not** add a second arming path. What "close" means is the app's business (warden: kill the session,
-then unload the terminal); the component only reports the click.
+The armed row always renders **both** ending actions, `☠` then `⏻` — an action the tab lacks
+(`killable`/`suspendable` false) stays in place, **disabled** (`.cc-disabled`, muted, titled with why),
+never dropped. Both read the same `armedKill`, share `_makeConfirmControl`, and disarm identically —
+one arming path, one state machine. What each means is the app's business (warden: run the tab's
+`kill` or `suspend` command, then unload the terminal); the component only reports the click.
 
 **The active-row highlight is derived from a lightness-LIFTED window colour, never the raw one**
 (`liftColour`), and `update()` publishes it as `--cc-active-bg` (fill) + `--cc-active-bar` (the 3px
