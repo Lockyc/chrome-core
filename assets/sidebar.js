@@ -152,6 +152,18 @@ function armable(t) {
   return !!(t.killable || t.suspendable);
 }
 
+/** What a keyboard request to end `t`'s session does (`requestEnd`), given which row is armed.
+ *  ⏻ suspend is restorable, so it fires at once; ☠ destroy is not, so the first request arms the
+ *  confirm row and only a second one while that row is armed fires. A request the tab can't honour
+ *  arms the row instead, whose disabled control says why; a tab with neither action gets nothing.
+ *  → "suspend" | "destroy" | "arm" | null. */
+function endIntent(t, how, armedId) {
+  if (!t || !armable(t)) return null;
+  if (how === "suspend") return t.suspendable ? "suspend" : "arm";
+  if (armedId !== t.id) return "arm";
+  return t.killable ? "destroy" : null;
+}
+
 /** Class list for a presence dot given session state + capabilities. Three states:
  *  `on` = a probe reported a live session → a kill affordance when `killable`;
  *  `ghost` = no live session, but the host reports a *recoverable* one (warden: a crashed amux
@@ -247,6 +259,9 @@ function el(tag, attrs, text) {
 // Self-update re-check cadence: a long-running window re-checks this often so a release surfaces
 // without a restart (the single home for the interval, shared by every consuming app).
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+// How long a keyboard-armed confirm row (`requestEnd`) stays armed before it lapses on its own.
+const KEY_ARM_TIMEOUT_MS = 4000;
 
 class Sidebar {
   constructor(container, callbacks, config) {
@@ -898,6 +913,31 @@ class Sidebar {
 
   // ── kill-confirm state machine ──
 
+  /** The keyboard route to the confirm row's two actions (`how` = "suspend" | "destroy"), for the
+   *  app's menu accelerators — policy in `endIntent`. An armed row is disarmed by Escape and outside
+   *  clicks only while the page holds key focus; a keyboard-armed one also lapses after
+   *  `KEY_ARM_TIMEOUT_MS`, since a native host view (warden's terminal) keeps both from the page. */
+  requestEnd(id, how) {
+    const t = this.tabs.find((x) => x.id === id);
+    const intent = endIntent(t, how, this.armedKill);
+    if (intent === "suspend") {
+      this._disarmKill();
+      if (this.cb.onSuspend) this.cb.onSuspend(id);
+    } else if (intent === "destroy") {
+      this._disarmKill();
+      if (this.cb.onDestroy) this.cb.onDestroy(id);
+    } else if (intent === "arm") {
+      const rows = this._rowsById(id);
+      const row = rows.find((r) => r.offsetParent !== null) || rows[0];
+      this._armKill(id, row);
+      if (this.armedKill === id) {
+        this._armTimer = setTimeout(() => {
+          if (this.armedKill === id) this._disarmKill();
+        }, KEY_ARM_TIMEOUT_MS);
+      }
+    }
+  }
+
   _armKill(id, rowEl) {
     if (!rowEl || this.armedKill === id) return;
     this._disarmKill();
@@ -923,6 +963,8 @@ class Sidebar {
     if (this._onArmKey) document.removeEventListener("keydown", this._onArmKey);
     if (this._onArmOutside) document.removeEventListener("click", this._onArmOutside, true);
     this._onArmKey = this._onArmOutside = null;
+    clearTimeout(this._armTimer);
+    this._armTimer = null;
     if (prev) {
       for (const row of this._rowsById(prev)) row.classList.remove("confirming");
     }
@@ -1102,7 +1144,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext };
+  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;

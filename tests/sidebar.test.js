@@ -9,6 +9,7 @@ const {
   resolveOffset,
   presenceClass,
   armable,
+  endIntent,
   derivePresenceState,
   buildTree,
   patchTab,
@@ -97,6 +98,24 @@ test("armable: either ending action arms the confirm row", () => {
   assert.equal(armable({ killable: true, suspendable: true }), true);
   assert.equal(armable({ killable: false, suspendable: false }), false);
   assert.equal(armable({}), false); // curator/lector send neither
+});
+
+test("endIntent: suspend fires at once; destroy arms, then fires only on the armed row", () => {
+  const both = { id: "a", killable: true, suspendable: true };
+  assert.equal(endIntent(both, "suspend", null), "suspend");
+  assert.equal(endIntent(both, "suspend", "a"), "suspend");
+  assert.equal(endIntent(both, "destroy", null), "arm");
+  assert.equal(endIntent(both, "destroy", "b"), "arm"); // another row armed → arm this one instead
+  assert.equal(endIntent(both, "destroy", "a"), "destroy");
+});
+
+test("endIntent: an action the tab lacks arms the row to show why; neither → nothing", () => {
+  assert.equal(endIntent({ id: "a", killable: true }, "suspend", null), "arm");
+  assert.equal(endIntent({ id: "a", suspendable: true }, "destroy", null), "arm");
+  assert.equal(endIntent({ id: "a", suspendable: true }, "destroy", "a"), null); // ☠ disabled
+  assert.equal(endIntent({ id: "a" }, "suspend", null), null);
+  assert.equal(endIntent({ id: "a" }, "destroy", null), null);
+  assert.equal(endIntent(undefined, "destroy", null), null); // unknown id
 });
 
 test("presenceClass: ghost is the third state — start affordance, never kill", () => {

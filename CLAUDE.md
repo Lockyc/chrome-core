@@ -101,8 +101,9 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   focus resolve to this). **`setActive(id)`**: highlight only, no callback (reflect app-actioned
   state, e.g. the neighbour activated after an unload).
 - **methods:** `update(dto)`, `setActive(id)`, `setLive(id,live)`, `setAttention(id,val)`,
-  `setPresence(id,state)`, `selectByOffset(dir,{liveOnly})`, `selectByIndex(n)`, `setError(msg)`,
-  `clearError()`, `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update-bar view),
+  `setPresence(id,state)`, `selectByOffset(dir,{liveOnly})`, `selectByIndex(n)`,
+  `requestEnd(id, "suspend"|"destroy")` (the keyboard route to the confirm row: suspend fires at once,
+  destroy arms the row and fires on a second request — `endIntent`), `setError(msg)`, `clearError()`, `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update-bar view),
   **`checkForUpdateNow()`** (the menu "Check for Updates…" path — check + announce the result; the app
   forwards its own app-named menu event here), and **`destroy()`** (stop the recurring update check —
   the only long-lived resource the component holds).
