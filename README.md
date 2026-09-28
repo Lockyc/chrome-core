@@ -3,6 +3,7 @@
 <p align="center">The shared sidebar chrome for <a href="https://github.com/Lockyc/curator">curator</a>, <a href="https://github.com/Lockyc/warden">warden</a>, and <a href="https://github.com/Lockyc/lector">lector</a> — one component, three apps.</p>
 
 <p align="center">
+  <a href="https://github.com/lockyc/chrome-core/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/lockyc/chrome-core/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-macOS-555">
   <img alt="Built with" src="https://img.shields.io/badge/built%20with-CSS%20%2B%20vanilla%20JS-F7DF1E?logo=javascript&logoColor=black">
   <img alt="Embedded via" src="https://img.shields.io/badge/embedded%20via-Rust-CE412B?logo=rust&logoColor=white">
@@ -16,7 +17,7 @@ two asset files as string constants so they ride cargo's git-dependency fetch.
 
 chrome-core is the **shared, composable layer** for its apps. It owns the **view** — the banner +
 accent tint, grouped tab rows (letter tile, title, and three status/action dot slots — attention,
-presence, live/unload), the kill-confirm row overlay, density tokens, the resize-drag, and the error
+presence, live/unload), the end-session confirm (⏻ suspend / ☠ destroy), density tokens, the resize-drag, and the error
 bar — and, on the same sharing principle, the **app-agnostic capabilities**: anything that's the same
 for any app regardless of what it hosts lives here once rather than being reimplemented per app.
 **Self-update** is the exemplar and is implemented here (checking, the update bar, install/relaunch,

@@ -1,4 +1,4 @@
-// chrome-core — the shared sidebar chrome for curator and warden.
+// chrome-core — the shared sidebar chrome for curator, warden, and lector.
 //
 // Framework-free: exposes a global `ChromeSidebar` factory (browser) and CommonJS exports (the
 // factory + the pure helpers, for node:test). The component renders a window DTO into a mount
