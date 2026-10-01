@@ -15,6 +15,7 @@ const {
   patchTab,
   openTabs,
   mirrorContext,
+  navOrder,
 } = require("../assets/sidebar.js");
 
 test("tileInitial: first alphanumeric, uppercased; bullet fallback", () => {
@@ -283,4 +284,18 @@ test("mirrorContext: tree row → parent folder; grouped → group; loose → nu
   assert.equal(mirrorContext({ tree: false, group: "tools", treePath: ["x"] }), "tools");
   assert.equal(mirrorContext({ tree: false, group: null }), null);
   assert.equal(mirrorContext({ group: "" }), null);
+});
+
+test("navOrder walks the main list's paint order with every tree folder expanded", () => {
+  const tabs = [
+    { id: "loose" },
+    { id: "a1", group: "A" },
+    { id: "deep", group: "Dev", tree: true, treePath: ["gh", "lockyc"] },
+    { id: "top", group: "Dev", tree: true, treePath: [] },
+    { id: "other", group: "Dev", tree: true, treePath: ["gl"] },
+    { id: "b1", group: "B" },
+  ];
+  // a tree section paints a node's rows before its folders, folders in first-seen order
+  assert.deepEqual(navOrder(tabs), ["loose", "a1", "top", "deep", "other", "b1"]);
+  assert.deepEqual(navOrder([]), []);
 });

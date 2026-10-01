@@ -34,7 +34,7 @@ shot density="comfortable":
     echo "✓ wrote preview.png ({{density}})"
 
 # Covers: tileInitial, tileColour, tintOverBase, clampWidth, presenceClass, derivePresenceState,
-# resolveOffset, buildTree. DOM/visual behaviour is out of scope — use `just preview` / `just shot`.
+# resolveOffset, buildTree, navOrder. DOM/visual behaviour is out of scope — use `just preview` / `just shot`.
 # Unit-test the component's pure JS logic (zero deps, node:test)
 [group("check")]
 test:

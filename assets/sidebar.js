@@ -247,6 +247,30 @@ function buildTree(rows) {
   return { folders, rows: root.rows };
 }
 
+/** Every tab id in the main list's paint order, as if every tree folder were expanded: a tree
+ *  section paints a node's own rows before its child folders (`_paintTreeNode`), so a tab inside a
+ *  collapsed folder still has a place in the order without having a row in the DOM. */
+function navOrder(tabs) {
+  const out = [];
+  const walk = (node) => {
+    for (const r of node.rows) out.push(r.id);
+    for (const f of node.folders) walk(f);
+  };
+  let i = 0;
+  while (i < tabs.length) {
+    const g = tabs[i].group == null ? null : tabs[i].group;
+    if (g !== null && tabs[i].tree) {
+      const start = i;
+      while (i < tabs.length && (tabs[i].group == null ? null : tabs[i].group) === g) i++;
+      walk(buildTree(tabs.slice(start, i)));
+      continue;
+    }
+    out.push(tabs[i].id);
+    i++;
+  }
+  return out;
+}
+
 // ─────────────────────────── the component ───────────────────────────
 
 function el(tag, attrs, text) {
@@ -827,14 +851,13 @@ class Sidebar {
     this._paint();
   }
 
-  /** Cycle prev/next → onSelect. `liveOnly` restricts to rows whose live dot is filled (warden skips
-   *  cold tabs; curator passes liveOnly:false). */
+  /** Cycle prev/next → onSelect. `liveOnly` restricts to tabs whose live dot is filled — live or
+   *  detached (warden skips cold tabs; curator passes liveOnly:false). Walks the tab RECORDS in `navOrder`, not the DOM: a live tab inside a
+   *  collapsed tree folder has no row, and must still be reachable. */
   selectByOffset(dir, opts) {
     const liveOnly = opts && opts.liveOnly;
-    const rows = this._navRows().filter(
-      (r) => !liveOnly || r.querySelector(".cc-dot.live")
-    );
-    const ids = rows.map((r) => r.dataset.id);
+    const live = new Set(this.tabs.filter((t) => t.live || t.detached).map((t) => t.id));
+    const ids = navOrder(this.tabs).filter((id) => !liveOnly || live.has(id));
     if (ids.length < 2) return; // cycling needs ≥2 (eligible) tabs; 1 tab is a no-op, not a self-select
     const next = resolveOffset(ids, this.active, dir < 0 ? -1 : 1);
     if (next != null) this.select(next);
@@ -846,9 +869,8 @@ class Sidebar {
     if (n >= 1 && n <= ids.length) this.select(ids[n - 1]);
   }
 
-  /** The rows keyboard navigation walks: the main list in DTO order, with the pinned section's
-   *  MIRRORS excluded. Including them would shift every ⌘1–9 index by however many tabs happened
-   *  to be open, and make ⌘⇧[ / ⌘⇧] visit each open tab twice per lap. */
+  /** The rows ⌘1–9 counts: the main list's visible rows, with the pinned section's MIRRORS
+   *  excluded — including them would shift every index by however many tabs happened to be open. */
   _navRows() {
     return [...this.list.querySelectorAll(".cc-tab:not([data-mirror])")];
   }
@@ -1144,7 +1166,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext };
+  module.exports = { ChromeSidebar, navOrder, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;

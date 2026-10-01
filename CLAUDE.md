@@ -307,9 +307,9 @@ just be an unreadable sidebar), and `.cc-main` takes `flex-grow: 1` so the hover
 > arm/disarm. A singular lookup compiles and looks right — it silently paints one row and leaves the
 > twin's dot, badge or presence stale. **The DTO is NOT duplicated**: `this.tabs` stays one record
 > per tab, so `patchTab` and every id → record lookup are untouched by this. Mirrors carry
-> `data-mirror` and are excluded from `_navRows()`, which is what `selectByOffset`/`selectByIndex`
-> walk — counting them would shift every ⌘1–9 index by however many tabs happened to be open and
-> make live-only cycling visit each open tab twice per lap.
+> `data-mirror` and are excluded from `_navRows()`, which `selectByIndex` counts — counting them
+> would shift every ⌘1–9 index by however many tabs happened to be open. `selectByOffset` walks the
+> records (`navOrder`), never the DOM, because a tab in a collapsed tree folder has no row at all.
 
 ## Consumption (build-dep + build.rs) and pinning
 
