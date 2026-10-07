@@ -271,6 +271,18 @@ function navOrder(tabs) {
   return out;
 }
 
+/** The tabs the search field keeps for `query`: every whitespace-separated term must appear,
+ *  case-insensitively, in the tab's title, its tree path (tree rows only), or its group. An empty
+ *  query returns `tabs` itself — the unfiltered list, not a copy. */
+function filterTabs(tabs, query) {
+  const terms = (query || "").toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return tabs;
+  return (tabs || []).filter((t) => {
+    const hay = [t.title, t.tree ? (t.treePath || []).join("/") : "", t.group].join(" ").toLowerCase();
+    return terms.every((term) => hay.includes(term));
+  });
+}
+
 // ─────────────────────────── the component ───────────────────────────
 
 function el(tag, attrs, text) {
@@ -299,6 +311,10 @@ class Sidebar {
     this.armedKill = null;
     this.windowColour = NEUTRAL_COLOUR;
     this.tabs = [];
+    // The search field's text (see "search"); `this.tabs` stays whole, the list paints the filtered
+    // view. `_cursor` is the id Enter would open — the highlighted match.
+    this.query = "";
+    this._cursor = null;
     this._lastWidth = 0;
     // Self-update state (see the "self-update" section): the pending Update from a successful check,
     // a per-session dismissal flag, and the recurring-check timer handle.
@@ -366,10 +382,19 @@ class Sidebar {
       this._updateDismissed = true;
     });
     this.updateBar.append(this._updateText, this._updateBtn, this._updateClose);
+    this.searchEl = el("div", { id: "cc-search" });
+    this.searchInput = el("input", { type: "text", placeholder: "Search", spellcheck: "false", autocomplete: "off", "aria-label": "Search tabs" });
+    this.searchInput.addEventListener("input", () => {
+      this.query = this.searchInput.value;
+      this._cursor = null;
+      this._paintList();
+    });
+    this.searchInput.addEventListener("keydown", (e) => this._onSearchKey(e));
+    this.searchEl.appendChild(this.searchInput);
     this.list = el("div", { id: "cc-tab-list" });
     this.resizeEl = el("div", { id: "cc-resize" });
     if (this.titlebarEl) this.root.append(this.titlebarEl);
-    this.root.append(this.banner, this.errorBar, this.updateBar, this.list, this.resizeEl);
+    this.root.append(this.banner, this.errorBar, this.updateBar, this.searchEl, this.list, this.resizeEl);
   }
 
   /** The pointer has left the sidebar, as reported by the HOST rather than observed by the page.
@@ -436,51 +461,10 @@ class Sidebar {
     this._setDrag(this.nameEl, drag);
     this._setDrag(this.list, drag);
 
-    this.list.innerHTML = "";
-    // The pinned "Open" section, opt-in per window DTO (warden's `open_tabs_section`). It lives in
-    // its own container at the top of the list so `setLive` can rebuild JUST it when a tab's
-    // membership changes, without a full re-render.
     this.openSection = dto.openSection === true;
     this.tint = tint;
     this.drag = drag;
-    this.openEl = el("div", { class: "cc-open" });
-    this._setDrag(this.openEl, drag);
-    this.list.appendChild(this.openEl);
-    this._paintOpenSection();
-    // Everything that is not the pinned section lives in one container, so the CSS can address
-    // "the main list" as a unit — it is the hover target that lifts the de-emphasis the pinned
-    // section puts on it, and it restores `.cc-group:first-child` to meaning the first header of
-    // the main list (the pinned section would otherwise always be the list's first child).
-    // It is also its own scroll container: the two sections scroll INDEPENDENTLY, so paging through
-    // a long project list never pushes the open tabs off the top (see the CSS).
-    this.mainEl = el("div", { class: "cc-main" });
-    this._setDrag(this.mainEl, drag);
-    this.list.appendChild(this.mainEl);
-
-    let lastGroup;
-    let i = 0;
-    while (i < this.tabs.length) {
-      const t = this.tabs[i];
-      const g = t.group == null ? null : t.group;
-      // A run of consecutive tabs sharing a group whose rows are `tree: true` is a project-tree
-      // (root) section — rendered as a collapsible folder tree instead of flat rows.
-      if (g !== null && t.tree) {
-        const start = i;
-        while (i < this.tabs.length && (this.tabs[i].group == null ? null : this.tabs[i].group) === g) i++;
-        this._renderTreeSection(g, this.tabs.slice(start, i), tint, drag);
-        lastGroup = g;
-        continue;
-      }
-      if (g !== lastGroup && g !== null) {
-        const h = el("div", { class: "cc-group" }, g);
-        h.style.background = tint; // sticky header matches the tinted sidebar
-        this._setDrag(h, drag);
-        this.mainEl.appendChild(h);
-      }
-      lastGroup = g;
-      this.mainEl.appendChild(this._renderRow(t));
-      i++;
-    }
+    this._paintList();
 
     // Active selection has two ownership models. When the DTO carries `active`, the APP owns it
     // (curator: its Rust side is authoritative via get_tabs) — honour it and do NOT fire onSelect.
@@ -500,9 +484,69 @@ class Sidebar {
     }
   }
 
+  /** The tabs the list shows: `this.tabs` narrowed by the search field. */
+  _shown() {
+    return filterTabs(this.tabs, this.query);
+  }
+
+  /** Rebuild both sections from `_shown()` — `update()`'s list half, and the search field's repaint.
+   *  Selection is untouched: a filtered-out active tab stays active, it just has no row. */
+  _paintList() {
+    this._disarmKill();
+    const tint = this.tint;
+    const drag = this.drag;
+    const tabs = this._shown();
+    this.list.innerHTML = "";
+    // The pinned "Open" section, opt-in per window DTO (warden's `open_tabs_section`). It lives in
+    // its own container at the top of the list so `setLive` can rebuild JUST it when a tab's
+    // membership changes, without a full re-render.
+    this.openEl = el("div", { class: "cc-open" });
+    this._setDrag(this.openEl, drag);
+    this.list.appendChild(this.openEl);
+    this._paintOpenSection();
+    // Everything that is not the pinned section lives in one container, so the CSS can address
+    // "the main list" as a unit — it is the hover target that lifts the de-emphasis the pinned
+    // section puts on it, and it restores `.cc-group:first-child` to meaning the first header of
+    // the main list (the pinned section would otherwise always be the list's first child).
+    // It is also its own scroll container: the two sections scroll INDEPENDENTLY, so paging through
+    // a long project list never pushes the open tabs off the top (see the CSS).
+    this.mainEl = el("div", { class: "cc-main" });
+    this._setDrag(this.mainEl, drag);
+    this.list.appendChild(this.mainEl);
+
+    let lastGroup;
+    let i = 0;
+    while (i < tabs.length) {
+      const t = tabs[i];
+      const g = t.group == null ? null : t.group;
+      // A run of consecutive tabs sharing a group whose rows are `tree: true` is a project-tree
+      // (root) section — rendered as a collapsible folder tree instead of flat rows.
+      if (g !== null && t.tree) {
+        const start = i;
+        while (i < tabs.length && (tabs[i].group == null ? null : tabs[i].group) === g) i++;
+        this._renderTreeSection(g, tabs.slice(start, i), tint, drag);
+        lastGroup = g;
+        continue;
+      }
+      if (g !== lastGroup && g !== null) {
+        const h = el("div", { class: "cc-group" }, g);
+        h.style.background = tint; // sticky header matches the tinted sidebar
+        this._setDrag(h, drag);
+        this.mainEl.appendChild(h);
+      }
+      lastGroup = g;
+      this.mainEl.appendChild(this._renderRow(t));
+      i++;
+    }
+    if (!tabs.length && this.query.trim()) {
+      this.mainEl.appendChild(el("div", { class: "cc-search-empty" }, "No tabs match \u201c" + this.query.trim() + "\u201d"));
+    }
+    this._paint();
+  }
+
   // ── the pinned "Open" section (opt-in: `openSection` on the DTO) ──
 
-  /** Rebuild the pinned section from `this.tabs` — a header plus a MIRROR row for every open tab.
+  /** Rebuild the pinned section from `_shown()` — a header plus a MIRROR row for every open tab.
    *
    *  The rows are duplicates: an open tab keeps its row in its own group/tree as well, so the main
    *  list never shuffles as terminals come and go. **The DTO is not duplicated** — `this.tabs` stays
@@ -518,7 +562,7 @@ class Sidebar {
     if (!this.openEl) return;
     this.openEl.innerHTML = "";
     if (!this.openSection) return;
-    const rows = openTabs(this.tabs);
+    const rows = openTabs(this._shown());
     if (!rows.length) return; // no header over an empty section
     const head = el("div", { class: "cc-group" }, "Open");
     head.style.background = this.tint; // sticky header matches the tinted sidebar
@@ -578,13 +622,17 @@ class Sidebar {
     for (const folder of node.folders) {
       const segs = [...pathSegs, folder.label];
       const key = "cc-tree:" + (this.cfg.storageKey || "") + ":" + group + "/" + segs.join("/");
-      const collapsed = this._treeCollapsed(key, depth);
+      // A search shows every match, so it opens every folder without touching the stored state.
+      const searching = !!this.query.trim();
+      const collapsed = !searching && this._treeCollapsed(key, depth);
       const row = el("div", { class: "cc-folder" });
       if (collapsed) row.setAttribute("data-collapsed", "");
       row.style.setProperty("--cc-depth", String(depth));
       row.appendChild(el("span", { class: "cc-chevron" }));
       row.appendChild(el("span", { class: "cc-folder-label" }, folder.label));
+      if (searching) row.setAttribute("data-searching", "");
       row.addEventListener("click", () => {
+        if (searching) return;
         localStorage.setItem(key, collapsed ? "0" : "1");
         repaint();
       });
@@ -817,6 +865,62 @@ class Sidebar {
         if (dot) this._paintDot(dot, true);
         this._refreshPresenceLive(row, true); // active ⇒ live ⇒ its presence dot can offer start
       }
+    }
+    const cursor = this._searchCursor();
+    for (const row of this._navRows()) row.classList.toggle("cc-cursor", row.dataset.id === cursor);
+  }
+
+  // ── search ──
+
+  /** Put the cursor in the search field, selecting any text already there — the host's menu
+   *  accelerator (shell-core's Find in Sidebar). A host whose content is a native view (warden) must
+   *  first make the webview the key view; the page can't take focus from AppKit itself. */
+  focusSearch() {
+    this.searchInput.focus();
+    this.searchInput.select();
+  }
+
+  /** The id Enter opens while a search is active: the arrow-moved cursor if its row is still shown,
+   *  else the first match. Null with no search, or nothing shown. */
+  _searchCursor() {
+    if (!this.query.trim()) return null;
+    const ids = this._navRows().map((r) => r.dataset.id);
+    return ids.includes(this._cursor) ? this._cursor : ids[0] || null;
+  }
+
+  /** Clear the field and repaint the whole list. */
+  _clearSearch() {
+    this.searchInput.value = "";
+    this.query = "";
+    this._cursor = null;
+    this._paintList();
+  }
+
+  /** Esc clears and leaves (→ `onSearchExit`, so the host can hand focus back to its content);
+   *  Enter opens the cursor's tab, then clears and leaves; ↑/↓ move the cursor among the matches. */
+  _onSearchKey(e) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      this._clearSearch();
+      this.searchInput.blur();
+      if (this.cb.onSearchExit) this.cb.onSearchExit();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const id = this._searchCursor();
+      if (!id) return;
+      this._clearSearch();
+      this.searchInput.blur();
+      this.select(id);
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const ids = this._navRows().map((r) => r.dataset.id);
+      if (!ids.length || !this.query.trim()) return;
+      const cur = ids.indexOf(this._searchCursor());
+      const next = Math.min(ids.length - 1, Math.max(0, cur + (e.key === "ArrowDown" ? 1 : -1)));
+      this._cursor = ids[next];
+      this._paint();
+      const row = this._navRows().find((r) => r.dataset.id === this._cursor);
+      if (row) row.scrollIntoView({ block: "nearest" });
     }
   }
 
@@ -1166,7 +1270,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, navOrder, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext };
+  module.exports = { ChromeSidebar, navOrder, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext, filterTabs };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;

@@ -16,6 +16,7 @@ const {
   openTabs,
   mirrorContext,
   navOrder,
+  filterTabs,
 } = require("../assets/sidebar.js");
 
 test("tileInitial: first alphanumeric, uppercased; bullet fallback", () => {
@@ -298,4 +299,28 @@ test("navOrder walks the main list's paint order with every tree folder expanded
   // a tree section paints a node's rows before its folders, folders in first-seen order
   assert.deepEqual(navOrder(tabs), ["loose", "a1", "top", "deep", "other", "b1"]);
   assert.deepEqual(navOrder([]), []);
+});
+
+test("filterTabs: empty query keeps every tab, same array", () => {
+  const tabs = [{ id: "a", title: "api" }];
+  assert.equal(filterTabs(tabs, ""), tabs);
+  assert.equal(filterTabs(tabs, "   "), tabs);
+  assert.equal(filterTabs(tabs, null), tabs);
+});
+
+test("filterTabs: case-insensitive over title, tree path and group; every term must match", () => {
+  const tabs = [
+    { id: "web", title: "website", group: "Dev", tree: true, treePath: ["rotary"] },
+    { id: "api", title: "API", group: "Backend" },
+    { id: "loose", title: "notes" },
+    // treePath is only meaningful on a tree row
+    { id: "flat", title: "flat", group: "tools", treePath: ["rotary"] },
+  ];
+  const ids = (q) => filterTabs(tabs, q).map((t) => t.id);
+  assert.deepEqual(ids("api"), ["api"]);
+  assert.deepEqual(ids("ROTARY"), ["web"]);
+  assert.deepEqual(ids("backend"), ["api"]);
+  assert.deepEqual(ids("rot web"), ["web"]);
+  assert.deepEqual(ids("rot api"), []);
+  assert.deepEqual(ids("zzz"), []);
 });

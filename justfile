@@ -11,7 +11,7 @@ default:
     @if command -v perl >/dev/null 2>&1; then just --color always --list | perl -CS -Mutf8 -lpe 'BEGIN{($w)=`stty size 2>/dev/null </dev/tty`=~/ (\d+)/; $w||=100; $col=(-t STDOUT && !exists $ENV{NO_COLOR})} s/\e\[[0-9;]*m//g unless $col; (my $v=$_)=~s/\e\[[0-9;]*m//g; if(length($v)>$w){my($o,$n)=("",0); while(length && $n<$w-1){ if($col && s/^(\e\[[0-9;]*m)//){$o.=$1}else{s/^(.)//;$o.=$1;$n++} } $_=$o."…".($col?"\e[0m":"")}'; else just --list; fi
 
 # The fast loop for iterating on assets/sidebar.{css,js} without building curator or warden.
-# URL params: ?density=compact and ?header=1 (mount a header-slot stand-in); see preview.html.
+# URL params: ?density=compact, ?header=1 (mount a header-slot stand-in), ?q=<text> (type a search); see preview.html.
 # Open the visual preview (the sidebar mounted in isolation) in your default browser.
 [group("dev")]
 preview:
@@ -34,7 +34,7 @@ shot density="comfortable":
     echo "✓ wrote preview.png ({{density}})"
 
 # Covers: tileInitial, tileColour, tintOverBase, clampWidth, presenceClass, derivePresenceState,
-# resolveOffset, buildTree, navOrder. DOM/visual behaviour is out of scope — use `just preview` / `just shot`.
+# resolveOffset, buildTree, navOrder, filterTabs. DOM/visual behaviour is out of scope — use `just preview` / `just shot`.
 # Unit-test the component's pure JS logic (zero deps, node:test)
 [group("check")]
 test:

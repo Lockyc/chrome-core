@@ -130,6 +130,11 @@
         { storageKey: "preview", header, appName: "preview" }
       );
       sb.update(dto);
+      // `?q=` types into the search field, to see a filtered list.
+      if (params.get("q")) {
+        sb.searchInput.value = params.get("q");
+        sb.searchInput.dispatchEvent(new Event("input"));
+      }
       // Readout: mode + measured banner height. The height must be identical with/without ?header=1.
       const bh = document.getElementById("cc-banner").offsetHeight;
       document.getElementById("readout").textContent =

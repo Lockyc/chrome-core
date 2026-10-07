@@ -56,7 +56,8 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 
 - **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onSuspend(id)` + `onDestroy(id)` (the
   confirm row's two actions — see below), `onStart(id)`, `onResize(width)`,
-  `onRescan(group)`, `onPopOut(id)` + `onPopIn(id)` (optional pair — see below). (The update bar is wired **internally** —
+  `onRescan(group)`, `onPopOut(id)` + `onPopIn(id)` (optional pair — see below), `onSearchExit()` (optional:
+  Esc left the search field — hand focus back to the content). (The update bar is wired **internally** —
   self-update is a core capability, see the dividing-line decision above — so there is **no**
   `onUpdate`/`onUpdateDismiss` callback.)
 - **config:** `{ header: Node|null, appName: string|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
@@ -102,7 +103,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   state, e.g. the neighbour activated after an unload).
 - **methods:** `update(dto)`, `setActive(id)`, `setLive(id,live)`, `setAttention(id,val)`,
   `setPresence(id,state)`, `selectByOffset(dir,{liveOnly})`, `selectByIndex(n)`,
-  `requestEnd(id, "suspend"|"destroy")` (the keyboard route to the confirm row: suspend fires at once,
+  `focusSearch()` (shell-core's Find in Sidebar ⌘⇧F — see *Search* below), `requestEnd(id, "suspend"|"destroy")` (the keyboard route to the confirm row: suspend fires at once,
   destroy arms the row and fires on a second request — `endIntent`), `setError(msg)`, `clearError()`, `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update-bar view),
   **`checkForUpdateNow()`** (the menu "Check for Updates…" path — check + announce the result; the app
   forwards its own app-named menu event here), and **`destroy()`** (stop the recurring update check —
@@ -310,6 +311,16 @@ just be an unreadable sidebar), and `.cc-main` takes `flex-grow: 1` so the hover
 > `data-mirror` and are excluded from `_navRows()`, which `selectByIndex` counts — counting them
 > would shift every ⌘1–9 index by however many tabs happened to be open. `selectByOffset` walks the
 > records (`navOrder`), never the DOM, because a tab in a collapsed tree folder has no row at all.
+
+### Search
+
+The always-shown `#cc-search` field above the list narrows it as you type: `filterTabs` (exported,
+tested) keeps a tab when every whitespace term appears, case-insensitively, in its title, tree path
+or group. **`this.tabs` stays whole** — `_paintList()` paints both sections from `_shown()`, so the
+targeted setters and `selectByOffset` see every tab, while `selectByIndex` (DOM-counted) numbers the
+matches. A search opens every tree folder without writing the stored collapse state. ↑/↓ move a
+`.cc-cursor` outline among the matches; Enter selects it; Enter and Esc both clear the field and blur
+it, and Esc also fires `onSearchExit`.
 
 ## Consumption (build-dep + build.rs) and pinning
 

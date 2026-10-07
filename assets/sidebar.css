@@ -155,6 +155,34 @@
   line-height: 1.3;
   white-space: normal;
 }
+/* Search field above the list (see `filterTabs`). Always shown: the field is how search is found. */
+#cc-search {
+  flex: none;
+  padding: 8px 8px 0;
+}
+#cc-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  border: 1px solid #313640;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  color: #ddd;
+  font: inherit;
+  font-size: var(--cc-row-font);
+  outline: none;
+  user-select: text;
+}
+#cc-search input::placeholder {
+  color: #6b7280;
+}
+#cc-search input:focus {
+  border-color: var(--cc-active-bar, #4a9eff);
+}
+/* A folder can't collapse while a search holds it open. */
+.cc-folder[data-searching] {
+  cursor: default;
+}
 #cc-error-text {
   flex: 1;
 }
@@ -458,7 +486,8 @@
   margin-left: calc(6px + var(--cc-depth, 0) * var(--cc-indent));
 }
 
-.cc-tree-empty {
+.cc-tree-empty,
+.cc-search-empty {
   margin: 0 6px;
   padding: var(--cc-row-pad);
   font-size: var(--cc-row-font);
@@ -482,6 +511,10 @@
 }
 .cc-root:not(.cc-away) .cc-tab:hover:not(.active) {
   background: #2a2a2a;
+}
+/* The search match Enter would open — an outline, so it never reads as the selection. */
+.cc-tab.cc-cursor {
+  box-shadow: inset 0 0 0 1px var(--cc-active-bar, #4a9eff);
 }
 /* Active highlight: a fill PLUS a left accent bar, both read from `--cc-active-*`, which `update()`
  * sets per window from the LIGHTNESS-LIFTED window colour (see `liftColour` in sidebar.js — it
