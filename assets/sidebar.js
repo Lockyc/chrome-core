@@ -87,8 +87,8 @@ function liftColour(hex, minL) {
 /** Clamp a desired sidebar width into [min, min(max, fraction*windowWidth)]. `fraction` caps the
  *  sidebar at a share of the window, but is only meaningful when `windowWidth` (the sidebar view's
  *  own `window.innerWidth`) IS the host window's width — i.e. the sidebar is the window's full-size
- *  main webview. Both current consumers are hole-punch main webviews (curator + warden), so both
- *  pass a real `fraction`. A consumer whose sidebar were instead an isolated child webview —
+ *  main webview. All current consumers (curator, warden, lector) are hole-punch main webviews, so
+ *  each passes a real `fraction`. A consumer whose sidebar were instead an isolated child webview —
  *  `innerWidth` being just the sidebar's own width — would see this cap collapse below `min` and pin
  *  every drag to the floor; it passes a falsy `fraction` to skip the cap here and enforce its
  *  share-of-window limit backend-side. */
@@ -1173,7 +1173,7 @@ class Sidebar {
   //
   // A self-updater is the same for any app regardless of what it hosts, so it lives here once and
   // every consuming app inherits it (see CLAUDE.md's dividing-line decision). It feature-detects the
-  // shared Tauri runtime: both real apps expose `window.__TAURI__.updater`/`.process`, while the
+  // shared Tauri runtime: every real app exposes `window.__TAURI__.updater`/`.process`, while the
   // isolated preview.html has no Tauri, so every path below no-ops there. Per-app *identity* (release
   // endpoint, signing pubkey, the Rust plugin registration) stays in the app's own config; the only
   // knob passed in is `autoUpdate` (mount config), the app's config gate.
@@ -1237,7 +1237,7 @@ class Sidebar {
   }
 
   // Stop the recurring check — the interval is the only long-lived resource the component holds. A
-  // consumer that unmounts the sidebar should call this; both current apps let the webview teardown
+  // consumer that unmounts the sidebar should call this; the current apps let the webview teardown
   // collect it, but destroy() keeps that explicit and lets tests tear down cleanly.
   destroy() {
     if (this._updateTimer) {
