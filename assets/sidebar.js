@@ -1142,6 +1142,10 @@ class Sidebar {
   // ── error bar ──
 
   setError(msg) {
+    // Any new message supersedes a pending auto-clear (see `checkForUpdate`'s "up to date" notice),
+    // so a real error shown inside that window stays until dismissed.
+    clearTimeout(this._noticeTimer);
+    this._noticeTimer = null;
     this._errorText.textContent = msg;
     this.errorBar.style.display = "flex";
   }
@@ -1205,7 +1209,7 @@ class Sidebar {
         if (announce || !this._updateDismissed) this.setUpdate({ version: update.version, notes: update.body });
       } else if (announce) {
         this.setError("You're up to date.");
-        setTimeout(() => this.clearError(), 4000);
+        this._noticeTimer = setTimeout(() => this.clearError(), 4000);
       }
     } catch (e) {
       if (announce) this.setError("Couldn't check for updates: " + e);
