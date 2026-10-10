@@ -247,6 +247,21 @@ function buildTree(rows) {
   return { folders, rows: root.rows };
 }
 
+/** The folder labels from a tree section's root down to the folder holding tab `id`, as `buildTree`
+ *  compresses them (the segments a folder's collapse key is built from); `[]` for a row at the
+ *  section's top level, null when `id` is not among `rows`. */
+function folderChain(rows, id) {
+  const find = (node) => {
+    if (node.rows.some((r) => r.id === id)) return [];
+    for (const f of node.folders) {
+      const c = find(f);
+      if (c) return [f.label, ...c];
+    }
+    return null;
+  };
+  return find(buildTree(rows));
+}
+
 /** Split the tabs into the main list's sections, in paint order — the one sectioning rule both
  *  `_paintList` and `navOrder` walk. A run of consecutive same-`group` tabs whose first row is
  *  `tree: true` (and grouped) is a project-tree section and takes every following row of that group;
@@ -621,7 +636,7 @@ class Sidebar {
     }
     for (const folder of node.folders) {
       const segs = [...pathSegs, folder.label];
-      const key = "cc-tree:" + (this.cfg.storageKey || "") + ":" + group + "/" + segs.join("/");
+      const key = this._treeKey(group, segs);
       // A search shows every match, so it opens every folder without touching the stored state.
       const searching = !!this.query.trim();
       const collapsed = !searching && this._treeCollapsed(key, depth);
@@ -640,6 +655,12 @@ class Sidebar {
       container.appendChild(row);
       if (!collapsed) this._paintTreeNode(container, folder, group, segs, depth + 1, repaint);
     }
+  }
+
+  /** The localStorage key holding a folder's collapse state: per mounted sidebar (`storageKey`),
+   *  per tree section (`group`), per folder-label chain (`segs`). */
+  _treeKey(group, segs) {
+    return "cc-tree:" + (this.cfg.storageKey || "") + ":" + group + "/" + segs.join("/");
   }
 
   /** Persisted collapse state for a folder key. Default policy (no stored value yet): top level
@@ -1054,15 +1075,36 @@ class Sidebar {
       this._disarmKill();
       if (this.cb.onDestroy) this.cb.onDestroy(id);
     } else if (intent === "arm") {
-      const rows = this._rowsById(id);
-      const row = rows.find((r) => r.offsetParent !== null) || rows[0];
-      this._armKill(id, row);
+      this._armKill(id, this._revealRow(id));
       if (this.armedKill === id) {
         this._armTimer = setTimeout(() => {
           if (this.armedKill === id) this._disarmKill();
         }, KEY_ARM_TIMEOUT_MS);
       }
     }
+  }
+
+  /** A row for `id` to arm, preferring a visible one. A tab with no row is revealed first — a search
+   *  hiding it is cleared, and every collapsed folder above it is stored expanded and repainted —
+   *  because arming must show the confirm row: a destroy armed out of sight would fire blind on the
+   *  second request. Null only when the tab has no row to reveal. */
+  _revealRow(id) {
+    const pick = () => {
+      const rows = this._rowsById(id);
+      return rows.find((r) => r.offsetParent !== null) || rows[0] || null;
+    };
+    let row = pick();
+    if (!row && this.query.trim()) {
+      this._clearSearch();
+      row = pick();
+    }
+    if (row) return row;
+    const sec = listSections(this.tabs).find((s) => s.tree && s.rows.some((r) => r.id === id));
+    const chain = sec ? folderChain(sec.rows, id) : null;
+    if (!chain || !chain.length) return null;
+    for (let n = 1; n <= chain.length; n++) localStorage.setItem(this._treeKey(sec.group, chain.slice(0, n)), "0");
+    this._paintList();
+    return pick();
   }
 
   _armKill(id, rowEl) {
@@ -1271,7 +1313,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, listSections, navOrder, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext, filterTabs };
+  module.exports = { ChromeSidebar, folderChain, listSections, navOrder, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext, filterTabs };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;

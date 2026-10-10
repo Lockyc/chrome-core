@@ -15,6 +15,7 @@ const {
   patchTab,
   openTabs,
   mirrorContext,
+  folderChain,
   listSections,
   navOrder,
   filterTabs,
@@ -286,6 +287,19 @@ test("mirrorContext: tree row → parent folder; grouped → group; loose → nu
   assert.equal(mirrorContext({ tree: false, group: "tools", treePath: ["x"] }), "tools");
   assert.equal(mirrorContext({ tree: false, group: null }), null);
   assert.equal(mirrorContext({ group: "" }), null);
+});
+
+test("folderChain: compressed folder labels down to a tab's folder", () => {
+  const rows = [
+    { id: "top", treePath: [] },
+    { id: "deep", treePath: ["gh", "lockyc"] },
+    { id: "a", treePath: ["gl", "x"] },
+    { id: "b", treePath: ["gl", "y"] },
+  ];
+  assert.deepEqual(folderChain(rows, "top"), []);
+  assert.deepEqual(folderChain(rows, "deep"), ["gh/lockyc"]); // single-child chain compressed
+  assert.deepEqual(folderChain(rows, "b"), ["gl", "y"]);
+  assert.equal(folderChain(rows, "missing"), null);
 });
 
 test("listSections: flat runs split on group change or a tree row; a tree run takes its whole group", () => {
