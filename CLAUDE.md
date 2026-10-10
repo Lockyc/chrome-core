@@ -345,15 +345,8 @@ For **visual** tweaks, skip the app round-trip entirely: the checked-in **`previ
 component in isolation with a representative DTO (loose tabs, a plain group, and a project-tree with
 folders + leaves, across the dot states). **`just preview`** opens it in a browser; **`just shot
 [density]`** headless-screenshots it to `preview.png` (git-ignored) — both wrap the raw
-`chrome --headless … --screenshot` invocation (still documented at the top of `preview.html`). URL
-params compose: **`?density=compact`** previews the compact scale, **`?header=1`** mounts a stand-in
-in the banner's `header` slot (curator's nav pill; warden leaves it empty) and a corner readout shows
-`#cc-banner`'s measured height — which must be identical with and without `?header=1`, the check that
-`--cc-banner-min` keeps the banner one height regardless of the slot; **`?open=1`** mounts the pinned
-"Open" section (the fixture's live/detached rows span all three section kinds, so it shows mirrors
-being drawn without the originals moving, and the main list below rendered in its de-emphasised
-state — hover it to see it come back). This is the fast loop for
-iterating on `sidebar.{css,js}`; the pinned-rev round-trip through an app is only for shipping.
+`chrome --headless … --screenshot` invocation. Its URL params compose; `preview.html`'s header
+comment documents them. This is the fast loop for iterating on `sidebar.{css,js}`; the pinned-rev round-trip through an app is only for shipping.
 
 ## Build / test
 
