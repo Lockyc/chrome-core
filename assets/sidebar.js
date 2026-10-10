@@ -635,6 +635,7 @@ class Sidebar {
         if (searching) return;
         localStorage.setItem(key, collapsed ? "0" : "1");
         repaint();
+        this._paint(); // the rebuilt rows carry none of `_paint`'s decoration (.active, live upgrade, cursor)
       });
       container.appendChild(row);
       if (!collapsed) this._paintTreeNode(container, folder, group, segs, depth + 1, repaint);
