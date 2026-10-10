@@ -193,8 +193,7 @@ left stripe) — the single place either is computed. `_paint()` only toggles `.
 > **Footgun — bumping the tint ratio does not fix a dark accent.** The obvious tune when a selected
 > row reads faintly is to raise the mix ratio, because the sidebar and the active row are the same
 > colour at different strengths. It cannot work: at ratio 1.0 the row *is* the accent, and for a
-> near-black one (`#002B49`, L≈14%) that is still nearly the background — the old 0.28 mix moved the
-> row by `[-3,+3,+7]`, red going *down*. Contrast has to stop being a function of the accent's own
+> near-black one (`#002B49`, L≈14%) that is still nearly the background. Contrast has to stop being a function of the accent's own
 > luminance, which is what lifting to a lightness floor buys. Saturation is deliberately *not*
 > floored: that would tint the neutral no-colour fallback blue. Pinned in `tests/sidebar.test.js`.
 
@@ -256,12 +255,10 @@ sections themselves.
 > **Footgun — the section scrollers must carry no `padding-top`.** A sticky header's `top: 0` is
 > measured from the scrollport's *padding* box while overflow is clipped at that same box, so top
 > padding on the scroller parks every stuck header that far down and leaves the rows scrolling past
-> visible in the strip above it — a sliver of the row underneath, riding over the header. This was
-> live for as long as the sticky headers were: `#cc-tab-list` was the scroller and carried
-> `padding: 8px 0`, leaking exactly 8px (measured: 8.00px stuck, versus 0.00px with no scroller
-> padding). It keeps that padding today only because it no longer scrolls. Space the first header
-> with its own `padding-top` (`--cc-group-first-top`, inside the painted box), never with padding on
-> a scroller.
+> visible in the strip above it — a sliver of the row underneath, riding over the header.
+> `#cc-tab-list` may carry padding only because it does not scroll. Space the first header with its
+> own `padding-top` (`--cc-group-first-top`, inside the painted box), never with padding on a
+> scroller.
 
 > **Footgun — `.cc-open` must be `flex-shrink: 0`; `max-height` is the only thing allowed to bound
 > it.** Leaving shrink at the default 1 looks like a free safety valve (a very short window takes
@@ -269,8 +266,7 @@ sections themselves.
 > shrink applies whenever the CONTAINER overflows, and the container overflows whenever the main
 > list is longer than the sidebar — the ordinary case. The section is then squeezed *proportionally
 > on every long list* and starts scrolling at three or four rows, nowhere near the ceiling, which
-> reads as a scrollbar on a section occupying a fifth of the window. Shipped exactly that way once.
-> The degenerate case shrink was guarding does not exist: `--cc-open-max` could only exceed the
+> reads as a scrollbar on a section occupying a fifth of the window. The degenerate case shrink was guarding does not exist: `--cc-open-max` could only exceed the
 > list's own height in a window shorter than the banner it carries.
 
 `.cc-main` also lets the CSS address the main list as a unit, which buys two more things. `.cc-group:first-child` means "first header of its own list" again in both containers — the
@@ -284,24 +280,12 @@ just be an unreadable sidebar), and `.cc-main` takes `flex-grow: 1` so the hover
 **empty space under the last row**, which reads as part of the list and would otherwise stay dim.
 
 > **Footgun — `:hover` is not self-clearing for a host that composites a NATIVE surface over the
-> webview.** CSS recomputes hover only on a pointer event the page actually receives; warden's
-> terminal `NSView` sits above the webview and takes the pointer the instant it crosses out of the
-> chrome, so a fast flick out of the main list delivers no further event and the list stays
-> un-muted until the pointer returns. (Moving slowly worked only because the gutter between the list
-> and the surface caught an event on the way past — which is why this reads as "only when I move
-> quickly" and not as a dead feature.) The escape hatch is **`pointerAway()`**: the host calls it
-> from the signal it *can* see (its own native mouse-entered), setting `cc-away` on the root, and
-> the hover rule is written `.cc-root:not(.cc-away) …` so the class suppresses it; the next
-> `pointermove` inside the chrome clears it — but only one that is NOT older than the away signal:
-> the two travel different routes (an IPC hop vs. the webview's own event queue), so a move queued
-> while the pointer was still inside can arrive after `pointerAway()` and un-mute the list right
-> back. That is the medium-speed window (slow leaves no backlog, fast has it coalesced away), and it
-> is why `_awayAt` is a timestamp rather than a bare flag. A host with no native overlay never calls
-> it. **The trap is not specific to the de-emphasis — every `:hover` rule in `sidebar.css` sticks the
-> same way** (a row's highlight, its pop-out overlay and hover-✕, the resize handle), so **every one
-> is written `.cc-root:not(.cc-away) …:hover`**. A new hover rule gets the same prefix, never a second
-> mechanism — and the prefix raises its specificity, so check it doesn't now out-rank a state rule
-> meant to hide it (the pop-out overlay needed `:not(.confirming)` for exactly that).
+> webview**, so **every `:hover` rule in `sidebar.css` is written `.cc-root:not(.cc-away) …:hover`**
+> (a row's highlight, its pop-out overlay and hover-✕, the resize handle, the main list's
+> de-emphasis). The host calls **`pointerAway()`** to set `cc-away`; its docblock carries the
+> mechanism. A new hover rule gets the same prefix, never a second mechanism — and the prefix raises
+> its specificity, so check it doesn't now out-rank a state rule meant to hide it (the pop-out
+> overlay needed `:not(.confirming)` for exactly that).
 
 > **Footgun — one tab id can own TWO rows, so row lookup is `_rowsById` (plural).** Everything that
 > patches a row by id must loop: `setLive`, `setAttention`, `setPresence`, and the kill-confirm
