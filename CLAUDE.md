@@ -177,8 +177,8 @@ neither. The presence dot is a **session toggle**:
 
 > **Footgun — `ghost` is easy to erase.** Both `presenceClass` and `derivePresenceState` must
 > check `ghost`, never collapse to `on`/`off` — the two-state collapse silently downgrades a ghost
-> to `off` on every repaint, losing the recoverable signal with no error. Guarded at
-> `assets/sidebar.js:89` and pinned in `tests/sidebar.test.js`; don't "simplify" either mapping.
+> to `off` on every repaint, losing the recoverable signal with no error. Guarded in
+> `presenceClass`/`derivePresenceState` and pinned in `tests/sidebar.test.js`; don't "simplify" either mapping.
 
 The armed row always renders **both** ending actions, `☠` then `⏻` — an action the tab lacks
 (`killable`/`suspendable` false) stays in place, **disabled** (`.cc-disabled`, muted, titled with why),
