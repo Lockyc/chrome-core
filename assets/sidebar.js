@@ -44,12 +44,9 @@ function tintOverBase(hex, ratio, base) {
 
 /** Raise a hex colour's HSL lightness to a floor, preserving hue and saturation. Returns hex.
  *
- *  This is what makes the active-row highlight readable for ANY window colour. Tinting the *raw*
- *  window colour makes the highlight's contrast a function of how dark the user happened to pick
- *  it: the sidebar is that colour at 0.12 and the active row was the same colour at 0.28, so the
- *  only thing separating them was 0.16 of the accent's own luminance. A dark accent has almost none
- *  to give — `#002B49` moved the active row by `[-3,+3,+7]` (the RED channel going *down*), i.e.
- *  the selected tab was effectively invisible, while a brighter `#33673B` read fine. Lifting the
+ *  This is what makes the active-row highlight readable for ANY window colour. The sidebar and the
+ *  active row are both tints of the window colour, so a highlight tinted from the *raw* colour has
+ *  contrast proportional to that colour's own luminance — near zero for a dark accent. Lifting the
  *  accent to a lightness floor first decouples the highlight's contrast from the accent's
  *  luminance while keeping its hue, so a window still highlights in *its own* colour.
  *
@@ -130,15 +127,11 @@ function mirrorContext(t) {
  *  it. Returns whether a record matched (an unknown id is a no-op, not a throw).
  *
  *  **Load-bearing: `this.tabs` is the state, the DOM is only its projection.** The targeted setters
- *  (`setLive`/`setAttention`/`setPresence`) exist to patch one hot signal without a full re-render,
- *  and they used to touch the DOM *alone*. That silently loses the signal on any re-render that does
- *  not go through `update()` — and a tree section has exactly one: `_renderTreeSection`'s `repaint`,
- *  which rebuilds its rows from these records on every folder expand/collapse. A host that emits
- *  such a signal only *on change* (warden's probe scheduler does — a settled window re-emits
- *  nothing) then never re-sends it, so a lit presence dot inside a `tree: true` section reverted to
- *  hollow the first time any folder in that section was toggled, and stayed hollow for the life of
- *  the process. Flat rows never showed the bug: they are only ever rebuilt by `update()`, whose DTO
- *  the host rebuilds from its own copy of the signal. */
+ *  (`setLive`/`setAttention`/`setPresence`) patch one hot signal without a full re-render, so each
+ *  must write it back here as well as to the row. Rows are re-rendered from these records outside
+ *  `update()` — a tree section's `repaint` on every folder expand/collapse, a search keystroke — and
+ *  a host that emits a signal only *on change* (warden's probe scheduler) never re-sends it, so a
+ *  DOM-only patch is lost on the next such repaint. */
 function patchTab(tabs, id, patch) {
   const t = (tabs || []).find((x) => x.id === id);
   if (!t) return false;
@@ -362,10 +355,9 @@ class Sidebar {
     // see the pointer again, so `:hover` is authoritative from here. STALE moves must not cancel
     // it: the host's signal and the page's own pointer events arrive by different routes (an IPC
     // hop vs. the webview's event queue), so a move the page queued while the pointer was still
-    // inside can be dispatched *after* the away signal. That is the medium-speed window — slow
-    // leaves no backlog, fast has it coalesced away — and it un-muted the list right back. An event
-    // older than the moment we were told the pointer left describes where it used to be, so it
-    // decides nothing; `timeStamp` shares `performance.now()`'s time origin.
+    // inside can be dispatched *after* the away signal. An event older than the away signal
+    // describes where the pointer was, so it decides nothing; `timeStamp` shares
+    // `performance.now()`'s time origin.
     this.root.addEventListener("pointermove", (e) => {
       if (e.timeStamp < this._awayAt) return;
       this.root.classList.remove("cc-away");
@@ -425,12 +417,11 @@ class Sidebar {
 
   /** The pointer has left the sidebar, as reported by the HOST rather than observed by the page.
    *
-   * Hover state here is CSS (`.cc-main:hover` un-mutes the de-emphasised main list), and CSS only
-   * recomputes it when the page receives a pointer event. A host that composites a native surface
-   * above the webview — warden's terminal `NSView` — takes the pointer the moment it crosses out of
-   * the chrome, so a fast flick out of the list delivers no further event to the page: the last one
-   * it saw was still inside, and the list stayed un-muted indefinitely. Moving slowly worked only
-   * because the gutter between the list and the surface caught an event on the way past.
+   * Hover state here is CSS (every `:hover` rule in sidebar.css), and CSS only recomputes it when
+   * the page receives a pointer event. A host that composites a native surface above the webview —
+   * warden's terminal `NSView` — takes the pointer the moment it crosses out of the chrome, so a
+   * fast exit delivers no further event to the page and `:hover` stays set; `cc-away` on the root
+   * suppresses every hover rule until the pointer is back.
    *
    * The host calls this from the signal it *can* see (its own native mouse-entered), and the next
    * pointer event inside the chrome clears it again. Hosts with no native overlay (curator, lector,
@@ -869,8 +860,7 @@ class Sidebar {
   }
 
   /** EVERY row for `id` — plural because the pinned "Open" section mirrors an open tab's row, so one
-   *  id can own two. A singular lookup here silently patched only the first, leaving the twin's dot,
-   *  badge or presence stale. */
+   *  id can own two; a caller patching a row patches them all. */
   _rowsById(id) {
     return [...this.list.querySelectorAll('.cc-tab[data-id="' + (window.CSS ? CSS.escape(id) : id) + '"]')];
   }
@@ -955,9 +945,7 @@ class Sidebar {
     this._disarmKill();
     // A detached tab lives in its OWN window — selecting it means "raise that window" (the app's
     // onSelect), never "make it the shown tab in this window". So fire onSelect but do NOT move the
-    // highlight: stealing the selection indicator here would leave it pointing at a tab that isn't
-    // the terminal actually displayed in this window (the "clicking a popped-out tab steals the
-    // sidebar focus indicator" bug). The highlight stays on whatever this window is really showing.
+    // highlight: it stays on whatever this window is really showing.
     const t = this.tabs.find((x) => x.id === id);
     if (t && t.detached) {
       if (this.cb.onSelect) this.cb.onSelect(id, { wasActive: false });
