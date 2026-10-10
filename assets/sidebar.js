@@ -247,6 +247,25 @@ function buildTree(rows) {
   return { folders, rows: root.rows };
 }
 
+/** Split the tabs into the main list's sections, in paint order — the one sectioning rule both
+ *  `_paintList` and `navOrder` walk. A run of consecutive same-`group` tabs whose first row is
+ *  `tree: true` (and grouped) is a project-tree section and takes every following row of that group;
+ *  any other run of same-`group` rows is a flat section, ended by a group change or a tree row.
+ *  → `[{ group: string|null, tree: bool, rows }]`. */
+function listSections(tabs) {
+  const out = [];
+  const grp = (t) => (t.group == null ? null : t.group);
+  let i = 0;
+  while (i < tabs.length) {
+    const g = grp(tabs[i]);
+    const tree = g !== null && !!tabs[i].tree;
+    const start = i++;
+    while (i < tabs.length && grp(tabs[i]) === g && (tree || g === null || !tabs[i].tree)) i++;
+    out.push({ group: g, tree, rows: tabs.slice(start, i) });
+  }
+  return out;
+}
+
 /** Every tab id in the main list's paint order, as if every tree folder were expanded: a tree
  *  section paints a node's own rows before its child folders (`_paintTreeNode`), so a tab inside a
  *  collapsed folder still has a place in the order without having a row in the DOM. */
@@ -256,17 +275,9 @@ function navOrder(tabs) {
     for (const r of node.rows) out.push(r.id);
     for (const f of node.folders) walk(f);
   };
-  let i = 0;
-  while (i < tabs.length) {
-    const g = tabs[i].group == null ? null : tabs[i].group;
-    if (g !== null && tabs[i].tree) {
-      const start = i;
-      while (i < tabs.length && (tabs[i].group == null ? null : tabs[i].group) === g) i++;
-      walk(buildTree(tabs.slice(start, i)));
-      continue;
-    }
-    out.push(tabs[i].id);
-    i++;
+  for (const sec of listSections(tabs)) {
+    if (sec.tree) walk(buildTree(sec.rows));
+    else for (const r of sec.rows) out.push(r.id);
   }
   return out;
 }
@@ -514,29 +525,18 @@ class Sidebar {
     this._setDrag(this.mainEl, drag);
     this.list.appendChild(this.mainEl);
 
-    let lastGroup;
-    let i = 0;
-    while (i < tabs.length) {
-      const t = tabs[i];
-      const g = t.group == null ? null : t.group;
-      // A run of consecutive tabs sharing a group whose rows are `tree: true` is a project-tree
-      // (root) section — rendered as a collapsible folder tree instead of flat rows.
-      if (g !== null && t.tree) {
-        const start = i;
-        while (i < tabs.length && (tabs[i].group == null ? null : tabs[i].group) === g) i++;
-        this._renderTreeSection(g, tabs.slice(start, i), tint, drag);
-        lastGroup = g;
+    for (const sec of listSections(tabs)) {
+      if (sec.tree) {
+        this._renderTreeSection(sec.group, sec.rows, tint, drag);
         continue;
       }
-      if (g !== lastGroup && g !== null) {
-        const h = el("div", { class: "cc-group" }, g);
+      if (sec.group !== null) {
+        const h = el("div", { class: "cc-group" }, sec.group);
         h.style.background = tint; // sticky header matches the tinted sidebar
         this._setDrag(h, drag);
         this.mainEl.appendChild(h);
       }
-      lastGroup = g;
-      this.mainEl.appendChild(this._renderRow(t));
-      i++;
+      for (const t of sec.rows) this.mainEl.appendChild(this._renderRow(t));
     }
     if (!tabs.length && this.query.trim()) {
       this.mainEl.appendChild(el("div", { class: "cc-search-empty" }, "No tabs match \u201c" + this.query.trim() + "\u201d"));
@@ -1271,7 +1271,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, navOrder, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext, filterTabs };
+  module.exports = { ChromeSidebar, listSections, navOrder, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext, filterTabs };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;

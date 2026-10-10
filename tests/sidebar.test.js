@@ -15,6 +15,7 @@ const {
   patchTab,
   openTabs,
   mirrorContext,
+  listSections,
   navOrder,
   filterTabs,
 } = require("../assets/sidebar.js");
@@ -285,6 +286,30 @@ test("mirrorContext: tree row → parent folder; grouped → group; loose → nu
   assert.equal(mirrorContext({ tree: false, group: "tools", treePath: ["x"] }), "tools");
   assert.equal(mirrorContext({ tree: false, group: null }), null);
   assert.equal(mirrorContext({ group: "" }), null);
+});
+
+test("listSections: flat runs split on group change or a tree row; a tree run takes its whole group", () => {
+  const tabs = [
+    { id: "loose" },
+    { id: "loose-tree", tree: true }, // ungrouped: never a tree section
+    { id: "a1", group: "A" },
+    { id: "a2", group: "A" },
+    { id: "d1", group: "Dev", tree: true, treePath: [] },
+    { id: "d2", group: "Dev" }, // non-tree row inside a tree run stays in it
+    { id: "b1", group: "B" },
+    { id: "b2", group: "B", tree: true },
+    { id: "a3", group: "A" },
+  ];
+  const shape = listSections(tabs).map((s) => [s.group, s.tree, s.rows.map((r) => r.id)]);
+  assert.deepEqual(shape, [
+    [null, false, ["loose", "loose-tree"]],
+    ["A", false, ["a1", "a2"]],
+    ["Dev", true, ["d1", "d2"]],
+    ["B", false, ["b1"]],
+    ["B", true, ["b2"]],
+    ["A", false, ["a3"]],
+  ]);
+  assert.deepEqual(listSections([]), []);
 });
 
 test("navOrder walks the main list's paint order with every tree folder expanded", () => {
