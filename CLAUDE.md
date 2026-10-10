@@ -358,8 +358,7 @@ iterating on `sidebar.{css,js}`; the pinned-rev round-trip through an app is onl
 ## Build / test
 
 `just build` (`cargo build`) compiles the `include_str!` constants (catches a missing/renamed asset).
-`just test` (`node --test`) unit-tests the pure logic (`tileInitial`/`tileColour`/`tintOverBase`/
-`liftColour`/`clampWidth`/`presenceClass`/`derivePresenceState`/`resolveOffset`/`buildTree`); `just gate` runs
-rustfmt-check + tests + build together. DOM/visual
+`just test` (`node --test`) unit-tests the exported pure helpers (`tests/sidebar.test.js`); `just gate`
+runs rustfmt-check + tests + build together. DOM/visual
 behaviour has no unit coverage — iterate it with `just preview` / `just shot` (above) and confirm
 integration by running the consuming apps.
