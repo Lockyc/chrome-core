@@ -404,11 +404,19 @@ class Sidebar {
     this.searchInput = el("input", { type: "text", placeholder: "Search", spellcheck: "false", autocomplete: "off", "aria-label": "Search tabs" });
     this.searchInput.addEventListener("input", () => {
       this.query = this.searchInput.value;
+      this.searchClear.disabled = !this.query;
       this._cursor = null;
       this._paintList();
     });
     this.searchInput.addEventListener("keydown", (e) => this._onSearchKey(e));
-    this.searchEl.appendChild(this.searchInput);
+    // Always rendered; disabled while the field is empty (`_clearSearch` / the input handler sync it).
+    this.searchClear = el("button", { id: "cc-search-clear", "aria-label": "Clear search", disabled: "" });
+    this.searchClear.textContent = "×";
+    this.searchClear.addEventListener("click", () => {
+      this._clearSearch();
+      this.searchInput.focus();
+    });
+    this.searchEl.append(this.searchInput, this.searchClear);
     this.list = el("div", { id: "cc-tab-list" });
     this.resizeEl = el("div", { id: "cc-resize" });
     if (this.titlebarEl) this.root.append(this.titlebarEl);
@@ -670,7 +678,11 @@ class Sidebar {
     // Row click keeps its normal onSelect wiring even when detached — the app interprets
     // onSelect-on-a-detached-tab as "raise the popped-out window" (see CLAUDE.md). No new
     // callback: this IS the raise affordance.
-    row.addEventListener("click", () => this.select(t.id));
+    // A click is the search's other exit (Enter being the first), so it clears the field too.
+    row.addEventListener("click", () => {
+      if (this.query) this._clearSearch();
+      this.select(t.id);
+    });
 
     const icon = el("span", { class: "cc-icon" }, tileInitial(t.title));
     icon.style.background = tileColour(t.title);
@@ -902,6 +914,7 @@ class Sidebar {
   _clearSearch() {
     this.searchInput.value = "";
     this.query = "";
+    this.searchClear.disabled = true;
     this._cursor = null;
     this._paintList();
   }

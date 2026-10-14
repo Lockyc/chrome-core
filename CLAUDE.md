@@ -304,7 +304,8 @@ or group. **`this.tabs` stays whole** — `_paintList()` paints both sections fr
 targeted setters and `selectByOffset` see every tab, while `selectByIndex` (DOM-counted) numbers the
 matches. A search opens every tree folder without writing the stored collapse state. ↑/↓ move a
 `.cc-cursor` outline among the matches; Enter selects it; Enter and Esc both clear the field and blur
-it, and Esc also fires `onSearchExit`.
+it, and Esc also fires `onSearchExit`. Clicking a row also clears it; the `#cc-search-clear` × clears
+and keeps focus (disabled while empty).
 
 ## Consumption (build-dep + build.rs) and pinning
 
