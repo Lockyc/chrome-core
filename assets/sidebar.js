@@ -481,23 +481,21 @@ class Sidebar {
     this.openSection = dto.openSection === true;
     this.tint = tint;
     this.drag = drag;
-    this._paintList();
 
     // Active selection has two ownership models. When the DTO carries `active`, the APP owns it
     // (curator: its Rust side is authoritative via get_tabs) — honour it and do NOT fire onSelect.
     // When `active` is absent, the COMPONENT owns it (warden): preserve the current selection, fall
     // back to the first tab if it vanished, and fire onSelect so the app activates the fallback.
+    // Resolved BEFORE the list paints: `_paint` lights the active row's dot, so painting with the
+    // outgoing active would re-light a tab the app just unloaded.
     if (dto.active !== undefined) {
       this.active = dto.active;
-      this._paint();
-    } else {
-      if (!this.tabs.find((t) => t.id === this.active)) {
-        this.active = this.tabs.length ? this.tabs[0].id : null;
-      }
-      this._paint();
-      if (this.active && this.active !== prevActive && this.cb.onSelect) {
-        this.cb.onSelect(this.active, { wasActive: false });
-      }
+    } else if (!this.tabs.find((t) => t.id === this.active)) {
+      this.active = this.tabs.length ? this.tabs[0].id : null;
+    }
+    this._paintList();
+    if (dto.active === undefined && this.active && this.active !== prevActive && this.cb.onSelect) {
+      this.cb.onSelect(this.active, { wasActive: false });
     }
   }
 
@@ -1305,7 +1303,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, folderChain, listSections, navOrder, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext, filterTabs };
+  module.exports = { ChromeSidebar, Sidebar, folderChain, listSections, navOrder, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext, filterTabs };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;

@@ -1,6 +1,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
 const {
+  Sidebar,
   tileInitial,
   tileColour,
   tintOverBase,
@@ -362,4 +363,45 @@ test("filterTabs: case-insensitive over title, tree path and group; every term m
   assert.deepEqual(ids("rot web"), ["web"]);
   assert.deepEqual(ids("rot api"), []);
   assert.deepEqual(ids("zzz"), []);
+});
+
+// `update()` against a stub instance: no DOM, just the fields `update` touches, with `_paintList`
+// recording which tab it painted as active.
+function stubSidebar(active) {
+  globalThis.document = { documentElement: { setAttribute() {} } };
+  const style = { setProperty() {} };
+  const sb = Object.create(Sidebar.prototype);
+  Object.assign(sb, {
+    active,
+    cb: {},
+    nameEl: {},
+    banner: { style: {} },
+    root: { style },
+    titlebarEl: null,
+    painted: [],
+    _disarmKill() {},
+    _setDrag() {},
+    _paintList() {
+      this.painted.push(this.active);
+    },
+    _paint() {},
+  });
+  return sb;
+}
+
+test("update: the list paints with the DTO's active, not the outgoing one", () => {
+  // The app unloaded the active tab `a` and promoted `b`. Painting with `a` still active would
+  // re-light `a`'s dot (the active row is always painted live) though the DTO says it's cold.
+  const sb = stubSidebar("a");
+  sb.update({ active: "b", tabs: [{ id: "a", live: false }, { id: "b", live: true }] });
+  assert.deepEqual(sb.painted, ["b"]);
+});
+
+test("update: component-owned selection falls back before painting, then fires onSelect", () => {
+  const sb = stubSidebar("gone");
+  const selected = [];
+  sb.cb.onSelect = (id) => selected.push(id);
+  sb.update({ tabs: [{ id: "x", live: false }] });
+  assert.deepEqual(sb.painted, ["x"]);
+  assert.deepEqual(selected, ["x"]);
 });
