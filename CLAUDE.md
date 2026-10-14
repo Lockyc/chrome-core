@@ -327,9 +327,9 @@ this repo's preview from any app with **`just chrome-preview`**. See warden's / 
 
 For **visual** tweaks, skip the app round-trip entirely: the checked-in **`preview.html`** mounts the
 component in isolation with a representative DTO (loose tabs, a plain group, and a project-tree with
-folders + leaves, across the dot states). **`just preview`** opens it in a browser; **`just shot
-[density]`** headless-screenshots it to `preview.png` (git-ignored) — both wrap the raw
-`chrome --headless … --screenshot` invocation. Its URL params compose; `preview.html`'s header
+folders + leaves, across the dot states). **`just dev`** serves the repo with live reload (the house
+`tools/dev.sh` over `live-server`; open `preview.html` at the printed URL); **`just shot
+[density]`** headless-screenshots it to `preview.png` (git-ignored). Its URL params compose; `preview.html`'s header
 comment documents them. This is the fast loop for iterating on `sidebar.{css,js}`; the pinned-rev round-trip through an app is only for shipping.
 
 ## Build / test
@@ -337,5 +337,5 @@ comment documents them. This is the fast loop for iterating on `sidebar.{css,js}
 `just build` (`cargo build`) compiles the `include_str!` constants (catches a missing/renamed asset).
 `just test` (`node --test`) unit-tests the exported pure helpers (`tests/sidebar.test.js`); `just gate`
 runs rustfmt-check + tests + build together. DOM/visual
-behaviour has no unit coverage — iterate it with `just preview` / `just shot` (above) and confirm
+behaviour has no unit coverage — iterate it with `just dev` / `just shot` (above) and confirm
 integration by running the consuming apps.

@@ -11,11 +11,12 @@ default:
     @if command -v perl >/dev/null 2>&1; then just --color always --list | perl -CS -Mutf8 -lpe 'BEGIN{($w)=`stty size 2>/dev/null </dev/tty`=~/ (\d+)/; $w||=100; $col=(-t STDOUT && !exists $ENV{NO_COLOR})} s/\e\[[0-9;]*m//g unless $col; (my $v=$_)=~s/\e\[[0-9;]*m//g; if(length($v)>$w){my($o,$n)=("",0); while(length && $n<$w-1){ if($col && s/^(\e\[[0-9;]*m)//){$o.=$1}else{s/^(.)//;$o.=$1;$n++} } $_=$o."…".($col?"\e[0m":"")}'; else just --list; fi
 
 # The fast loop for iterating on assets/sidebar.{css,js} without building curator or warden.
-# URL params (they compose): see preview.html's header comment.
-# Open the visual preview (the sidebar mounted in isolation) in your default browser.
+# Serves the repo root, so the sidebar mounted in isolation is at <printed URL>preview.html;
+# pass a port to pin it. URL params (they compose): see preview.html's header comment.
+# Serve the visual preview with live reload — open preview.html at the printed URL
 [group("dev")]
-preview:
-    open "{{justfile_directory()}}/preview.html"
+dev port="":
+    ./tools/dev.sh {{ port }}
 
 # Headless-screenshot the preview to preview.png (git-ignored). Density: `just shot compact`.
 [group("dev")]
@@ -27,13 +28,13 @@ shot density="comfortable":
     for b in chromium google-chrome google-chrome-stable "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
       if command -v "$b" >/dev/null 2>&1 || [ -x "$b" ]; then browser="$b"; break; fi
     done
-    [ -n "$browser" ] || { echo "✗ no Chromium/Chrome found — install one or just \`just preview\`"; exit 1; }
+    [ -n "$browser" ] || { echo "✗ no Chromium/Chrome found — install one or use \`just dev\`"; exit 1; }
     "$browser" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 \
       --window-size=310,900 --default-background-color=00000000 \
       --screenshot="$dir/preview.png" "file://$dir/preview.html?density={{density}}"
     echo "✓ wrote preview.png ({{density}})"
 
-# Covers the exported pure helpers (tests/sidebar.test.js). DOM/visual behaviour is out of scope — use `just preview` / `just shot`.
+# Covers the exported pure helpers (tests/sidebar.test.js). DOM/visual behaviour is out of scope — use `just dev` / `just shot`.
 # Unit-test the component's pure JS logic (zero deps, node:test)
 [group("check")]
 test:
