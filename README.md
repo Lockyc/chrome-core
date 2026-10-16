@@ -3,7 +3,6 @@
 <p align="center">The shared sidebar chrome for <a href="https://github.com/Lockyc/curator">curator</a>, <a href="https://github.com/Lockyc/warden">warden</a>, and <a href="https://github.com/Lockyc/lector">lector</a> — one component, three apps.</p>
 
 <p align="center">
-  <a href="https://github.com/lockyc/chrome-core/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/lockyc/chrome-core/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-macOS-555">
   <img alt="Built with" src="https://img.shields.io/badge/built%20with-CSS%20%2B%20vanilla%20JS-F7DF1E?logo=javascript&logoColor=black">
   <img alt="Embedded via" src="https://img.shields.io/badge/embedded%20via-Rust-CE412B?logo=rust&logoColor=white">
