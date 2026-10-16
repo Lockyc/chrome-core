@@ -15,11 +15,16 @@ Tauri apps with the same sidebar. `chrome-core` is that sidebar: a framework-fre
 component (`ChromeSidebar`) plus a thin Rust crate that exposes the two asset files as string
 constants.
 
-It provides the **view** (the banner + accent tint, grouped tab rows with a letter tile, title and
-three status/action dot slots for attention, presence and live/unload, the end-session confirm
-(⏻ suspend / ☠ destroy), density tokens, the resize-drag, and the error bar) and the capabilities
-common to every app, including **self-update** (update check, the update bar, install/relaunch,
-and the re-check cadence). Each app supplies a normalized tab DTO, a few callbacks, and its updater
+It provides two things:
+
+- **The view**: the window-name banner and its accent colour; grouped tab rows, each with a letter
+  tile, a title and three status dots (needs attention, session present, loaded/unload); the
+  end-session confirmation (⏻ suspend / ☠ destroy); comfortable/compact sizing; the sidebar resize
+  drag; and the error bar.
+- **Capabilities every app needs**, notably **self-update**: the update check, the update bar,
+  install and relaunch, and the periodic re-check.
+
+Each app supplies a normalized tab DTO, a few callbacks, and its updater
 identity (endpoint/pubkey); its content area and backend commands stay in a thin per-app
 controller. The interface contract is in [`CLAUDE.md`](CLAUDE.md).
 
