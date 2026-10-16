@@ -11,29 +11,23 @@
 </p>
 
 curator (browser keeper-tabs), warden (terminals), and lector (local doc sites) are sibling macOS
-Tauri apps with the same sidebar silhouette. `chrome-core` is that sidebar, extracted once: a
-framework-free CSS + vanilla-JS component (`ChromeSidebar`) plus a thin Rust crate that embeds the
-two asset files as string constants so they ride cargo's git-dependency fetch.
+Tauri apps with the same sidebar. `chrome-core` is that sidebar: a framework-free CSS + vanilla-JS
+component (`ChromeSidebar`) plus a thin Rust crate that exposes the two asset files as string
+constants.
 
-chrome-core is the **shared, composable layer** for its apps. It owns the **view** — the banner +
-accent tint, grouped tab rows (letter tile, title, and three status/action dot slots — attention,
-presence, live/unload), the end-session confirm (⏻ suspend / ☠ destroy), density tokens, the resize-drag, and the error
-bar — and, on the same sharing principle, the **app-agnostic capabilities**: anything that's the same
-for any app regardless of what it hosts lives here once rather than being reimplemented per app.
-**Self-update** is the exemplar and is implemented here (checking, the update bar, install/relaunch,
-and the re-check cadence), so every app inherits one implementation. The dividing line is
-*app-agnostic vs app-type-specific*, not *view vs logic*. Each app supplies a normalized tab DTO + a
-few callbacks (and its own updater *identity* — endpoint/pubkey); each app's content-area plumbing and
-backend commands stay in a thin per-app controller. See [`CLAUDE.md`](CLAUDE.md) for the dividing line
-and the full interface contract.
+It provides the **view** (the banner + accent tint, grouped tab rows with a letter tile, title and
+three status/action dot slots for attention, presence and live/unload, the end-session confirm
+(⏻ suspend / ☠ destroy), density tokens, the resize-drag, and the error bar) and the capabilities
+common to every app, including **self-update** (update check, the update bar, install/relaunch,
+and the re-check cadence). Each app supplies a normalized tab DTO, a few callbacks, and its updater
+identity (endpoint/pubkey); its content area and backend commands stay in a thin per-app
+controller. The interface contract is in [`CLAUDE.md`](CLAUDE.md).
 
 ## Status
 
 In use. [curator](https://github.com/Lockyc/curator), [warden](https://github.com/Lockyc/warden), and
-[lector](https://github.com/Lockyc/lector) all consume chrome-core, each pinned to a **commit rev** —
-that rev is this crate's only version identity. There are no tags or releases, and the crate's Cargo
-`version` field is inert (`publish = false`; nothing reads it). The component implements the full
-sidebar view; each app supplies a thin controller binding it to its own Tauri backend.
+[lector](https://github.com/Lockyc/lector) all consume chrome-core, each pinned to a **commit rev**.
+There are no tags or releases.
 
 ## How it's consumed
 
@@ -51,8 +45,8 @@ std::fs::write("../src/chrome-core.css", chrome_core::SIDEBAR_CSS)?;
 std::fs::write("../src/chrome-core.js",  chrome_core::SIDEBAR_JS)?;
 ```
 
-The generated files are git-ignored in each app — reproducible from the pinned rev + this recipe, so
-a plain `git clone` of any app still builds (cargo fetches chrome-core; build.rs materializes it).
+The generated files are git-ignored in each app; `cargo build` regenerates them, so a fresh clone
+builds as-is.
 
 ## Build & test
 
