@@ -183,9 +183,14 @@
 /* Inside the field's right edge; muted, not hidden, while there is nothing to clear. */
 #cc-search-clear {
   position: absolute;
-  right: 12px;
+  /* Spans the input's box (top = #cc-search's top padding) and centres the glyph in it. */
+  top: 8px;
   bottom: 0;
-  height: calc(var(--cc-row-font) + 12px);
+  right: 9px;
+  width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   border: 0;
   background: transparent;
@@ -193,7 +198,7 @@
   opacity: 0.6;
   font-size: 14px;
   line-height: 1;
-  padding: 0 2px;
+  padding: 0;
 }
 #cc-search-clear:disabled {
   cursor: default;
