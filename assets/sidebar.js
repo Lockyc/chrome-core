@@ -426,14 +426,14 @@ class Sidebar {
   /** The pointer has left the sidebar, as reported by the HOST rather than observed by the page.
    *
    * Hover state here is CSS (every `:hover` rule in sidebar.css), and CSS only recomputes it when
-   * the page receives a pointer event. A host that composites a native surface above the webview —
-   * warden's terminal `NSView` — takes the pointer the moment it crosses out of the chrome, so a
-   * fast exit delivers no further event to the page and `:hover` stays set; `cc-away` on the root
-   * suppresses every hover rule until the pointer is back.
+   * the page receives a pointer event. Any view a host composites above the chrome webview —
+   * warden's terminal `NSView`, curator's content webviews — takes the pointer the moment it
+   * crosses out of the chrome, so a fast exit delivers no further event to the page and `:hover`
+   * stays set; `cc-away` on the root suppresses every hover rule until the pointer is back.
    *
    * The host calls this from the signal it *can* see (its own native mouse-entered), and the next
-   * pointer event inside the chrome clears it again. Hosts with no native overlay (curator, lector,
-   * preview.html) never call it and lose nothing. */
+   * pointer event inside the chrome clears it again. A host with nothing above the chrome
+   * (preview.html) never calls it and loses nothing. */
   pointerAway() {
     // Timestamped so a pointer event the page queued *before* this — see the pointermove listener
     // in `_buildShell` — can't cancel it on arrival.

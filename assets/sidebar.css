@@ -401,8 +401,8 @@
   transition: filter 160ms ease;
 }
 /* The un-mute is gated on `.cc-away` being absent, not on `:hover` alone — `:hover` does not clear
- * when a host's native surface takes the pointer; see `pointerAway()` in sidebar.js. A host with no
- * native overlay never sets the class and this reads exactly as `:hover` alone. */
+ * when a view the host composites above the chrome takes the pointer; see `pointerAway()` in
+ * sidebar.js. A host that never sets the class reads exactly as `:hover` alone. */
 .cc-root:not(.cc-away) .cc-open:not(:empty) ~ .cc-main:hover {
   filter: none;
 }

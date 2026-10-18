@@ -279,8 +279,8 @@ gated on the section being **non-empty**, not merely opted in (muting the only l
 just be an unreadable sidebar), and `.cc-main` takes `flex-grow: 1` so the hover region includes the
 **empty space under the last row**, which reads as part of the list and would otherwise stay dim.
 
-> **Footgun — `:hover` is not self-clearing for a host that composites a NATIVE surface over the
-> webview**, so **every `:hover` rule in `sidebar.css` is written `.cc-root:not(.cc-away) …:hover`**
+> **Footgun — `:hover` is not self-clearing for a host that composites ANY view over the chrome
+> webview** (a native surface or another webview), so **every `:hover` rule in `sidebar.css` is written `.cc-root:not(.cc-away) …:hover`**
 > (a row's highlight, its pop-out overlay and hover-✕, the resize handle, the main list's
 > de-emphasis). The host calls **`pointerAway()`** to set `cc-away`; its docblock carries the
 > mechanism. A new hover rule gets the same prefix, never a second mechanism — and the prefix raises
