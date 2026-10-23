@@ -221,7 +221,9 @@ rows}], rows }`, compressing single-child folder chains (labels joined with `/`)
 the anonymous top level whose compression fully absorbs the top folder surfaces its children directly
 (no synthetic top-level label), which only matters when the *entire* section is one unbranching chain
 with no root-level rows. The tree-head (a `.cc-group.cc-tree-head`) carries the group label + a
-`.cc-rescan` button firing `onRescan(group)`; an empty section renders the head plus a muted
+`.cc-rescan` button firing `onRescan(group)` — return a promise that settles once the rescan's
+snapshot is applied, and the ⟳ spins until then, followed by a brief `.cc-rescan-status` outcome
+(`rescanSummary`: "+2 −1" / "No changes", the names in its tooltip); an empty section renders the head plus a muted
 `.cc-tree-empty` "No projects found" line. Folder rows (`.cc-folder`) toggle their subtree via a full
 repaint (trees are config-scale, so this is simpler than DOM-patching visibility) and persist collapse
 state in `localStorage` under `cc-tree:<storageKey>:<group>/<folder-path>` — default policy is top

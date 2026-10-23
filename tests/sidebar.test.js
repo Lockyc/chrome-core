@@ -20,6 +20,8 @@ const {
   listSections,
   navOrder,
   filterTabs,
+  treeRows,
+  rescanSummary,
 } = require("../assets/sidebar.js");
 
 test("tileInitial: first alphanumeric, uppercased; bullet fallback", () => {
@@ -379,6 +381,7 @@ function stubSidebar(active) {
     root: { style },
     titlebarEl: null,
     painted: [],
+    _rescans: new Map(),
     _disarmKill() {},
     _setDrag() {},
     _paintList() {
@@ -404,4 +407,39 @@ test("update: component-owned selection falls back before painting, then fires o
   sb.update({ tabs: [{ id: "x", live: false }] });
   assert.deepEqual(sb.painted, ["x"]);
   assert.deepEqual(selected, ["x"]);
+});
+
+test("treeRows: one group's tree rows, id → title", () => {
+  const tabs = [
+    { id: "a", title: "A", group: "dev", tree: true },
+    { id: "b", title: "B", group: "dev" },
+    { id: "c", title: "C", group: "other", tree: true },
+  ];
+  assert.deepEqual([...treeRows(tabs, "dev")], [["a", "A"]]);
+});
+
+test("rescanSummary: counts and names what a rescan added and removed", () => {
+  const before = new Map([["a", "A"], ["b", "B"]]);
+  assert.deepEqual(rescanSummary(before, new Map(before)), { text: "No changes", tip: "" });
+  assert.deepEqual(rescanSummary(before, new Map([["a", "A"], ["c", "C"], ["d", "D"]])), {
+    text: "+2 −1",
+    tip: "Added: C, D\nRemoved: B",
+  });
+  assert.deepEqual(rescanSummary(before, new Map([["a", "A"], ["b", "B"], ["c", "C"]])), {
+    text: "+1",
+    tip: "Added: C",
+  });
+});
+
+test("update: keeps the main list's scroll position across a repaint", () => {
+  const sb = stubSidebar("a");
+  sb.mainEl = { scrollTop: 420 };
+  sb.openEl = { scrollTop: 30 };
+  sb._paintList = function () {
+    this.mainEl = { scrollTop: 0 };
+    this.openEl = { scrollTop: 0 };
+  };
+  sb.update({ tabs: [{ id: "a", live: true }] });
+  assert.equal(sb.mainEl.scrollTop, 420);
+  assert.equal(sb.openEl.scrollTop, 30);
 });

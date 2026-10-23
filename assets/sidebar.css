@@ -444,9 +444,29 @@
   padding: 0;
   cursor: pointer;
 }
-.cc-root:not(.cc-away) .cc-rescan:hover {
+.cc-root:not(.cc-away) .cc-rescan:not([data-busy]):hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.14);
+}
+.cc-rescan[data-busy] {
+  cursor: default;
+  animation: cc-rescan-spin 0.8s linear infinite;
+}
+@keyframes cc-rescan-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* A finished rescan's outcome ("+2 −1" / "No changes"), shown for a few seconds beside the ⟳. */
+.cc-rescan-status {
+  flex: none;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #c3ccd8;
+}
+.cc-rescan-status:empty {
+  display: none;
 }
 
 .cc-tree-body {

@@ -302,6 +302,29 @@ function filterTabs(tabs, query) {
   });
 }
 
+/** One tree section's rows as `id → title` — the snapshot a rescan's outcome is diffed against. */
+function treeRows(tabs, group) {
+  return new Map((tabs || []).filter((t) => t.tree && t.group === group).map((t) => [t.id, t.title]));
+}
+
+/** What a rescan changed, `before` → `after` (both `treeRows` maps): `text` is the tree-head's
+ *  status ("+2 −1" / "No changes"), `tip` names the projects behind the counts. */
+function rescanSummary(before, after) {
+  const added = [...after].filter(([id]) => !before.has(id)).map(([, title]) => title);
+  const removed = [...before].filter(([id]) => !after.has(id)).map(([, title]) => title);
+  const counts = [];
+  const tip = [];
+  if (added.length) {
+    counts.push("+" + added.length);
+    tip.push("Added: " + added.join(", "));
+  }
+  if (removed.length) {
+    counts.push("−" + removed.length);
+    tip.push("Removed: " + removed.join(", "));
+  }
+  return { text: counts.length ? counts.join(" ") : "No changes", tip: tip.join("\n") };
+}
+
 // ─────────────────────────── the component ───────────────────────────
 
 function el(tag, attrs, text) {
@@ -317,6 +340,9 @@ const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 // How long a keyboard-armed confirm row (`requestEnd`) stays armed before it lapses on its own.
 const KEY_ARM_TIMEOUT_MS = 4000;
+
+// How long a tree-head shows a finished rescan's outcome ("+2 −1" / "No changes").
+const RESCAN_STATUS_MS = 4000;
 
 class Sidebar {
   constructor(container, callbacks, config) {
@@ -335,6 +361,11 @@ class Sidebar {
     this.query = "";
     this._cursor = null;
     this._lastWidth = 0;
+    // Per tree section (`group`): the rescan in flight or just finished — `{ before, busy, failed,
+    // timer }` — so its spinner/outcome survive the repaint the rescan itself triggers. `_rescanEls`
+    // is the current paint's head controls for each group, rebuilt by `_paintList`.
+    this._rescans = new Map();
+    this._rescanEls = new Map();
     // Self-update state (see the "self-update" section): the pending Update from a successful check,
     // a per-session dismissal flag, and the recurring-check timer handle.
     this._pendingUpdate = null;
@@ -501,7 +532,13 @@ class Sidebar {
     } else if (!this.tabs.find((t) => t.id === this.active)) {
       this.active = this.tabs.length ? this.tabs[0].id : null;
     }
+    // `_paintList` replaces both scroll containers, so carry their offsets across — a hot-reload or
+    // rescan must not jump a scrolled list back to the top. (A search repaint starts at the top.)
+    const mainTop = this.mainEl ? this.mainEl.scrollTop : 0;
+    const openTop = this.openEl ? this.openEl.scrollTop : 0;
     this._paintList();
+    if (this.mainEl) this.mainEl.scrollTop = mainTop;
+    if (this.openEl) this.openEl.scrollTop = openTop;
     if (dto.active === undefined && this.active && this.active !== prevActive && this.cb.onSelect) {
       this.cb.onSelect(this.active, { wasActive: false });
     }
@@ -520,6 +557,7 @@ class Sidebar {
     const drag = this.drag;
     const tabs = this._shown();
     this.list.innerHTML = "";
+    this._rescanEls = new Map();
     // The pinned "Open" section, opt-in per window DTO (warden's `open_tabs_section`). It lives in
     // its own container at the top of the list so `setLive` can rebuild JUST it when a tab's
     // membership changes, without a full re-render.
@@ -597,13 +635,16 @@ class Sidebar {
     head.style.background = tint;
     this._setDrag(head, drag);
     head.appendChild(el("span", { class: "cc-tree-label" }, group));
+    const status = el("span", { class: "cc-rescan-status" });
     const rescan = el("button", { class: "cc-rescan", type: "button", title: "Rescan" }, "⟳");
     rescan.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (this.cb.onRescan) this.cb.onRescan(group);
+      this._rescan(group);
     });
-    head.appendChild(rescan);
+    head.append(status, rescan);
     this.mainEl.appendChild(head);
+    this._rescanEls.set(group, { btn: rescan, status });
+    this._paintRescan(group);
 
     const body = el("div", { class: "cc-tree-body" });
     this.mainEl.appendChild(body);
@@ -618,6 +659,50 @@ class Sidebar {
       this._paintTreeNode(body, tree, group, [], 0, repaint);
     };
     repaint();
+  }
+
+  /** Run `onRescan(group)`, spinning the head's ⟳ until the promise it returns settles, then show
+   *  what changed for `RESCAN_STATUS_MS`. A host returning nothing settles at once. */
+  _rescan(group) {
+    const prev = this._rescans.get(group);
+    if (prev && prev.busy) return;
+    if (prev) clearTimeout(prev.timer);
+    const st = { before: treeRows(this.tabs, group), busy: true, failed: false, timer: null };
+    this._rescans.set(group, st);
+    this._paintRescan(group);
+    const settle = (failed) => {
+      st.busy = false;
+      st.failed = failed;
+      st.timer = setTimeout(() => {
+        if (this._rescans.get(group) !== st) return;
+        this._rescans.delete(group);
+        this._paintRescan(group);
+      }, RESCAN_STATUS_MS);
+      this._paintRescan(group);
+    };
+    Promise.resolve(this.cb.onRescan ? this.cb.onRescan(group) : undefined).then(
+      () => settle(false),
+      () => settle(true),
+    );
+  }
+
+  /** Sync a tree-head's ⟳ and status to its rescan state. The outcome is diffed against the current
+   *  `this.tabs` on every paint, so a snapshot that lands after the promise settled still counts. */
+  _paintRescan(group) {
+    const els = this._rescanEls.get(group);
+    if (!els) return;
+    const st = this._rescans.get(group);
+    const busy = !!(st && st.busy);
+    els.btn.disabled = busy;
+    els.btn.toggleAttribute("data-busy", busy);
+    if (!st || busy) {
+      els.status.textContent = "";
+      els.status.title = "";
+      return;
+    }
+    const sum = st.failed ? { text: "Failed", tip: "" } : rescanSummary(st.before, treeRows(this.tabs, group));
+    els.status.textContent = sum.text;
+    els.status.title = sum.tip;
   }
 
   /** Recursively paint one tree node's rows + child folders into `container`. `pathSegs` is the
@@ -1316,7 +1401,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, Sidebar, folderChain, listSections, navOrder, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext, filterTabs };
+  module.exports = { ChromeSidebar, Sidebar, folderChain, listSections, navOrder, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext, filterTabs, treeRows, rescanSummary };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;
