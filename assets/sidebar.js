@@ -259,8 +259,10 @@ function folderChain(rows, id) {
  *  `_paintList` and `navOrder` walk. A run of consecutive same-`group` tabs whose first row is
  *  `tree: true` (and grouped) is a project-tree section and takes every following row of that group;
  *  any other run of same-`group` rows is a flat section, ended by a group change or a tree row.
+ *  `trees` names the window's declared project trees (the DTO's `trees`): one with no rows still
+ *  gets its (empty) section, after the rest, so its head and ⟳ stay on screen.
  *  → `[{ group: string|null, tree: bool, rows }]`. */
-function listSections(tabs) {
+function listSections(tabs, trees = []) {
   const out = [];
   const grp = (t) => (t.group == null ? null : t.group);
   let i = 0;
@@ -270,6 +272,9 @@ function listSections(tabs) {
     const start = i++;
     while (i < tabs.length && grp(tabs[i]) === g && (tree || g === null || !tabs[i].tree)) i++;
     out.push({ group: g, tree, rows: tabs.slice(start, i) });
+  }
+  for (const g of trees) {
+    if (!out.some((s) => s.tree && s.group === g)) out.push({ group: g, tree: true, rows: [] });
   }
   return out;
 }
@@ -519,6 +524,7 @@ class Sidebar {
     this._setDrag(this.list, drag);
 
     this.openSection = dto.openSection === true;
+    this.trees = dto.trees || [];
     this.tint = tint;
     this.drag = drag;
 
@@ -578,7 +584,8 @@ class Sidebar {
     this._setDrag(this.mainEl, drag);
     this.list.appendChild(this.mainEl);
 
-    for (const sec of listSections(tabs)) {
+    // A search shows only what matches, so an empty declared tree is not painted under one.
+    for (const sec of listSections(tabs, this.query.trim() ? [] : this.trees)) {
       if (sec.tree) {
         this._renderTreeSection(sec.group, sec.rows, tint, drag);
         continue;
@@ -634,8 +641,8 @@ class Sidebar {
   // ── project-tree sections (a group whose rows are `tree: true`) ──
 
   /** Render a tree-head (group label + rescan control) followed by the nested folder body for one
-   *  contiguous run of `tree: true` rows sharing `group`. Empty runs never reach here (they simply
-   *  wouldn't exist as tabs), but `buildTree` on zero rows is handled defensively. */
+   *  contiguous run of `tree: true` rows sharing `group` — or for a declared tree with no rows,
+   *  whose body is the "No projects found" line. */
   _renderTreeSection(group, rows, tint, drag) {
     const head = el("div", { class: "cc-group cc-tree-head" });
     head.style.background = tint;

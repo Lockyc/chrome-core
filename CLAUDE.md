@@ -83,7 +83,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   per-instance namespace for tree-collapse persistence (below) — it need only be unique per mounted
   sidebar, its literal contents don't matter beyond that.
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
-  windowDrag?: bool, openSection?: bool, active?: id, tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null,
+  windowDrag?: bool, openSection?: bool, active?: id, trees?: string[], tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null,
   live: bool, attention: null|true|number, presence: null|'on'|'ghost'|'off', killable: bool, suspendable: bool, startable: bool,
   warn: bool, tree?: bool, treePath?: string[], detached?: bool }`. **`detached`** is opt-in (absent/falsy
   on every row until an app's DTO sets it) — see the pop-out section below for what it does to a row.
@@ -223,8 +223,9 @@ the anonymous top level whose compression fully absorbs the top folder surfaces 
 with no root-level rows. The tree-head (a `.cc-group.cc-tree-head`) carries the group label + a
 `.cc-rescan` button firing `onRescan(group)` — return a promise that settles once the rescan's
 snapshot is applied, and the ⟳ spins until then, followed by a brief `.cc-rescan-status` outcome
-(`rescanSummary`: "+2 −1" / "No changes", the names in its tooltip); an empty section renders the head plus a muted
-`.cc-tree-empty` "No projects found" line. Folder rows (`.cc-folder`) toggle their subtree via a full
+(`rescanSummary`: "+2 −1" / "No changes", the names in its tooltip); a tree named in the DTO's `trees` with no rows
+still renders, after the other sections (not under a search), as the head plus a muted
+`.cc-tree-empty` "No projects found" line, so its ⟳ stays reachable. Folder rows (`.cc-folder`) toggle their subtree via a full
 repaint (trees are config-scale, so this is simpler than DOM-patching visibility) and persist collapse
 state in `localStorage` under `cc-tree:<storageKey>:<group>/<folder-path>` — default policy is top
 level (depth 0) expanded, deeper folders collapsed. Depth indentation for both folder rows and leaf

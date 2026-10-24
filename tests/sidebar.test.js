@@ -329,6 +329,12 @@ test("listSections: flat runs split on group change or a tree row; a tree run ta
   assert.deepEqual(listSections([]), []);
 });
 
+test("listSections: a declared tree with no rows still gets its empty section, after the rest", () => {
+  const tabs = [{ id: "d1", group: "Dev", tree: true }];
+  const shape = listSections(tabs, ["Dev", "Empty"]).map((s) => [s.group, s.tree, s.rows.length]);
+  assert.deepEqual(shape, [["Dev", true, 1], ["Empty", true, 0]]);
+});
+
 test("navOrder walks the main list's paint order with every tree folder expanded", () => {
   const tabs = [
     { id: "loose" },
