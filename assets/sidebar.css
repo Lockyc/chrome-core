@@ -38,12 +38,11 @@
    * curator (nav pill in the slot) and warden (no slot) get an identical-height title strip.
    * Sized to curator's nav-pill row: pill = 2px pad + 26px .nav-btn = 30px, + this density's
    * title padding (10px×2). If curator's nav-btn/nav-pill height changes, bump this to match
-   * (caught by the chrome-core-rev lockstep bump across both apps). */
+   * (caught by the chrome-core-rev lockstep bump across every consuming app). */
   --cc-banner-min: 50px;
   /* Title-bar strip: the zone macOS's traffic lights float in when the host window uses
    * TitleBarStyle::Overlay (all three consumers do). chrome-core owns this strip so the app name
-   * sits BESIDE the lights — before this, each app reserved the same space with its own
-   * `#sidebar { padding-top: 28px }` and nothing was ever drawn in it.
+   * sits BESIDE the lights, and a consumer reserves no space of its own for them.
    * --cc-lights-inset clears the three lights (they end ~78px in at standard macOS metrics);
    * the app name starts after them. */
   --cc-titlebar-h: 28px;

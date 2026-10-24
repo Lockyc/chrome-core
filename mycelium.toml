@@ -18,4 +18,4 @@ summary = "App-agnostic self-update owned here, not per-app: check cadence, upda
 
 [[provides]]
 name    = "app-name-strip"
-summary = "The appName mount-config field: a title-bar strip beside the macOS traffic lights naming the host app, since every consumer hides the native window title (TitleBarStyle::Overlay). Owns the traffic-light inset outright — a consumer passing appName drops its own padding-top, removing a magic-number duplication each app used to carry."
+summary = "The appName mount-config field: a title-bar strip beside the macOS traffic lights naming the host app, since every consumer hides the native window title (TitleBarStyle::Overlay). Owns the traffic-light inset outright — a consumer passing appName drops its own padding-top."
