@@ -367,8 +367,9 @@ class Sidebar {
     this._rescans = new Map();
     this._rescanEls = new Map();
     // Self-update state (see the "self-update" section): the pending Update from a successful check,
-    // a per-session dismissal flag, and the recurring-check timer handle.
+    // a per-session dismissal flag, an install-in-progress flag, and the recurring-check timer handle.
     this._pendingUpdate = null;
+    this._installing = false;
     this._updateDismissed = false;
     this._updateTimer = null;
     // When the host last reported the pointer leaving (`pointerAway`); 0 = never.
@@ -530,7 +531,9 @@ class Sidebar {
     if (dto.active !== undefined) {
       this.active = dto.active;
     } else if (!this.tabs.find((t) => t.id === this.active)) {
-      this.active = this.tabs.length ? this.tabs[0].id : null;
+      // Never a detached tab: the highlight stays off popped-out rows, as in select().
+      const first = this.tabs.find((t) => !t.detached);
+      this.active = first ? first.id : null;
     }
     // `_paintList` replaces both scroll containers, so carry their offsets across — a hot-reload or
     // rescan must not jump a scrolled list back to the top. (A search repaint starts at the top.)
@@ -610,6 +613,9 @@ class Sidebar {
    *  is cheap (open tabs are few) and keeps the section's order derived from one place. */
   _paintOpenSection() {
     if (!this.openEl) return;
+    // Wiping an armed mirror row would leave armedKill set with no confirm UI, so the next dot
+    // click does nothing and requestEnd destroys unconfirmed. An armed main-list row is untouched.
+    if (this.openEl.querySelector(".cc-tab.confirming")) this._disarmKill();
     this.openEl.innerHTML = "";
     if (!this.openSection) return;
     const rows = openTabs(this._shown());
@@ -820,7 +826,6 @@ class Sidebar {
     }
     row.appendChild(dot);
 
-    // (Pop-out / pop-in now lives as a hover overlay on the icon tile above, not a trailing slot.)
 
     // Kill-confirm controls (only for armable rows; hidden until `.confirming`).
     if (armable(t)) this._appendConfirmControls(row, t);
@@ -1273,7 +1278,8 @@ class Sidebar {
   // recurring one so a long-running window surfaces a release without a restart. Toggling autoUpdate
   // in config takes effect next launch (armed once here) — restart-only by design.
   _startUpdater() {
-    if (!this.cfg.autoUpdate || !this._updater()) return;
+    // The process plugin relaunches into the update; without it nothing offered could install.
+    if (!this.cfg.autoUpdate || !this._updater() || !this._process()) return;
     this.checkForUpdate(false);
     this._updateTimer = setInterval(() => this.checkForUpdate(false), UPDATE_CHECK_INTERVAL_MS);
   }
@@ -1284,9 +1290,11 @@ class Sidebar {
   // dismissal, since the user is re-engaging).
   async checkForUpdate(announce) {
     const updater = this._updater();
-    if (!updater) return;
+    if (!updater || !this._process()) return;
     try {
       const update = await updater.check();
+      // A check landing mid-install must not re-enable the button or swap the Update object.
+      if (this._installing) return;
       if (update) {
         this._pendingUpdate = update;
         if (announce) this._updateDismissed = false;
@@ -1310,11 +1318,17 @@ class Sidebar {
   // Download + install the pending update, then relaunch into it. Fired by the update bar's button.
   async _installUpdate() {
     const proc = this._process();
-    if (!this._pendingUpdate || !proc) return;
+    if (!this._pendingUpdate || !proc) {
+      this.clearUpdate();
+      this.setError(`Update failed: ${!proc ? "the process plugin is not available" : "no update is pending"}`);
+      return;
+    }
+    this._installing = true;
     try {
       await this._pendingUpdate.downloadAndInstall();
       await proc.relaunch();
     } catch (e) {
+      this._installing = false;
       this.clearUpdate();
       this.setError("Update failed: " + e);
     }
