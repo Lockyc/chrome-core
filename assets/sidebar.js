@@ -805,6 +805,13 @@ class Sidebar {
         icon.appendChild(act);
       }
     }
+    // Accent mark (opt-in: absent `accent` renders nothing). Any CSS colour — a per-row identity cue,
+    // a corner dot on the tile so it never shifts the row's layout.
+    if (t.accent) {
+      const mark = el("span", { class: "cc-accent" });
+      mark.style.background = t.accent;
+      icon.appendChild(mark);
+    }
     row.appendChild(icon);
 
     const title = el("span", { class: "cc-title" }, (t.title || "") + (t.warn ? "  ⚠" : ""));

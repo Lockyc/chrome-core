@@ -85,7 +85,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
   windowDrag?: bool, openSection?: bool, active?: id, trees?: string[], tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null,
   live: bool, attention: null|true|number, presence: null|'on'|'ghost'|'off', killable: bool, suspendable: bool, startable: bool,
-  warn: bool, tree?: bool, treePath?: string[], detached?: bool }`. **`detached`** is opt-in (absent/falsy
+  warn: bool, tree?: bool, treePath?: string[], detached?: bool, accent?: string }`. **`accent`** is opt-in (any CSS colour): when set the row shows a small `.cc-accent` mark between tile and title; absent renders exactly as before. **`detached`** is opt-in (absent/falsy
   on every row until an app's DTO sets it) — see the pop-out section below for what it does to a row.
   **`windowDrag`** (default **on** when absent) makes the non-interactive chrome — banner, name, the
   empty area of the tab list, group headers — a `data-tauri-drag-region` so a drag there moves the
