@@ -1082,13 +1082,16 @@ class Sidebar {
 
   /** Cycle prev/next → onSelect. `liveOnly` restricts to tabs whose live dot is filled — live or
    *  detached (warden skips cold tabs; curator passes liveOnly:false). Walks the tab RECORDS in `navOrder`, not the DOM: a live tab inside a
-   *  collapsed tree folder has no row, and must still be reachable. */
+   *  collapsed tree folder has no row, and must still be reachable. `from` steps from that tab
+   *  instead of the highlight — a popped-out tab never takes the highlight, so a cycle driven from
+   *  its own window anchors on it here, or it would land on the same popped-out tab again. */
   selectByOffset(dir, opts) {
     const liveOnly = opts && opts.liveOnly;
+    const from = (opts && opts.from) || this.active;
     const live = new Set(this.tabs.filter((t) => t.live || t.detached).map((t) => t.id));
     const ids = navOrder(this.tabs).filter((id) => !liveOnly || live.has(id));
     if (ids.length < 2) return; // cycling needs ≥2 (eligible) tabs; 1 tab is a no-op, not a self-select
-    const next = resolveOffset(ids, this.active, dir < 0 ? -1 : 1);
+    const next = resolveOffset(ids, from, dir < 0 ? -1 : 1);
     if (next != null) this.select(next);
   }
 

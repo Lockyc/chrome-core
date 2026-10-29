@@ -102,7 +102,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   focus resolve to this). **`setActive(id)`**: highlight only, no callback (reflect app-actioned
   state, e.g. the neighbour activated after an unload).
 - **methods:** `update(dto)`, `setActive(id)`, `setLive(id,live)`, `setAttention(id,val)`,
-  `setPresence(id,state)`, `selectByOffset(dir,{liveOnly})`, `selectByIndex(n)`,
+  `setPresence(id,state)`, `selectByOffset(dir,{liveOnly,from})`, `selectByIndex(n)`,
   `focusSearch()` (shell-core's Find in Sidebar ⌘⇧F — see *Search* below), `requestEnd(id, "suspend"|"destroy")` (the keyboard route to the confirm row: suspend fires at once,
   destroy arms the row and fires on a second request — `endIntent`), `setError(msg)`, `clearError()`, `pointerAway()` (a host compositing a view over the chrome calls it; see its docblock), `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update-bar view),
   **`checkForUpdateNow()`** (the menu "Check for Updates…" path — check + announce the result; the app
