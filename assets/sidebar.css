@@ -549,6 +549,21 @@
 .cc-tab.cc-head:not(:first-child) {
   margin-top: 6px; /* a group boundary, as a text header's own margin-top is */
 }
+/* A collapsed head whose group hides the active tab: a quieter echo of `.active` (bar + fill). */
+.cc-tab.cc-contains-active {
+  background: color-mix(in srgb, var(--cc-active-bg, #094771) 45%, transparent);
+}
+.cc-tab.cc-contains-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 5px 0 0 5px;
+  background: var(--cc-active-bar, #4aa3e0);
+  opacity: 0.5;
+}
 .cc-tab.cc-head[data-collapsed] .cc-chevron {
   transform: rotate(0deg); /* collapsed → points right */
 }

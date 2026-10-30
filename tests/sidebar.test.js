@@ -19,6 +19,7 @@ const {
   folderChain,
   listSections,
   navOrder,
+  navAnchor,
   filterTabs,
   treeRows,
   rescanSummary,
@@ -596,5 +597,45 @@ test("dto_without_head_renders_unchanged", () => {
     '<div class="cc-tab" data-id="d"><span class="cc-icon" style="background:hsl(148, 45%, 45%)">G</span><span class="cc-title">Grafana</span><span class="cc-dot cold"></span></div>' +
     "</div></div>";
   assert.equal(serialize(sb.list), expected);
+  assert.equal(sb.list.querySelectorAll(".cc-contains-active").length, 0);
   assert.ok(sb.list.querySelectorAll(".cc-tab").every((r) => !(r.listeners.contextmenu || []).length));
+});
+
+test("collapsing the active tab's group: its head stands in, and ⌃Tab steps from the head", () => {
+  assert.equal(navAnchor(fleet(), ["h1"], "m2"), "h1");
+  assert.equal(navAnchor(fleet(), [], "m2"), "m2");
+  assert.equal(navAnchor(fleet(), ["h1"], "nope"), "nope");
+  const selected = [];
+  const sb = mountFleet({ onSelect: (id) => selected.push(id), onToggleGroup() {} }, { collapsed: ["h1"], active: "m2" });
+  assert.ok(rowOf(sb, "h1").classList.contains("cc-contains-active"));
+  assert.ok(!rowOf(sb, "h1").classList.contains("active"));
+  sb.selectByOffset(1);
+  assert.deepEqual(selected, ["other"], "the step after the head, not a jump to the list's start");
+  sb.update({ title: "w", active: "m2", tabs: fleet(), collapsed: ["h1"] });
+  sb.selectByOffset(-1);
+  assert.deepEqual(selected, ["other", "loose"]);
+  // Expanded, the member itself is highlighted and the head carries no stand-in mark.
+  const open = mountFleet({}, { active: "m2" });
+  assert.ok(!rowOf(open, "h1").classList.contains("cc-contains-active"));
+  assert.ok(rowOf(open, "m2").classList.contains("active"));
+});
+
+test("a disabled disclosure arrow fires nothing", () => {
+  const toggles = [];
+  const selected = [];
+  const cb = { onSelect: (id) => selected.push(id), onToggleGroup: (g, c) => toggles.push([g, c]) };
+  // Disabled by a search …
+  const sb = mountFleet(cb);
+  sb.searchInput.value = "fleet";
+  fire(sb.searchInput, "input");
+  const arrow = rowOf(sb, "h1").querySelector(".cc-disclosure");
+  assert.ok(arrow.hasAttribute("disabled"));
+  fire(arrow, "click");
+  // … and by a head with no members.
+  const lone = mountFleet(cb, { tabs: [row("h", "Solo", "h", { head: true, groupName: "Solo" })] });
+  const loneArrow = rowOf(lone, "h").querySelector(".cc-disclosure");
+  assert.ok(loneArrow.hasAttribute("disabled"));
+  fire(loneArrow, "click");
+  assert.deepEqual(toggles, []);
+  assert.deepEqual(selected, [], "nor does the click fall through to select the head");
 });

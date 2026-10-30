@@ -298,7 +298,19 @@ function listSections(tabs, trees = []) {
  *  named in `collapsed` contributes only its head — its members are hidden by the user's choice,
  *  not by a default, so cycling passes over them. */
 function navOrder(tabs, collapsed = []) {
+  return navSections(tabs, collapsed).order;
+}
+
+/** The id `navOrder` places for tab `id`: its group's head when `id` is a member hidden by
+ *  `collapsed`, else `id` itself (unknown ids included). */
+function navAnchor(tabs, collapsed, id) {
+  return navSections(tabs, collapsed).anchor.get(id) || id;
+}
+
+/** `navOrder`'s walk, plus the hidden-member → head map `navAnchor` reads. */
+function navSections(tabs, collapsed = []) {
   const out = [];
+  const anchor = new Map();
   const walk = (node) => {
     for (const r of node.rows) out.push(r.id);
     for (const f of node.folders) walk(f);
@@ -307,10 +319,14 @@ function navOrder(tabs, collapsed = []) {
     if (sec.tree) walk(buildTree(sec.rows));
     else {
       if (sec.head) out.push(sec.head.id);
-      if (!(sec.head && collapsed.includes(sec.group))) for (const r of sec.rows) out.push(r.id);
+      const hidden = sec.head && collapsed.includes(sec.group);
+      for (const r of sec.rows) {
+        if (hidden) anchor.set(r.id, sec.head.id);
+        else out.push(r.id);
+      }
     }
   }
-  return out;
+  return { order: out, anchor };
 }
 
 /** The tabs the search field keeps for `query`: every whitespace-separated term must appear,
@@ -1065,6 +1081,11 @@ class Sidebar {
     }
     const cursor = this._searchCursor();
     for (const row of this._navRows()) row.classList.toggle("cc-cursor", row.dataset.id === cursor);
+    // The active tab hidden in a collapsed group has no row, so its head stands in for it.
+    const anchor = navAnchor(this.tabs, this.collapsed, this.active);
+    for (const row of this.list.querySelectorAll(".cc-head")) {
+      row.classList.toggle("cc-contains-active", anchor !== this.active && row.dataset.id === anchor && row.hasAttribute("data-collapsed"));
+    }
   }
 
   // ── search ──
@@ -1158,7 +1179,8 @@ class Sidebar {
    *  its own window anchors on it here, or it would land on the same popped-out tab again. */
   selectByOffset(dir, opts) {
     const liveOnly = opts && opts.liveOnly;
-    const from = (opts && opts.from) || this.active;
+    // A hidden member has no place in `navOrder`; step from its group's head instead.
+    const from = navAnchor(this.tabs, this.collapsed, (opts && opts.from) || this.active);
     const live = new Set(this.tabs.filter((t) => t.live || t.detached).map((t) => t.id));
     const ids = navOrder(this.tabs, this.collapsed).filter((id) => !liveOnly || live.has(id));
     if (ids.length < 2) return; // cycling needs ≥2 (eligible) tabs; 1 tab is a no-op, not a self-select
@@ -1264,7 +1286,8 @@ class Sidebar {
   /** A row for `id` to arm, preferring a visible one. A tab with no row is revealed first — a search
    *  hiding it is cleared, and every collapsed folder above it is stored expanded and repainted —
    *  because arming must show the confirm row: a destroy armed out of sight would fire blind on the
-   *  second request. Null only when the tab has no row to reveal. */
+   *  second request. Null only when the tab has no row to reveal — including a hidden member of a
+   *  collapsed headed group, whose `collapsed` state is the app's to change, not this component's. */
   _revealRow(id) {
     const pick = () => {
       const rows = this._rowsById(id);
@@ -1503,7 +1526,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, Sidebar, folderChain, listSections, navOrder, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext, filterTabs, treeRows, rescanSummary };
+  module.exports = { ChromeSidebar, Sidebar, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext, filterTabs, treeRows, rescanSummary };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;
