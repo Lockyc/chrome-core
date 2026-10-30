@@ -501,6 +501,26 @@ test("head_row_replaces_group_header", () => {
   assert.ok(mirror && !mirror.querySelector(".cc-disclosure") && !mirror.querySelector(".cc-context"));
 });
 
+test("open_section_nests_open_members_under_their_head", () => {
+  const toggled = [];
+  const sb = mountFleet({ onToggleGroup: (g, c) => toggled.push([g, c]) });
+  installStorage();
+  // m2 is open but its head is not: the head still leads, so only heads and loose rows sit at the root.
+  const live = (ids) => fleet().map((t) => (ids.includes(t.id) ? { ...t, live: true } : t));
+  sb.update({ title: "w", active: "loose", openSection: true, tabs: live(["m2", "other"]) });
+  const mirrors = () => sb.openEl.querySelectorAll(".cc-tab[data-mirror]");
+  assert.deepEqual(mirrors().map((r) => r.dataset.id), ["h1", "m2", "other"]);
+  const [head, member] = mirrors();
+  assert.ok(head.classList.contains("cc-head") && head.querySelector(".cc-disclosure"));
+  assert.ok(member.classList.contains("cc-member"));
+  assert.ok(!member.querySelector(".cc-context"), "nested under its head, it needs no group label");
+  fire(head.querySelector(".cc-disclosure"), "click");
+  assert.deepEqual(toggled, [["h1", true]], "the mirror head toggles the same group state");
+  // The app's `collapsed` hides the members in the section as it does in the main list.
+  sb.update({ title: "w", active: "loose", openSection: true, collapsed: ["h1"], tabs: live(["m2", "other"]) });
+  assert.deepEqual(mirrors().map((r) => r.dataset.id), ["h1", "other"]);
+});
+
 test("icon_replaces_the_letter_tile", () => {
   const sb = mountFleet({ onPopOut() {} }, { tabs: [row("a", "Budget", null, { icon: "icons/sheet.svg" }), row("b", "Notes", null)] });
   const tile = rowOf(sb, "a").querySelector(".cc-icon");

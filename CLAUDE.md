@@ -246,7 +246,8 @@ rows (`.cc-tab.cc-tree-row`) is driven by an inline `--cc-depth` custom property
 
 **The pinned mirror sections** (`MIRROR_SECTIONS`; off for curator and lector): a `.cc-open`
 container pinned above the main list holding, per opted-in section with members, a collapsible header
-and a **mirror row** per member. **Open** (`openSection`; warden's `open_tabs_section`) mirrors
+and a **mirror row** per member; a member of a headed group nests under a mirror of its head
+(`mirrorEntries`), which collapses with the app's `collapsed` like the main list's. **Open** (`openSection`; warden's `open_tabs_section`) mirrors
 `openTabs(tabs)` — `live || detached`; a session probe (`presence`) is deliberately not openness.
 **Recoverable** (`recoverableSection`; warden's `recoverable_tabs_section`) mirrors
 `recoverableTabs(tabs)` — `presence: "ghost"` on a tab that is not open, so the two never share a tab.
@@ -256,7 +257,8 @@ group/tree as well, so the main list never shuffles; the sections repaint whole
 (`_paintMirrorSections`) rather than patching a row in or out, from `update()`, `setLive`, and
 `setPresence` when it moves a tab into or out of Recoverable. A mirror row is lifted out
 of its section, so it carries a dimmed **where-it-lives label** after the title (`.cc-context`, from
-the pure `mirrorContext(t)`: a tree row's parent folder, else its group, none for a loose tab) — the
+the pure `mirrorContext(t)`: a tree row's parent folder, else its group, none for a loose tab or a
+nested member) — the
 title alone can't tell `rotary/website` from any other `website`, or two same-titled tabs apart.
 
 The tab list therefore has **two containers, always both present**: `.cc-open` and `.cc-main`

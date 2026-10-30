@@ -125,6 +125,32 @@ const MIRROR_SECTIONS = [
   { key: "recoverable", title: "Recoverable", flag: "recoverableSection", members: recoverableTabs, defaultCollapsed: true },
 ];
 
+/** A mirror section's `members` arranged for painting, in the order of each entry's first member:
+ *  a member of a headed group (`listSections` over the whole list, `tabs`) joins its group's entry,
+ *  led by the head whether or not the head is a member itself, so the section's root holds only
+ *  heads and ungrouped-by-head rows. → `[{ group, head: TabDTO|null, rows }]`. */
+function mirrorEntries(members, tabs) {
+  const headOf = new Map();
+  for (const sec of listSections(tabs || [])) if (sec.head) headOf.set(sec.group, sec.head);
+  const out = [];
+  const byGroup = new Map();
+  for (const t of members) {
+    const head = t.group == null ? null : headOf.get(t.group);
+    if (!head) {
+      out.push({ group: t.group == null ? null : t.group, head: null, rows: [t] });
+      continue;
+    }
+    let e = byGroup.get(t.group);
+    if (!e) {
+      e = { group: t.group, head, rows: [] };
+      byGroup.set(t.group, e);
+      out.push(e);
+    }
+    if (t.id !== head.id) e.rows.push(t);
+  }
+  return out;
+}
+
 /** Where a tab lives, for its row in the pinned "Open" section: the parent folder of a tree row
  *  (the last `treePath` segment — `treePath` already excludes the project's own dir), else its
  *  group name (a curated group, or the root itself for a project directly under it); null for a
@@ -688,7 +714,8 @@ class Sidebar {
   // ── the pinned mirror sections (opt-in per section: `openSection` / `recoverableSection`) ──
 
   /** Rebuild every pinned section (`MIRROR_SECTIONS`) from `_shown()` — per section, a header plus a
-   *  MIRROR row for each member unless the section is collapsed.
+   *  MIRROR row for each member unless the section is collapsed, headed groups' members nested under
+   *  their head (`mirrorEntries`).
    *
    *  The rows are duplicates: a mirrored tab keeps its row in its own group/tree as well, so the main
    *  list never shuffles as membership comes and goes. **The DTO is not duplicated** — `this.tabs`
@@ -709,6 +736,11 @@ class Sidebar {
     if (this.openEl.querySelector(".cc-tab.confirming")) this._disarmKill();
     this.openEl.innerHTML = "";
     let anyRows = false;
+    const searching = !!this.query.trim();
+    const add = (row) => {
+      row.dataset.mirror = "1";
+      this.openEl.appendChild(row);
+    };
     for (const spec of MIRROR_SECTIONS) {
       if (!this[spec.flag]) continue;
       const rows = spec.members(this._shown());
@@ -717,10 +749,20 @@ class Sidebar {
       this.openEl.appendChild(this._renderSectionHead(spec, collapsed));
       if (collapsed) continue;
       anyRows = true;
-      for (const t of rows) {
-        const row = this._renderRow(t, mirrorContext(t));
-        row.dataset.mirror = "1";
-        this.openEl.appendChild(row);
+      for (const e of mirrorEntries(rows, this.tabs)) {
+        if (!e.head) {
+          add(this._renderRow(e.rows[0], mirrorContext(e.rows[0])));
+          continue;
+        }
+        // The group's collapse state is the app's one `collapsed`, shared with the main list.
+        const hidden = !searching && this.collapsed.includes(e.group);
+        add(this._renderHead(e, hidden, searching));
+        if (hidden) continue;
+        for (const t of e.rows) {
+          const r = this._renderRow(t);
+          r.classList.add("cc-member");
+          add(r);
+        }
       }
     }
     this.openEl.toggleAttribute("data-rows", anyRows);
