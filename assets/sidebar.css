@@ -29,7 +29,7 @@
   --cc-glyph-confirm: 13px;
   --cc-sidebar-w: 240px;
   --cc-indent: 14px;
-  /* Ceiling on the pinned "Open" section before it scrolls within itself — a share of the WINDOW,
+  /* Ceiling on the pinned mirror sections before it scrolls within itself — a share of the WINDOW,
    * not of the tab list, so it doesn't move when an error or update bar appears above the list.
    * Not restated per density: it is a fraction of the window either way, and a compact scale simply
    * fits more rows inside the same ceiling, which is the point of compact. */
@@ -335,11 +335,12 @@
   padding-top: var(--cc-group-first-top);
 }
 
-/* ── The pinned "Open" section ── mirror rows for the tabs with a terminal/view standing, above the
- * main list (warden's `open_tabs_section`). A plain container so the section can be repainted on its
- * own; it re-states the list's own column flow because wrapping the rows takes them out of it, and
- * closes with a heavier rule than a group border so the mirrors read as a separate list rather than
- * as the first group of the main one. Empty (not opted in, or nothing open) → gone entirely. */
+/* ── The pinned mirror sections ── "Open" (tabs with a terminal/view standing) and "Recoverable"
+ * (unloaded tabs with a recoverable session), above the main list, each under a collapsible header.
+ * A plain container so the sections can be repainted on their own; it re-states the list's own
+ * column flow because wrapping the rows takes them out of it, and closes with a heavier rule than a
+ * group border so the mirrors read as a separate list rather than as the first group of the main
+ * one. Empty (not opted in, or no members) → gone entirely. */
 .cc-open {
   display: flex;
   flex-direction: column;
@@ -371,15 +372,29 @@
 .cc-open:empty {
   display: none;
 }
+/* A mirror section's header: the group header's look, led by the disclosure arrow. */
+.cc-group.cc-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--cc-row-gap);
+}
+.cc-section-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cc-section-head[data-collapsed] .cc-chevron {
+  transform: rotate(0deg); /* collapsed → points right */
+}
 
 /* ── The main list ── everything that is not the pinned section. It is a container only so the CSS
  * can address it as a unit; it re-states the list's column flow for the same reason `.cc-open` does.
  *
- * When the pinned section is showing, the main list is no longer where you are working — it is the
+ * When a pinned section is showing rows, the main list is no longer where you are working — it is the
  * index you occasionally reach into — so it is de-emphasised until pointed at: colour drains out and
- * the whole block dims, and a hover anywhere in it brings it back. Gated on the section being
- * NON-EMPTY, not merely opted in: with nothing open there is nothing for the eye to prefer, and
- * muting the only list on screen would be an unreadable sidebar. `filter` is the right tool over
+ * the whole block dims, and a hover anywhere in it brings it back. Gated on `[data-rows]` (an
+ * expanded section with rows), not on being opted in or on a lone collapsed header: with no mirrors
+ * there is nothing for the eye to prefer, and muting the only list on screen would be an unreadable
+ * sidebar. `filter` is the right tool over
  * per-property fades because the rows carry many colours (tile, three dot states, the accent
  * highlight) and this must desaturate all of them at once, including ones added later. */
 .cc-main {
@@ -395,19 +410,19 @@
   min-height: 0;
   overflow-y: auto;
 }
-.cc-open:not(:empty) ~ .cc-main {
+.cc-open[data-rows] ~ .cc-main {
   filter: saturate(0.25) opacity(0.5);
   transition: filter 160ms ease;
 }
 /* The un-mute is gated on `.cc-away` being absent, not on `:hover` alone — `:hover` does not clear
  * when a view the host composites above the chrome takes the pointer; see `pointerAway()` in
  * sidebar.js. A host that never sets the class reads exactly as `:hover` alone. */
-.cc-root:not(.cc-away) .cc-open:not(:empty) ~ .cc-main:hover {
+.cc-root:not(.cc-away) .cc-open[data-rows] ~ .cc-main:hover {
   filter: none;
 }
 /* Honour a reduced-motion preference: the state change still happens, it just doesn't animate. */
 @media (prefers-reduced-motion: reduce) {
-  .cc-open:not(:empty) ~ .cc-main {
+  .cc-open[data-rows] ~ .cc-main {
     transition: none;
   }
 }

@@ -15,6 +15,7 @@ const {
   buildTree,
   patchTab,
   openTabs,
+  recoverableTabs,
   mirrorContext,
   folderChain,
   listSections,
@@ -454,7 +455,7 @@ test("update: keeps the main list's scroll position across a repaint", () => {
 // ── headed, collapsible groups + row context menu (opt-in: `head`/`collapsed`/`groupName`,
 // `onToggleGroup`/`onContextMenu`). These mount the real component on the fake DOM in ./dom.js.
 
-const { installDom, fire, serialize } = require("./dom.js");
+const { installDom, installStorage, fire, serialize } = require("./dom.js");
 
 const row = (id, title, group, extra = {}) => ({
   id, title, group, live: false, attention: null, presence: null,
@@ -481,7 +482,9 @@ const rowOf = (sb, id) => sb.mainEl.querySelector('.cc-tab[data-id="' + id + '"]
 
 test("head_row_replaces_group_header", () => {
   const selected = [];
-  const sb = mountFleet({ onSelect: (id) => selected.push(id), onToggleGroup() {} }, { openSection: true, tabs: fleet().map((t) => (t.id === "h1" ? { ...t, live: true } : t)) });
+  const sb = mountFleet({ onSelect: (id) => selected.push(id), onToggleGroup() {} });
+  installStorage(); // the Open section reads its persisted collapse state
+  sb.update({ title: "w", active: "loose", openSection: true, tabs: fleet().map((t) => (t.id === "h1" ? { ...t, live: true } : t)) });
   // No text header for the headed group — the head row stands in its place, a full tab row.
   assert.equal(sb.mainEl.querySelectorAll(".cc-group").length, 0);
   assert.deepEqual(mainIds(sb), ["loose", "h1", "m1", "m2", "other"]);
@@ -651,4 +654,109 @@ test("a disabled disclosure arrow fires nothing", () => {
   fire(loneArrow, "click");
   assert.deepEqual(toggles, []);
   assert.deepEqual(selected, [], "nor does the click fall through to select the head");
+});
+
+// ── mirror sections: the pinned Open + Recoverable sections, each with a collapsible header ──
+
+
+test("recoverableTabs: ghost and unloaded, DTO order; missing list → []", () => {
+  const tabs = [
+    { id: "a", presence: "ghost" },
+    { id: "b", presence: "on" },
+    { id: "c", presence: "ghost" },
+    { id: "d", presence: "ghost", live: true },
+    { id: "e", presence: "ghost", detached: true },
+  ];
+  assert.deepEqual(recoverableTabs(tabs).map((t) => t.id), ["a", "c"]);
+  assert.deepEqual(recoverableTabs(undefined), []);
+});
+
+const ghosts = () => [
+  row("g1", "crashed", "work", { presence: "ghost" }),
+  row("ok", "fine", "work", { presence: "on" }),
+  row("lv", "open", "work", { presence: "ghost", live: true }),
+];
+function mountSections(dto = {}, storage = installStorage()) {
+  const root = installDom();
+  globalThis.localStorage = storage;
+  const sb = new Sidebar(root, {}, { storageKey: "w" });
+  sb.update({ title: "w", colour: null, density: "comfortable", tabs: ghosts(), recoverableSection: true, ...dto });
+  return sb;
+}
+const heads = (sb) => sb.openEl.querySelectorAll(".cc-group").map((h) => h.querySelector(".cc-section-label").textContent);
+const mirrorIds = (sb) => sb.openEl.querySelectorAll(".cc-tab[data-mirror]").map((r) => r.dataset.id);
+const headOf = (sb, title) => sb.openEl.querySelectorAll(".cc-group").find((h) => h.querySelector(".cc-section-label").textContent === title);
+
+test("Recoverable section: collapsed by default — header only, no mirrors", () => {
+  const sb = mountSections();
+  assert.deepEqual(heads(sb), ["Recoverable"]);
+  const head = headOf(sb, "Recoverable");
+  assert.equal(head.querySelector(".cc-disclosure").getAttribute("aria-expanded"), "false");
+  assert.ok(head.hasAttribute("data-collapsed"));
+  assert.deepEqual(mirrorIds(sb), []);
+});
+
+test("Recoverable section: arrow click expands, persists \"0\", mirrors appear", () => {
+  const storage = installStorage();
+  const sb = mountSections({}, storage);
+  fire(headOf(sb, "Recoverable").querySelector(".cc-disclosure"), "click");
+  assert.equal(storage.getItem("cc-section:w:recoverable"), "0");
+  assert.deepEqual(mirrorIds(sb), ["g1"], "a live ghost is open, not recoverable");
+  const again = mountSections({}, storage);
+  assert.deepEqual(mirrorIds(again), ["g1"], "the expanded state is remembered");
+});
+
+test("Recoverable section: no recoverable tabs or flag off → no header", () => {
+  assert.deepEqual(heads(mountSections({ tabs: [row("ok", "fine", null, { presence: "on" })] })), []);
+  assert.deepEqual(heads(mountSections({ recoverableSection: undefined })), []);
+});
+
+test("Open section: expanded by default and collapsible", () => {
+  const storage = installStorage();
+  const sb = mountSections({ openSection: true, recoverableSection: false }, storage);
+  assert.deepEqual(heads(sb), ["Open"]);
+  assert.deepEqual(mirrorIds(sb), ["lv"]);
+  fire(headOf(sb, "Open").querySelector(".cc-disclosure"), "click");
+  assert.equal(storage.getItem("cc-section:w:open"), "1");
+  assert.deepEqual(mirrorIds(sb), []);
+  assert.deepEqual(heads(sb), ["Open"], "a collapsed section keeps its header");
+});
+
+test("setPresence: ghost adds a Recoverable mirror, on removes it", () => {
+  const storage = installStorage();
+  storage.setItem("cc-section:w:recoverable", "0");
+  const sb = mountSections({}, storage);
+  sb.setPresence("ok", "ghost");
+  assert.deepEqual(mirrorIds(sb), ["g1", "ok"]);
+  sb.setPresence("g1", "on");
+  assert.deepEqual(mirrorIds(sb), ["ok"]);
+  sb.setPresence("ok", "off");
+  assert.deepEqual(heads(sb), [], "the last one leaving takes the header with it");
+});
+
+test("a live ghost tab mirrors in Open only; setLive on a Recoverable tab moves its mirror to Open", () => {
+  const storage = installStorage();
+  storage.setItem("cc-section:w:recoverable", "0");
+  const sb = mountSections({ openSection: true }, storage);
+  assert.deepEqual(heads(sb), ["Open", "Recoverable"]);
+  assert.deepEqual(mirrorIds(sb), ["lv", "g1"]);
+  sb.setLive("g1", true);
+  assert.deepEqual(heads(sb), ["Open"]);
+  assert.deepEqual(mirrorIds(sb), ["g1", "lv"]);
+});
+
+test("dimming marker: data-rows only while an expanded section has rows", () => {
+  const storage = installStorage();
+  const sb = mountSections({}, storage);
+  assert.ok(!sb.openEl.hasAttribute("data-rows"), "a lone collapsed header does not dim the list");
+  fire(headOf(sb, "Recoverable").querySelector(".cc-disclosure"), "click");
+  assert.ok(sb.openEl.hasAttribute("data-rows"));
+});
+
+test("nav skips Recoverable mirrors", () => {
+  const storage = installStorage();
+  storage.setItem("cc-section:w:recoverable", "0");
+  const sb = mountSections({}, storage);
+  assert.deepEqual(mirrorIds(sb), ["g1"]);
+  assert.equal(sb._navRows().length, ghosts().length);
 });

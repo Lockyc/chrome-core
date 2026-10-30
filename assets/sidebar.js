@@ -111,6 +111,20 @@ function openTabs(tabs) {
   return (tabs || []).filter((t) => t.live || t.detached);
 }
 
+/** The tabs the pinned "Recoverable" section mirrors, in the DTO's own order: the host reports a
+ *  recoverable session (`presence: "ghost"`) and nothing is open — the complement of `openTabs`, so
+ *  the two sections never mirror the same tab. Opening one restores it and moves it to "Open". */
+function recoverableTabs(tabs) {
+  return (tabs || []).filter((t) => t.presence === "ghost" && !t.live && !t.detached);
+}
+
+/** The pinned mirror sections, top to bottom. `flag` is the window-DTO field that opts a sidebar
+ *  in; `key` names the section's persisted collapse state (`_sectionKey`). */
+const MIRROR_SECTIONS = [
+  { key: "open", title: "Open", flag: "openSection", members: openTabs, defaultCollapsed: false },
+  { key: "recoverable", title: "Recoverable", flag: "recoverableSection", members: recoverableTabs, defaultCollapsed: true },
+];
+
 /** Where a tab lives, for its row in the pinned "Open" section: the parent folder of a tree row
  *  (the last `treePath` segment — `treePath` already excludes the project's own dir), else its
  *  group name (a curated group, or the root itself for a project directly under it); null for a
@@ -559,6 +573,7 @@ class Sidebar {
     this._setDrag(this.list, drag);
 
     this.openSection = dto.openSection === true;
+    this.recoverableSection = dto.recoverableSection === true;
     this.trees = dto.trees || [];
     // Headed groups whose members are hidden. The app owns this (it persists it and answers each
     // `onToggleGroup` with a fresh DTO); the component only reads it, so every `update` is authoritative.
@@ -605,13 +620,13 @@ class Sidebar {
     const tabs = this._shown();
     this.list.innerHTML = "";
     this._rescanEls = new Map();
-    // The pinned "Open" section, opt-in per window DTO (warden's `open_tabs_section`). It lives in
-    // its own container at the top of the list so `setLive` can rebuild JUST it when a tab's
-    // membership changes, without a full re-render.
+    // The pinned mirror sections ("Open", "Recoverable"), each opt-in per window DTO. They live in
+    // one container at the top of the list so `setLive`/`setPresence` can rebuild JUST them when a
+    // tab's membership changes, without a full re-render.
     this.openEl = el("div", { class: "cc-open" });
     this._setDrag(this.openEl, drag);
     this.list.appendChild(this.openEl);
-    this._paintOpenSection();
+    this._paintMirrorSections();
     // Everything that is not the pinned section lives in one container, so the CSS can address
     // "the main list" as a unit — it is the hover target that lifts the de-emphasis the pinned
     // section puts on it, and it restores `.cc-group:first-child` to meaning the first header of
@@ -652,38 +667,83 @@ class Sidebar {
     this._paint();
   }
 
-  // ── the pinned "Open" section (opt-in: `openSection` on the DTO) ──
+  // ── the pinned mirror sections (opt-in per section: `openSection` / `recoverableSection`) ──
 
-  /** Rebuild the pinned section from `_shown()` — a header plus a MIRROR row for every open tab.
+  /** Rebuild every pinned section (`MIRROR_SECTIONS`) from `_shown()` — per section, a header plus a
+   *  MIRROR row for each member unless the section is collapsed.
    *
-   *  The rows are duplicates: an open tab keeps its row in its own group/tree as well, so the main
-   *  list never shuffles as terminals come and go. **The DTO is not duplicated** — `this.tabs` stays
-   *  one record per tab, so `patchTab` and every id → record lookup are unaffected. What IS newly
-   *  true is that one id can own TWO rows, which is why row lookup is `_rowsById` (plural, every
+   *  The rows are duplicates: a mirrored tab keeps its row in its own group/tree as well, so the main
+   *  list never shuffles as membership comes and goes. **The DTO is not duplicated** — `this.tabs`
+   *  stays one record per tab, so `patchTab` and every id → record lookup are unaffected. What IS
+   *  newly true is that one id can own TWO rows, which is why row lookup is `_rowsById` (plural, every
    *  match) and why the mirrors carry `data-mirror` so keyboard nav can skip them (they would
-   *  otherwise shift every ⌘1–9 index and make live-only cycling visit each open tab twice).
+   *  otherwise shift every ⌘1–9 index and make live-only cycling visit each mirrored tab twice).
    *
-   *  Membership is a function of `live`/`detached`, so it changes on a targeted `setLive` as well as
-   *  a full `update()` — both repaint the whole section rather than patching a row in or out, which
-   *  is cheap (open tabs are few) and keeps the section's order derived from one place. */
-  _paintOpenSection() {
+   *  Membership is a function of `live`/`detached`/`presence`, so it changes on a targeted `setLive`
+   *  or `setPresence` as well as a full `update()` — each repaints every section rather than patching
+   *  a row in or out, which is cheap (mirrored tabs are few) and keeps the order derived from one
+   *  place. `data-rows` on the container marks an expanded section with rows: the CSS dims the main
+   *  list only then, never under a lone collapsed header. */
+  _paintMirrorSections() {
     if (!this.openEl) return;
     // Wiping an armed mirror row would leave armedKill set with no confirm UI, so the next dot
     // click does nothing and requestEnd destroys unconfirmed. An armed main-list row is untouched.
     if (this.openEl.querySelector(".cc-tab.confirming")) this._disarmKill();
     this.openEl.innerHTML = "";
-    if (!this.openSection) return;
-    const rows = openTabs(this._shown());
-    if (!rows.length) return; // no header over an empty section
-    const head = el("div", { class: "cc-group" }, "Open");
+    let anyRows = false;
+    for (const spec of MIRROR_SECTIONS) {
+      if (!this[spec.flag]) continue;
+      const rows = spec.members(this._shown());
+      if (!rows.length) continue; // no header over an empty section
+      const collapsed = this._sectionCollapsed(spec);
+      this.openEl.appendChild(this._renderSectionHead(spec, collapsed));
+      if (collapsed) continue;
+      anyRows = true;
+      for (const t of rows) {
+        const row = this._renderRow(t, mirrorContext(t));
+        row.dataset.mirror = "1";
+        this.openEl.appendChild(row);
+      }
+    }
+    this.openEl.toggleAttribute("data-rows", anyRows);
+  }
+
+  /** A mirror section's sticky header: a disclosure arrow that flips and persists the section's
+   *  collapse state, then repaints the sections, followed by its title. */
+  _renderSectionHead(spec, collapsed) {
+    const head = el("div", { class: "cc-group cc-section-head" });
     head.style.background = this.tint; // sticky header matches the tinted sidebar
     this._setDrag(head, this.drag);
-    this.openEl.appendChild(head);
-    for (const t of rows) {
-      const row = this._renderRow(t, mirrorContext(t));
-      row.dataset.mirror = "1";
-      this.openEl.appendChild(row);
-    }
+    if (collapsed) head.setAttribute("data-collapsed", "");
+    const arrow = el("button", {
+      class: "cc-disclosure",
+      type: "button",
+      "aria-expanded": String(!collapsed),
+      title: collapsed ? "Expand section" : "Collapse section",
+    });
+    arrow.appendChild(el("span", { class: "cc-chevron" }));
+    arrow.addEventListener("click", (e) => {
+      e.stopPropagation();
+      localStorage.setItem(this._sectionKey(spec.key), collapsed ? "0" : "1");
+      this._paintMirrorSections();
+      this._paint(); // the rebuilt mirrors carry none of `_paint`'s decoration (.active, live upgrade)
+    });
+    head.append(arrow, el("span", { class: "cc-section-label" }, spec.title));
+    return head;
+  }
+
+  /** The localStorage key holding a mirror section's collapse state, per mounted sidebar. */
+  _sectionKey(key) {
+    return "cc-section:" + (this.cfg.storageKey || "") + ":" + key;
+  }
+
+  /** Persisted collapse state for a mirror section (`"1"` collapsed, `"0"` expanded, same encoding
+   *  as `_treeCollapsed`); the section's `defaultCollapsed` until the user has toggled it. */
+  _sectionCollapsed(spec) {
+    const v = localStorage.getItem(this._sectionKey(spec.key));
+    if (v === "1") return true;
+    if (v === "0") return false;
+    return spec.defaultCollapsed;
   }
 
   // ── project-tree sections (a group whose rows are `tree: true`) ──
@@ -1068,7 +1128,7 @@ class Sidebar {
     row.append(cancel);
   }
 
-  /** EVERY row for `id` — plural because the pinned "Open" section mirrors an open tab's row, so one
+  /** EVERY row for `id` — plural because a pinned mirror section mirrors a tab's row, so one
    *  id can own two; a caller patching a row patches them all. */
   _rowsById(id) {
     return [...this.list.querySelectorAll('.cc-tab[data-id="' + (window.CSS ? CSS.escape(id) : id) + '"]')];
@@ -1212,9 +1272,9 @@ class Sidebar {
 
   setLive(id, live) {
     patchTab(this.tabs, id, { live });
-    // Live-state IS the pinned section's membership, so this repaints it (the record is already
-    // patched above, so the mirror renders correct on birth) before patching the standing rows.
-    this._paintOpenSection();
+    // Live-state IS the pinned sections' membership, so this repaints them (the record is already
+    // patched above, so a mirror renders correct on birth) before patching the standing rows.
+    this._paintMirrorSections();
     this._paint(); // a freshly-built mirror of the active tab needs its `.active` class
     for (const row of this._rowsById(id)) {
       const dot = row.querySelector(".cc-dot");
@@ -1244,7 +1304,15 @@ class Sidebar {
   }
 
   setPresence(id, state) {
+    const recoverable = () => recoverableTabs(this.tabs).some((t) => t.id === id);
+    const was = recoverable();
     patchTab(this.tabs, id, { presence: state == null ? null : state });
+    // Repaint the sections only when this tab entered or left "Recoverable": probes report every
+    // tab on each sweep, and an unconditional repaint would disarm an armed "Open" mirror each time.
+    if (recoverable() !== was) {
+      this._paintMirrorSections();
+      this._paint();
+    }
     for (const row of this._rowsById(id)) {
       let s = row.querySelector(".cc-presence");
       if (state == null) {
@@ -1534,7 +1602,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, Sidebar, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, mirrorContext, filterTabs, treeRows, rescanSummary };
+  module.exports = { ChromeSidebar, Sidebar, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, recoverableTabs, mirrorContext, filterTabs, treeRows, rescanSummary };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;
