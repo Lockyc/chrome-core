@@ -498,6 +498,19 @@ test("head_row_replaces_group_header", () => {
   assert.ok(mirror && !mirror.querySelector(".cc-disclosure") && !mirror.querySelector(".cc-context"));
 });
 
+test("icon_replaces_the_letter_tile", () => {
+  const sb = mountFleet({ onPopOut() {} }, { tabs: [row("a", "Budget", null, { icon: "icons/sheet.svg" }), row("b", "Notes", null)] });
+  const tile = rowOf(sb, "a").querySelector(".cc-icon");
+  assert.ok(tile.classList.contains("cc-icon-image"));
+  assert.equal(tile.querySelector("img").getAttribute("src"), "icons/sheet.svg");
+  assert.equal(tile.textContent, "", "no initial behind the image");
+  assert.ok(tile.querySelector(".cc-icon-pop"), "the pop-out overlay still sits on the tile");
+  // A row without `icon` keeps the initial-and-colour tile.
+  const plain = rowOf(sb, "b").querySelector(".cc-icon");
+  assert.ok(!plain.classList.contains("cc-icon-image") && !plain.querySelector("img"));
+  assert.equal(plain.textContent, "N");
+});
+
 test("collapsed_group_hides_members_not_head", () => {
   const sb = mountFleet({ onToggleGroup() {} }, { collapsed: ["h1"] });
   assert.deepEqual(mainIds(sb), ["loose", "h1", "other"]);

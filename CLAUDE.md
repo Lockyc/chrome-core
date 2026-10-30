@@ -88,7 +88,8 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
   windowDrag?: bool, openSection?: bool, active?: id, trees?: string[], collapsed?: string[], tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null,
   live: bool, attention: null|true|number, presence: null|'on'|'ghost'|'off', killable: bool, suspendable: bool, startable: bool,
-  warn: bool, tree?: bool, treePath?: string[], detached?: bool, accent?: string, head?: bool, groupName?: string }`.
+  warn: bool, tree?: bool, treePath?: string[], detached?: bool, accent?: string, icon?: string, head?: bool, groupName?: string }`.
+  **`icon`** is opt-in (an image URL the page can load): the tile shows it (`.cc-icon-image`) in place of the initial and colour.
   **`head`**: in a flat run of same-`group` rows, that row renders in place of the text header — a full tab row (`.cc-head`) led by an always-visible disclosure arrow; the rest are its `.cc-member`s.
   **`collapsed`**: the headed groups whose members are hidden (app-owned; a search still shows matching members, and `navOrder` skips hidden ones — a hidden active tab is stood in for by its head, `.cc-contains-active`, which `selectByOffset` steps from; a group with no head ignores it).
   **`groupName`**: the group's label for search, a member's text header under a search, and a mirror's context (absent → `group`). **`accent`** is opt-in (any CSS colour): when set the row shows a small `.cc-accent` mark between tile and title; absent renders exactly as before. **`detached`** is opt-in (absent/falsy

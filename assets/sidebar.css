@@ -646,6 +646,12 @@
   font-weight: 600;
   color: #fff;
 }
+/* The DTO `icon` image in the tile's box, in place of the initial and colour. */
+.cc-icon-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 /* Optional per-row colour mark (DTO `accent`): a corner dot on the tile, out of flow so a row with
  * and without it lay out identically. The background is set inline from the DTO; the ring keeps it
  * legible against any tile colour. */

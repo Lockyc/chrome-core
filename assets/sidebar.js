@@ -869,8 +869,16 @@ class Sidebar {
       });
     }
 
-    const icon = el("span", { class: "cc-icon" }, tileInitial(t.title));
-    icon.style.background = tileColour(t.title);
+    // An `icon` image (opt-in: any image URL the page can load) stands in for the initial and
+    // colour; the tile keeps its box, so the overlay and accent sit on it either way.
+    let icon;
+    if (t.icon) {
+      icon = el("span", { class: "cc-icon cc-icon-image" });
+      icon.appendChild(el("img", { src: t.icon, alt: "", draggable: "false" }));
+    } else {
+      icon = el("span", { class: "cc-icon" }, tileInitial(t.title));
+      icon.style.background = tileColour(t.title);
+    }
     // Pop-out / pop-in as a hover overlay ON the initial tile (opt-in: capability-by-callback-
     // presence — rendered only when the app supplied onPopOut). A docked tab shows the pop-OUT icon (window + arrow leaving)
     // and fires onPopOut; a detached tab shows the pop-IN icon (arrow entering) and fires onPopIn.
