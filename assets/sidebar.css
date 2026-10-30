@@ -627,8 +627,8 @@
 }
 
 /* A headed group (DTO `head`): the head is an ordinary `.cc-tab` led by a disclosure arrow (the
- * folder chevron), or an arrow-wide blank when it has no members, and its members indent so their
- * tiles line up under the head's. `[data-collapsed]` on the head turns the arrow; a disabled arrow
+ * folder chevron), or an arrow-wide blank when it has no members, and its members sit one
+ * `--cc-indent` in from the head's tile, the tree's per-level step. `[data-collapsed]` on the head turns the arrow; a disabled arrow
  * still shows the state. */
 .cc-disclosure-blank {
   flex: none;
@@ -672,7 +672,7 @@
   transform: rotate(0deg); /* collapsed → points right */
 }
 .cc-tab.cc-member {
-  margin-left: calc(6px + var(--cc-tree-glyph) + var(--cc-row-gap));
+  margin-left: calc(6px + var(--cc-tree-glyph) + var(--cc-row-gap) + var(--cc-indent));
 }
 
 .cc-tree-empty,
