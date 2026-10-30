@@ -905,6 +905,27 @@
   font-weight: 700;
 }
 
+/* ── Remove slot ── opt-in per app (rendered only when the consumer supplies `onRemove`): a muted bin
+ * after the live dot that turns red on hover and fires at once. */
+.cc-remove {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(238, 238, 238, 0.3);
+  cursor: pointer;
+}
+.cc-remove svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+.cc-root:not(.cc-away) .cc-remove:hover {
+  color: #f85149;
+}
+
 /* ── Pop-out slot ── opt-in per app (rendered only when the consumer supplies `onPopOut`): pop the
  * tab into its own window. Muted glyph that brightens on hover — the same fire-immediately model as
  * the tree-head `.cc-rescan` control, sized to match the other row slots (`.cc-dot` / `.cc-presence`)
@@ -951,6 +972,7 @@
 .cc-tab.confirming .cc-attention,
 .cc-tab.confirming .cc-presence,
 .cc-tab.confirming .cc-dot,
+.cc-tab.confirming .cc-remove,
 .cc-tab.confirming .cc-icon-pop {
   display: none;
 }

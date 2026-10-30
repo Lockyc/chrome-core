@@ -514,6 +514,17 @@ test("icon_replaces_the_letter_tile", () => {
   assert.equal(plain.textContent, "N");
 });
 
+test("remove_button_only_with_onRemove_and_fires_without_selecting", () => {
+  assert.equal(rowOf(mountFleet(), "m1").querySelector(".cc-remove"), null, "absent without onRemove");
+  const removed = [], selected = [];
+  const sb = mountFleet({ onRemove: (id) => removed.push(id), onSelect: (id) => selected.push(id) });
+  const rm = rowOf(sb, "m1").querySelector(".cc-remove");
+  assert.ok(rm, "every row carries the button, cold ones included");
+  fire(rm, "click");
+  assert.deepEqual(removed, ["m1"]);
+  assert.deepEqual(selected, [], "the click stays off the row");
+});
+
 test("collapsed_group_hides_members_not_head", () => {
   const sb = mountFleet({ onToggleGroup() {} }, { collapsed: ["h1"] });
   assert.deepEqual(mainIds(sb), ["loose", "h1", "other"]);

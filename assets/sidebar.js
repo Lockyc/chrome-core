@@ -228,6 +228,8 @@ const POP_ARROW =
   "M22,31.3h19.1c0.8,0,1.6-0.5,1.6-1.3v-3c0-0.8-0.7-1.7-1.6-1.7h-7.9c-0.9,0-1.4-1-0.7-1.6l17-17c0.6-0.6,0.6-1.5,0-2.1l-2.1-2.1c-0.6-0.6-1.5-0.6-2.1,0l-17,17c-0.6,0.6-1.6,0.2-1.6-0.7v-7.9c0-0.8-0.8-1.7-1.6-1.7h-2.9c-0.8,0-1.5,0.9-1.5,1.7v19C20.8,30.8,21.2,31.2,22,31.3z";
 const POP_IN_SVG = `<svg viewBox="0 0 52 52" fill="currentColor" aria-hidden="true"><path d="${POP_ARROW}"/><path d="${POP_FRAME}"/></svg>`;
 const POP_OUT_SVG = `<svg viewBox="0 0 52 52" fill="currentColor" aria-hidden="true"><path transform="rotate(180 31.5 17.65)" d="${POP_ARROW}"/><path d="${POP_FRAME}"/></svg>`;
+// The row's remove button: a bin, so it never reads as the live dot's unload ✕ beside it.
+const REMOVE_SVG = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.75 6.5v4.5M9.25 6.5v4.5"/></svg>`;
 
 /** Build a nested folder tree from flat rows carrying `treePath` segment arrays.
  *  Single-child folder chains are compressed (label joined with "/"). Pure — tested. */
@@ -1060,6 +1062,17 @@ class Sidebar {
     }
     row.appendChild(dot);
 
+    // Remove slot — opt-in per app (rendered only when the consumer supplies `onRemove`): take the
+    // tab out of the sidebar. Always on screen, muted until hovered; fires at once, no confirm.
+    if (this.cb.onRemove) {
+      const rm = el("span", { class: "cc-remove", title: "Remove" });
+      rm.innerHTML = REMOVE_SVG;
+      rm.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.cb.onRemove(t.id);
+      });
+      row.appendChild(rm);
+    }
 
     // Kill-confirm controls (only for armable rows; hidden until `.confirming`).
     if (armable(t)) this._appendConfirmControls(row, t);

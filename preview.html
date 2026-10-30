@@ -163,6 +163,7 @@
           // confirmed firing from the preview. To verify the glyph is ABSENT when unsupplied, comment
           // this out and reload: every row's ⤢ disappears.
           onPopOut(id) { console.log("onPopOut", id); },
+          onRemove(id) { console.log("onRemove", id); },
           onToggleGroup(group, collapsed) {
             dto.collapsed = collapsed ? [...dto.collapsed, group] : dto.collapsed.filter((g) => g !== group);
             sb.update(dto);
