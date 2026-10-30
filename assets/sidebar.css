@@ -626,9 +626,14 @@
   margin-left: calc(6px + var(--cc-depth, 0) * var(--cc-indent));
 }
 
-/* A headed group (DTO `head`): the head is an ordinary `.cc-tab` led by an always-visible
- * disclosure arrow (the folder chevron), and its members indent so their tiles line up under the
- * head's. `[data-collapsed]` on the head turns the arrow; a disabled arrow still shows the state. */
+/* A headed group (DTO `head`): the head is an ordinary `.cc-tab` led by a disclosure arrow (the
+ * folder chevron), or an arrow-wide blank when it has no members, and its members indent so their
+ * tiles line up under the head's. `[data-collapsed]` on the head turns the arrow; a disabled arrow
+ * still shows the state. */
+.cc-disclosure-blank {
+  flex: none;
+  width: var(--cc-tree-glyph);
+}
 .cc-disclosure {
   flex: none;
   display: inline-flex;

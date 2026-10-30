@@ -490,7 +490,7 @@ test("head_row_replaces_group_header", () => {
   assert.deepEqual(mainIds(sb), ["loose", "h1", "m1", "m2", "other"]);
   const head = rowOf(sb, "h1");
   assert.ok(head.classList.contains("cc-head"));
-  assert.ok(head.querySelector(".cc-disclosure"), "the disclosure arrow is always rendered on a head");
+  assert.ok(head.querySelector(".cc-disclosure"), "a head with members leads with its disclosure arrow");
   assert.ok(head.querySelector(".cc-icon") && head.querySelector(".cc-dot"), "tile and dots like any row");
   assert.ok(rowOf(sb, "m1").classList.contains("cc-member"));
   // Clicking the row (not the arrow) selects the head tab, like any other row.
@@ -658,13 +658,15 @@ test("a disabled disclosure arrow fires nothing", () => {
   const arrow = rowOf(sb, "h1").querySelector(".cc-disclosure");
   assert.ok(arrow.hasAttribute("disabled"));
   fire(arrow, "click");
-  // … and by a head with no members.
-  const lone = mountFleet(cb, { tabs: [row("h", "Solo", "h", { head: true, groupName: "Solo" })] });
-  const loneArrow = rowOf(lone, "h").querySelector(".cc-disclosure");
-  assert.ok(loneArrow.hasAttribute("disabled"));
-  fire(loneArrow, "click");
   assert.deepEqual(toggles, []);
   assert.deepEqual(selected, [], "nor does the click fall through to select the head");
+});
+
+test("a head with no members has a blank where the arrow would be", () => {
+  const lone = mountFleet({ onToggleGroup() {} }, { tabs: [row("h", "Solo", "h", { head: true, groupName: "Solo" })] });
+  const head = rowOf(lone, "h");
+  assert.ok(!head.querySelector(".cc-disclosure"));
+  assert.equal(head.firstChild.getAttribute("class"), "cc-disclosure-blank");
 });
 
 test("banner_contextmenu_fires_with_coords", () => {

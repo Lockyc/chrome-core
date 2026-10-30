@@ -891,20 +891,23 @@ class Sidebar {
 
   /** A headed group's head: its own tab row (selectable like any other), led by a disclosure arrow
    *  that reports `onToggleGroup(group, collapsed)` and changes nothing itself — the row repaints when
-   *  the app's answering `update(dto)` lands. The arrow is always shown; it is disabled, still showing
-   *  the state, without the callback, under a search (which shows every match regardless), and for a
-   *  head with no members. */
+   *  the app's answering `update(dto)` lands. A head with no members has nothing to disclose, so it
+   *  gets an arrow-wide blank instead, keeping its tile in line with its neighbours'. The arrow is
+   *  disabled, still showing the state, without the callback and under a search (which shows every
+   *  match regardless). */
   _renderHead(sec, collapsed, searching) {
     const row = this._renderRow(sec.head);
     row.classList.add("cc-head");
+    if (!sec.rows.length) {
+      row.insertBefore(el("span", { class: "cc-disclosure-blank", "aria-hidden": "true" }), row.firstChild);
+      return row;
+    }
     if (collapsed) row.setAttribute("data-collapsed", "");
     const why = !this.cb.onToggleGroup
       ? "Collapsing isn't available here"
       : searching
         ? "Clear the search to collapse or expand"
-        : !sec.rows.length
-          ? "No tabs in this group"
-          : null;
+        : null;
     const arrow = el("button", {
       class: "cc-disclosure",
       type: "button",
