@@ -23,6 +23,9 @@
                           rows above the main list for every `live` or `detached` tab, which in
                           this fixture pulls rows out of all three section kinds (loose, a plain
                           group, and a project tree) while leaving every one of them in place.
+       ?recover=1         mount the pinned "Recoverable" section (warden's
+                          `recoverable_tabs_section`): unloaded `ghost` tabs, collapsed until its
+                          arrow is clicked (remembered in localStorage).
                           The main list below renders de-emphasised while the section is showing —
                           hover anywhere in it (the empty space under the last row counts) to
                           bring it back.
@@ -70,6 +73,7 @@
       // ?open=1 → the pinned "Open" section (warden's `open_tabs_section`); off by default, as it is
       // for every app that does not opt in.
       const openSection = params.get("open") === "1";
+      const recoverableSection = params.get("recover") === "1";
       const T = (id, title, group, tree, treePath, extra = {}) => ({
         id, title, group, tree, treePath,
         live: false, attention: null, presence: null, killable: false, startable: false, warn: false,
@@ -81,6 +85,7 @@
         density,
         windowDrag: false,
         openSection,
+        recoverableSection,
         // Headed groups whose members are hidden — app-owned; onToggleGroup below answers with a
         // fresh update, as a real app does.
         collapsed: ["/f/ops"],

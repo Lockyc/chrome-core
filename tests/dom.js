@@ -232,7 +232,19 @@ function installDom() {
     removeEventListener() {},
   };
   globalThis.window = { innerWidth: 1200 };
+  delete globalThis.localStorage; // an earlier test's `installStorage` must not leak into this one
   return new FakeNode("div");
 }
 
-module.exports = { installDom, fire, serialize, FakeNode };
+/** Install a Map-backed `localStorage` for a test that exercises persisted state; returns it. Call
+ *  after `installDom()`. */
+function installStorage() {
+  const m = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (m.has(k) ? m.get(k) : null),
+    setItem: (k, v) => m.set(k, String(v)),
+  };
+  return globalThis.localStorage;
+}
+
+module.exports = { installDom, installStorage, fire, serialize, FakeNode };
