@@ -1,8 +1,8 @@
 <!doctype html>
 <!-- Standalone visual preview of the ChromeSidebar component — dev tooling, not a test.
      Loads assets/sidebar.{css,js} directly and mounts one instance with a representative DTO
-     (loose tabs, a plain group, and a project-tree section with folders + leaf projects, across
-     the dot states). Lets you iterate on the CSS/JS and SEE the result without building curator or
+     (loose tabs, a plain group, two headed groups — one expanded, one collapsed — and a
+     project-tree section with folders + leaf projects, across the dot states). Lets you iterate on the CSS/JS and SEE the result without building curator or
      warden.
 
      Fast loop (from a chrome-core checkout):
@@ -81,6 +81,9 @@
         density,
         windowDrag: false,
         openSection,
+        // Headed groups whose members are hidden — app-owned; onToggleGroup below answers with a
+        // fresh update, as a real app does.
+        collapsed: ["/f/ops"],
         tabs: [
           // Loose tabs (no group) — the flat, un-sectioned rows.
           T("/p/dotfiles", "dotfiles", null, false, [], { live: true, presence: "on" }),
@@ -93,6 +96,14 @@
           // Only one ending action configured → the armed row shows ☠ disabled beside a live ⏻.
           T("/g/jobs", "jobs (suspend only)", "backend", false, [], { suspendable: true, presence: "on", live: true }),
           T("/g/workers", "workers", "backend", false, [], { presence: "off" }),
+          // Headed groups (flotilla's shape): `group` is the head tab's id, `groupName` its title,
+          // and the `head` row stands in for the text header, with a disclosure arrow.
+          T("/f/site", "site", "/f/site", false, [], { head: true, groupName: "site", live: true }),
+          T("/f/site-api", "site api", "/f/site", false, [], { groupName: "site", live: true }),
+          T("/f/site-docs", "site docs", "/f/site", false, [], { groupName: "site" }),
+          T("/f/ops", "ops", "/f/ops", false, [], { head: true, groupName: "ops" }),
+          T("/f/ops-grafana", "grafana", "/f/ops", false, [], { groupName: "ops" }),
+          T("/f/ops-alerts", "alerts", "/f/ops", false, [], { groupName: "ops" }),
           // A project-tree ([[window.root]]) section — tree:true rows nest by treePath.
           T("/d/github.com/acme/webapp", "webapp", "Developer", true, ["github.com", "acme"], { presence: "on" }),
           T("/d/github.com/acme/design-system", "design-system", "Developer", true, ["github.com", "acme"], { presence: "on" }),
@@ -127,6 +138,11 @@
           // confirmed firing from the preview. To verify the glyph is ABSENT when unsupplied, comment
           // this out and reload: every row's ⤢ disappears.
           onPopOut(id) { console.log("onPopOut", id); },
+          onToggleGroup(group, collapsed) {
+            dto.collapsed = collapsed ? [...dto.collapsed, group] : dto.collapsed.filter((g) => g !== group);
+            sb.update(dto);
+          },
+          onContextMenu(id, at) { console.log("onContextMenu", id, at); },
         },
         { storageKey: "preview", header, appName: "preview" }
       );

@@ -34,8 +34,8 @@ shot density="comfortable":
       --screenshot="$dir/preview.png" "file://$dir/preview.html?density={{density}}"
     echo "✓ wrote preview.png ({{density}})"
 
-# Covers the exported pure helpers (tests/sidebar.test.js). DOM/visual behaviour is out of scope — use `just dev` / `just shot`.
-# Unit-test the component's pure JS logic (zero deps, node:test)
+# Covers the pure helpers and render/event behaviour on a fake DOM (tests/). Visual behaviour is out of scope — use `just dev` / `just shot`.
+# Unit-test the component's JS logic (zero deps, node:test)
 [group("check")]
 test:
     node --test

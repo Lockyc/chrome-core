@@ -120,7 +120,15 @@ function openTabs(tabs) {
 function mirrorContext(t) {
   const path = t.tree ? t.treePath || [] : [];
   if (path.length) return path[path.length - 1];
-  return t.group == null || t.group === "" ? null : t.group;
+  if (t.head) return null; // a group's head IS the group — naming it again says nothing
+  const g = groupLabel(t);
+  return g == null || g === "" ? null : g;
+}
+
+/** A tab's group as shown and searched: `groupName` when the app sends one (flotilla, whose `group`
+ *  is the head tab's id), else `group` itself. */
+function groupLabel(t) {
+  return t.groupName != null ? t.groupName : t.group;
 }
 
 /** Write a targeted setter's signal onto the stored tab record, so any later re-render paints from
@@ -261,7 +269,9 @@ function folderChain(rows, id) {
  *  any other run of same-`group` rows is a flat section, ended by a group change or a tree row.
  *  `trees` names the window's declared project trees (the DTO's `trees`): one with no rows still
  *  gets its (empty) section, after the rest, so its head and ⟳ stay on screen.
- *  → `[{ group: string|null, tree: bool, rows }]`. */
+ *  A grouped flat section holding a `head: true` row lifts it out of `rows` into `head`: it paints
+ *  in place of the text header, and `rows` are its members.
+ *  → `[{ group: string|null, tree: bool, head: TabDTO|null, rows }]`. */
 function listSections(tabs, trees = []) {
   const out = [];
   const grp = (t) => (t.group == null ? null : t.group);
@@ -271,18 +281,23 @@ function listSections(tabs, trees = []) {
     const tree = g !== null && !!tabs[i].tree;
     const start = i++;
     while (i < tabs.length && grp(tabs[i]) === g && (tree || g === null || !tabs[i].tree)) i++;
-    out.push({ group: g, tree, rows: tabs.slice(start, i) });
+    let rows = tabs.slice(start, i);
+    const head = !tree && g !== null ? rows.find((t) => t.head) || null : null;
+    if (head) rows = rows.filter((t) => t !== head);
+    out.push({ group: g, tree, head, rows });
   }
   for (const g of trees) {
-    if (!out.some((s) => s.tree && s.group === g)) out.push({ group: g, tree: true, rows: [] });
+    if (!out.some((s) => s.tree && s.group === g)) out.push({ group: g, tree: true, head: null, rows: [] });
   }
   return out;
 }
 
 /** Every tab id in the main list's paint order, as if every tree folder were expanded: a tree
  *  section paints a node's own rows before its child folders (`_paintTreeNode`), so a tab inside a
- *  collapsed folder still has a place in the order without having a row in the DOM. */
-function navOrder(tabs) {
+ *  collapsed folder still has a place in the order without having a row in the DOM. A headed group
+ *  named in `collapsed` contributes only its head — its members are hidden by the user's choice,
+ *  not by a default, so cycling passes over them. */
+function navOrder(tabs, collapsed = []) {
   const out = [];
   const walk = (node) => {
     for (const r of node.rows) out.push(r.id);
@@ -290,19 +305,22 @@ function navOrder(tabs) {
   };
   for (const sec of listSections(tabs)) {
     if (sec.tree) walk(buildTree(sec.rows));
-    else for (const r of sec.rows) out.push(r.id);
+    else {
+      if (sec.head) out.push(sec.head.id);
+      if (!(sec.head && collapsed.includes(sec.group))) for (const r of sec.rows) out.push(r.id);
+    }
   }
   return out;
 }
 
 /** The tabs the search field keeps for `query`: every whitespace-separated term must appear,
- *  case-insensitively, in the tab's title, its tree path (tree rows only), or its group. An empty
- *  query returns `tabs` itself — the unfiltered list, not a copy. */
+ *  case-insensitively, in the tab's title, its tree path (tree rows only), or its group's label
+ *  (`groupLabel`). An empty query returns `tabs` itself — the unfiltered list, not a copy. */
 function filterTabs(tabs, query) {
   const terms = (query || "").toLowerCase().split(/\s+/).filter(Boolean);
   if (!terms.length) return tabs;
   return (tabs || []).filter((t) => {
-    const hay = [t.title, t.tree ? (t.treePath || []).join("/") : "", t.group].join(" ").toLowerCase();
+    const hay = [t.title, t.tree ? (t.treePath || []).join("/") : "", groupLabel(t)].join(" ").toLowerCase();
     return terms.every((term) => hay.includes(term));
   });
 }
@@ -361,6 +379,7 @@ class Sidebar {
     this.armedKill = null;
     this.windowColour = NEUTRAL_COLOUR;
     this.tabs = [];
+    this.collapsed = [];
     // The search field's text (see "search"); `this.tabs` stays whole, the list paints the filtered
     // view. `_cursor` is the id Enter would open — the highlighted match.
     this.query = "";
@@ -525,6 +544,9 @@ class Sidebar {
 
     this.openSection = dto.openSection === true;
     this.trees = dto.trees || [];
+    // Headed groups whose members are hidden. The app owns this (it persists it and answers each
+    // `onToggleGroup` with a fresh DTO); the component only reads it, so every `update` is authoritative.
+    this.collapsed = dto.collapsed || [];
     this.tint = tint;
     this.drag = drag;
 
@@ -585,18 +607,28 @@ class Sidebar {
     this.list.appendChild(this.mainEl);
 
     // A search shows only what matches, so an empty declared tree is not painted under one.
-    for (const sec of listSections(tabs, this.query.trim() ? [] : this.trees)) {
+    const searching = !!this.query.trim();
+    for (const sec of listSections(tabs, searching ? [] : this.trees)) {
       if (sec.tree) {
         this._renderTreeSection(sec.group, sec.rows, tint, drag);
         continue;
       }
-      if (sec.group !== null) {
-        const h = el("div", { class: "cc-group" }, sec.group);
+      if (sec.head) {
+        // A search shows every match, so it opens a collapsed group without touching `collapsed`.
+        const collapsed = !searching && this.collapsed.includes(sec.group);
+        this.mainEl.appendChild(this._renderHead(sec, collapsed, searching));
+        if (collapsed) continue;
+      } else if (sec.group !== null) {
+        const h = el("div", { class: "cc-group" }, groupLabel(sec.rows[0]));
         h.style.background = tint; // sticky header matches the tinted sidebar
         this._setDrag(h, drag);
         this.mainEl.appendChild(h);
       }
-      for (const t of sec.rows) this.mainEl.appendChild(this._renderRow(t));
+      for (const t of sec.rows) {
+        const r = this._renderRow(t);
+        if (sec.head) r.classList.add("cc-member");
+        this.mainEl.appendChild(r);
+      }
     }
     if (!tabs.length && this.query.trim()) {
       this.mainEl.appendChild(el("div", { class: "cc-search-empty" }, "No tabs match \u201c" + this.query.trim() + "\u201d"));
@@ -767,6 +799,38 @@ class Sidebar {
     return depth >= 1;
   }
 
+  /** A headed group's head: its own tab row (selectable like any other), led by a disclosure arrow
+   *  that reports `onToggleGroup(group, collapsed)` and changes nothing itself — the row repaints when
+   *  the app's answering `update(dto)` lands. The arrow is always shown; it is disabled, still showing
+   *  the state, without the callback, under a search (which shows every match regardless), and for a
+   *  head with no members. */
+  _renderHead(sec, collapsed, searching) {
+    const row = this._renderRow(sec.head);
+    row.classList.add("cc-head");
+    if (collapsed) row.setAttribute("data-collapsed", "");
+    const why = !this.cb.onToggleGroup
+      ? "Collapsing isn't available here"
+      : searching
+        ? "Clear the search to collapse or expand"
+        : !sec.rows.length
+          ? "No tabs in this group"
+          : null;
+    const arrow = el("button", {
+      class: "cc-disclosure",
+      type: "button",
+      "aria-expanded": String(!collapsed),
+      title: why || (collapsed ? "Expand group" : "Collapse group"),
+    });
+    if (why) arrow.setAttribute("disabled", "");
+    arrow.appendChild(el("span", { class: "cc-chevron" }));
+    arrow.addEventListener("click", (e) => {
+      e.stopPropagation(); // the arrow toggles; the rest of the row selects
+      if (!why) this.cb.onToggleGroup(sec.group, !collapsed);
+    });
+    row.insertBefore(arrow, row.firstChild);
+    return row;
+  }
+
   /** `context` (optional) is a dimmed where-it-lives label after the title — passed only for
    *  a mirror row in the pinned "Open" section (see `mirrorContext`); a home row's own section and
    *  tree already say it. */
@@ -781,6 +845,13 @@ class Sidebar {
       if (this.query) this._clearSearch();
       this.select(t.id);
     });
+    // Right-click → the app's own menu (opt-in: without the callback the webview's is left alone).
+    if (this.cb.onContextMenu) {
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        this.cb.onContextMenu(t.id, { x: e.clientX, y: e.clientY });
+      });
+    }
 
     const icon = el("span", { class: "cc-icon" }, tileInitial(t.title));
     icon.style.background = tileColour(t.title);
@@ -1089,7 +1160,7 @@ class Sidebar {
     const liveOnly = opts && opts.liveOnly;
     const from = (opts && opts.from) || this.active;
     const live = new Set(this.tabs.filter((t) => t.live || t.detached).map((t) => t.id));
-    const ids = navOrder(this.tabs).filter((id) => !liveOnly || live.has(id));
+    const ids = navOrder(this.tabs, this.collapsed).filter((id) => !liveOnly || live.has(id));
     if (ids.length < 2) return; // cycling needs ≥2 (eligible) tabs; 1 tab is a no-op, not a self-select
     const next = resolveOffset(ids, from, dir < 0 ? -1 : 1);
     if (next != null) this.select(next);

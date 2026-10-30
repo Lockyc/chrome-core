@@ -57,7 +57,10 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 - **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onSuspend(id)` + `onDestroy(id)` (the
   confirm row's two actions — see below), `onStart(id)`, `onResize(width)`,
   `onRescan(group)`, `onPopOut(id)` + `onPopIn(id)` (optional pair — see below), `onSearchExit()` (optional:
-  Esc left the search field — hand focus back to the content). (The update bar is wired **internally** —
+  Esc left the search field — hand focus back to the content).
+  **`onToggleGroup(group, collapsed)`** (optional): a head row's disclosure arrow was clicked; it repaints nothing itself — the app persists the state and answers with `update(dto)` (absent → the arrow shows the state, disabled).
+  **`onContextMenu(id, {x, y})`** (optional): a right-click on any row, the webview's own menu suppressed (absent → no listener).
+  (The update bar is wired **internally** —
   self-update is a core capability, see the dividing-line decision above — so there is **no**
   `onUpdate`/`onUpdateDismiss` callback.)
 - **config:** `{ header: Node|null, appName: string|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
@@ -83,9 +86,12 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   per-instance namespace for tree-collapse persistence (below) — it need only be unique per mounted
   sidebar, its literal contents don't matter beyond that.
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
-  windowDrag?: bool, openSection?: bool, active?: id, trees?: string[], tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null,
+  windowDrag?: bool, openSection?: bool, active?: id, trees?: string[], collapsed?: string[], tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null,
   live: bool, attention: null|true|number, presence: null|'on'|'ghost'|'off', killable: bool, suspendable: bool, startable: bool,
-  warn: bool, tree?: bool, treePath?: string[], detached?: bool, accent?: string }`. **`accent`** is opt-in (any CSS colour): when set the row shows a small `.cc-accent` mark between tile and title; absent renders exactly as before. **`detached`** is opt-in (absent/falsy
+  warn: bool, tree?: bool, treePath?: string[], detached?: bool, accent?: string, head?: bool, groupName?: string }`.
+  **`head`**: in a flat run of same-`group` rows, that row renders in place of the text header — a full tab row (`.cc-head`) led by an always-visible disclosure arrow; the rest are its `.cc-member`s.
+  **`collapsed`**: the headed groups whose members are hidden (app-owned; a search still shows matching members, and `navOrder` skips hidden ones; a group with no head ignores it).
+  **`groupName`**: the group's label for search, a member's text header under a search, and a mirror's context (absent → `group`). **`accent`** is opt-in (any CSS colour): when set the row shows a small `.cc-accent` mark between tile and title; absent renders exactly as before. **`detached`** is opt-in (absent/falsy
   on every row until an app's DTO sets it) — see the pop-out section below for what it does to a row.
   **`windowDrag`** (default **on** when absent) makes the non-interactive chrome — banner, name, the
   empty area of the tab list, group headers — a `data-tauri-drag-region` so a drag there moves the
@@ -303,9 +309,9 @@ just be an unreadable sidebar), and `.cc-main` takes `flex-grow: 1` so the hover
 
 The always-shown `#cc-search` field above the list narrows it as you type: `filterTabs` (exported,
 tested) keeps a tab when every whitespace term appears, case-insensitively, in its title, tree path
-or group. **`this.tabs` stays whole** — `_paintList()` paints both sections from `_shown()`, so the
+or group label (`groupName ?? group`). **`this.tabs` stays whole** — `_paintList()` paints both sections from `_shown()`, so the
 targeted setters and `selectByOffset` see every tab, while `selectByIndex` (DOM-counted) numbers the
-matches. A search opens every tree folder without writing the stored collapse state. ↑/↓ move a
+matches. A search opens every tree folder and collapsed headed group without writing either's collapse state. ↑/↓ move a
 `.cc-cursor` outline among the matches; Enter selects it; Enter and Esc both clear the field and blur
 it, and Esc also fires `onSearchExit`. Clicking a row also clears it; the `#cc-search-clear` × clears
 and keeps focus (disabled while empty).
@@ -330,8 +336,8 @@ re-comment the patch before you commit); `just gate` in each app refuses a left-
 this repo's preview from any app with **`just chrome-preview`**. See warden's / curator's / lector's CLAUDE.md.
 
 For **visual** tweaks, skip the app round-trip entirely: the checked-in **`preview.html`** mounts the
-component in isolation with a representative DTO (loose tabs, a plain group, and a project-tree with
-folders + leaves, across the dot states). **`just dev`** serves the repo with live reload (the house
+component in isolation with a representative DTO (loose tabs, a plain group, headed groups expanded
+and collapsed, and a project-tree with folders + leaves, across the dot states). **`just dev`** serves the repo with live reload (the house
 `tools/dev.sh` over `live-server`; open `preview.html` at the printed URL); **`just shot
 [density]`** headless-screenshots it to `preview.png` (git-ignored). Its URL params compose; `preview.html`'s header
 comment documents them. This is the fast loop for iterating on `sidebar.{css,js}`; the pinned-rev round-trip through an app is only for shipping.
@@ -339,7 +345,7 @@ comment documents them. This is the fast loop for iterating on `sidebar.{css,js}
 ## Build / test
 
 `just build` (`cargo build`) compiles the `include_str!` constants (catches a missing/renamed asset).
-`just test` (`node --test`) unit-tests the exported pure helpers (`tests/sidebar.test.js`); `just gate`
-runs rustfmt-check + tests + build together. DOM/visual
-behaviour has no unit coverage — iterate it with `just dev` / `just shot` (above) and confirm
-integration by running the consuming apps.
+`just test` (`node --test`) unit-tests the exported pure helpers (`tests/sidebar.test.js`), and mounts
+the component on the minimal fake DOM in `tests/dom.js` for render/event behaviour; `just gate`
+runs rustfmt-check + tests + build together. Visual behaviour has no unit coverage — iterate it with
+`just dev` / `just shot` (above) and confirm integration by running the consuming apps.

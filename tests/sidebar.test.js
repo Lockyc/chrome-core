@@ -449,3 +449,152 @@ test("update: keeps the main list's scroll position across a repaint", () => {
   assert.equal(sb.mainEl.scrollTop, 420);
   assert.equal(sb.openEl.scrollTop, 30);
 });
+
+// ── headed, collapsible groups + row context menu (opt-in: `head`/`collapsed`/`groupName`,
+// `onToggleGroup`/`onContextMenu`). These mount the real component on the fake DOM in ./dom.js.
+
+const { installDom, fire, serialize } = require("./dom.js");
+
+const row = (id, title, group, extra = {}) => ({
+  id, title, group, live: false, attention: null, presence: null,
+  killable: false, suspendable: false, startable: false, warn: false, ...extra,
+});
+
+// flotilla's shape: the group's id is its head tab's id, and `groupName` carries the head's title.
+const fleet = () => [
+  row("loose", "scratch", null),
+  row("h1", "Fleet", "h1", { head: true, groupName: "Fleet" }),
+  row("m1", "alpha", "h1", { groupName: "Fleet" }),
+  row("m2", "beta", "h1", { groupName: "Fleet" }),
+  row("other", "solo", null),
+];
+
+function mountFleet(cb = {}, dto = {}) {
+  const root = installDom();
+  const sb = new Sidebar(root, cb, {});
+  sb.update({ title: "w", colour: null, density: "comfortable", active: "loose", tabs: fleet(), ...dto });
+  return sb;
+}
+const mainIds = (sb) => sb.mainEl.querySelectorAll(".cc-tab").map((r) => r.dataset.id);
+const rowOf = (sb, id) => sb.mainEl.querySelector('.cc-tab[data-id="' + id + '"]');
+
+test("head_row_replaces_group_header", () => {
+  const selected = [];
+  const sb = mountFleet({ onSelect: (id) => selected.push(id), onToggleGroup() {} }, { openSection: true, tabs: fleet().map((t) => (t.id === "h1" ? { ...t, live: true } : t)) });
+  // No text header for the headed group — the head row stands in its place, a full tab row.
+  assert.equal(sb.mainEl.querySelectorAll(".cc-group").length, 0);
+  assert.deepEqual(mainIds(sb), ["loose", "h1", "m1", "m2", "other"]);
+  const head = rowOf(sb, "h1");
+  assert.ok(head.classList.contains("cc-head"));
+  assert.ok(head.querySelector(".cc-disclosure"), "the disclosure arrow is always rendered on a head");
+  assert.ok(head.querySelector(".cc-icon") && head.querySelector(".cc-dot"), "tile and dots like any row");
+  assert.ok(rowOf(sb, "m1").classList.contains("cc-member"));
+  // Clicking the row (not the arrow) selects the head tab, like any other row.
+  fire(head.querySelector(".cc-title"), "click");
+  assert.deepEqual(selected, ["h1"]);
+  // Its mirror in the pinned "Open" section is a plain row: no arrow, and no context naming itself.
+  const mirror = sb.openEl.querySelector('.cc-tab[data-id="h1"]');
+  assert.ok(mirror && !mirror.querySelector(".cc-disclosure") && !mirror.querySelector(".cc-context"));
+});
+
+test("collapsed_group_hides_members_not_head", () => {
+  const sb = mountFleet({ onToggleGroup() {} }, { collapsed: ["h1"] });
+  assert.deepEqual(mainIds(sb), ["loose", "h1", "other"]);
+  const head = rowOf(sb, "h1");
+  assert.ok(head.hasAttribute("data-collapsed"));
+  assert.equal(head.querySelector(".cc-disclosure").getAttribute("aria-expanded"), "false");
+  // `collapsed` naming a group with no head hides nothing — there is no arrow to bring it back.
+  const flat = mountFleet({}, { tabs: [row("a", "a", "G"), row("b", "b", "G")], collapsed: ["G"] });
+  assert.deepEqual(mainIds(flat), ["a", "b"]);
+});
+
+test("toggle_fires_onToggleGroup_without_repainting_state_itself", () => {
+  const toggles = [];
+  const selected = [];
+  const cb = { onSelect: (id) => selected.push(id), onToggleGroup: (g, c) => toggles.push([g, c]) };
+  const sb = mountFleet(cb);
+  // `localStorage` is undefined under the fake DOM, so a toggle that persisted anything would throw.
+  fire(rowOf(sb, "h1").querySelector(".cc-disclosure"), "click");
+  assert.deepEqual(toggles, [["h1", true]]);
+  assert.deepEqual(selected, [], "the arrow toggles; it does not select the head");
+  assert.deepEqual(mainIds(sb), ["loose", "h1", "m1", "m2", "other"], "no optimistic repaint");
+  // The app answers with a DTO update, and that is authoritative.
+  sb.update({ title: "w", active: "loose", tabs: fleet(), collapsed: ["h1"] });
+  assert.deepEqual(mainIds(sb), ["loose", "h1", "other"]);
+  fire(rowOf(sb, "h1").querySelector(".cc-disclosure"), "click");
+  assert.deepEqual(toggles, [["h1", true], ["h1", false]]);
+  // Without the callback the arrow still shows the state, disabled.
+  const bare = mountFleet({}, { collapsed: ["h1"] });
+  assert.ok(rowOf(bare, "h1").querySelector(".cc-disclosure").hasAttribute("disabled"));
+});
+
+test("search_reveals_collapsed_members", () => {
+  const dto = { collapsed: ["h1"] };
+  const sb = mountFleet({ onToggleGroup() {} }, dto);
+  const search = (q) => {
+    sb.searchInput.value = q;
+    fire(sb.searchInput, "input");
+    return mainIds(sb);
+  };
+  assert.deepEqual(search("beta"), ["m2"]);
+  // The member's text header names the group by `groupName`, never by the head id in `group`.
+  assert.equal(sb.mainEl.querySelector(".cc-group").textContent, "Fleet");
+  // `groupName` is what a group matches; the head id carried in `group` is not searchable.
+  assert.deepEqual(search("fleet"), ["h1", "m1", "m2"]);
+  assert.ok(rowOf(sb, "h1").querySelector(".cc-disclosure").hasAttribute("disabled"), "no toggling under a search");
+  assert.deepEqual(search("h1"), []);
+  assert.deepEqual(dto.collapsed, ["h1"]);
+  assert.deepEqual(search(""), ["loose", "h1", "other"], "clearing the search restores the collapse");
+  // Absent `groupName` → `group` matches, as before.
+  assert.deepEqual(filterTabs([row("x", "x", "Backend")], "backend").map((t) => t.id), ["x"]);
+});
+
+test("navOrder_skips_collapsed_members", () => {
+  assert.deepEqual(navOrder(fleet()), ["loose", "h1", "m1", "m2", "other"]);
+  assert.deepEqual(navOrder(fleet(), ["h1"]), ["loose", "h1", "other"]);
+  const selected = [];
+  const sb = mountFleet({ onSelect: (id) => selected.push(id) }, { collapsed: ["h1"], active: "h1" });
+  sb.selectByOffset(1);
+  assert.deepEqual(selected, ["other"]);
+});
+
+test("contextmenu_fires_with_id", () => {
+  const menus = [];
+  const sb = mountFleet({ onContextMenu: (id, at) => menus.push([id, at]) });
+  const ev = fire(rowOf(sb, "m1").querySelector(".cc-title"), "contextmenu", { clientX: 12, clientY: 34 });
+  assert.deepEqual(menus, [["m1", { x: 12, y: 34 }]]);
+  assert.ok(ev.defaultPrevented, "the app's menu replaces the webview's");
+  fire(rowOf(sb, "h1"), "contextmenu", { clientX: 1, clientY: 2 });
+  assert.deepEqual(menus[1], ["h1", { x: 1, y: 2 }]);
+  // Without the callback, a right-click is left alone.
+  const bare = mountFleet();
+  assert.equal(fire(rowOf(bare, "m1"), "contextmenu").defaultPrevented, false);
+});
+
+test("dto_without_head_renders_unchanged", () => {
+  // A curator-shaped DTO: app-owned `active`, loose + grouped rows, attention counts, no presence,
+  // no head/collapsed/groupName, no new callbacks. The markup is pinned verbatim from before the
+  // headed-group change.
+  const root = installDom();
+  const sb = new Sidebar(root, { onSelect() {} }, {});
+  sb.update({
+    title: "work", colour: "#1a9e8f", density: "compact", active: "b",
+    tabs: [
+      row("a", "Inbox", null, { live: true, attention: 3 }),
+      row("b", "Calendar", "Google", { live: true }),
+      row("c", "Drive", "Google", { attention: true, warn: true }),
+      row("d", "Grafana", "Ops"),
+    ],
+  });
+  const expected =
+    '<div data-tauri-drag-region="" id="cc-tab-list"><div class="cc-open" data-tauri-drag-region=""></div><div class="cc-main" data-tauri-drag-region="">' +
+    '<div class="cc-tab" data-id="a"><span class="cc-icon" style="background:hsl(302, 45%, 45%)">I</span><span class="cc-title">Inbox</span><span class="cc-attention cc-count">3</span><span class="cc-dot live"></span></div>' +
+    '<div class="cc-group" data-tauri-drag-region="" style="background:rgb(22,41,44)">Google</div>' +
+    '<div class="cc-tab active" data-id="b"><span class="cc-icon" style="background:hsl(150, 45%, 45%)">C</span><span class="cc-title">Calendar</span><span class="cc-dot live"></span></div>' +
+    '<div class="cc-tab" data-id="c"><span class="cc-icon" style="background:hsl(146, 45%, 45%)">D</span><span class="cc-title">Drive  ⚠</span><span class="cc-attention"></span><span class="cc-dot cold"></span></div>' +
+    '<div class="cc-group" data-tauri-drag-region="" style="background:rgb(22,41,44)">Ops</div>' +
+    '<div class="cc-tab" data-id="d"><span class="cc-icon" style="background:hsl(148, 45%, 45%)">G</span><span class="cc-title">Grafana</span><span class="cc-dot cold"></span></div>' +
+    "</div></div>";
+  assert.equal(serialize(sb.list), expected);
+  assert.ok(sb.list.querySelectorAll(".cc-tab").every((r) => !(r.listeners.contextmenu || []).length));
+});
