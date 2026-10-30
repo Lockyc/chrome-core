@@ -1049,7 +1049,19 @@ class Sidebar {
     // Presence slot (cyan; warden probe). Absent when null. Clickable when armable + on.
     if (t.presence != null) row.appendChild(this._makePresence(t, t.presence));
 
-    // Live/unload slot (green live ↔ hover-✕ / hollow cold). Always present.
+    // Remove slot — opt-in per app (rendered only when the consumer supplies `onRemove`): take the
+    // tab out of the sidebar. Always on screen, muted until hovered; fires at once, no confirm.
+    if (this.cb.onRemove) {
+      const rm = el("span", { class: "cc-remove", title: "Remove" });
+      rm.innerHTML = REMOVE_SVG;
+      rm.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.cb.onRemove(t.id);
+      });
+      row.appendChild(rm);
+    }
+
+    // Live/unload slot — always rightmost (green live ↔ hover-✕ / hollow cold). Always present.
     // A detached tab is ALWAYS live — it's running in its own popped-out window — so its dot
     // shows live regardless of `t.live` (which reports only a LOCAL surface). It is NOT an
     // unload affordance there, though: you don't unload a tab that lives in another window, you
@@ -1064,18 +1076,6 @@ class Sidebar {
       });
     }
     row.appendChild(dot);
-
-    // Remove slot — opt-in per app (rendered only when the consumer supplies `onRemove`): take the
-    // tab out of the sidebar. Always on screen, muted until hovered; fires at once, no confirm.
-    if (this.cb.onRemove) {
-      const rm = el("span", { class: "cc-remove", title: "Remove" });
-      rm.innerHTML = REMOVE_SVG;
-      rm.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this.cb.onRemove(t.id);
-      });
-      row.appendChild(rm);
-    }
 
     // Kill-confirm controls (only for armable rows; hidden until `.confirming`).
     if (armable(t)) this._appendConfirmControls(row, t);

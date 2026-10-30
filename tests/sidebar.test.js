@@ -520,6 +520,9 @@ test("remove_button_only_with_onRemove_and_fires_without_selecting", () => {
   const sb = mountFleet({ onRemove: (id) => removed.push(id), onSelect: (id) => selected.push(id) });
   const rm = rowOf(sb, "m1").querySelector(".cc-remove");
   assert.ok(rm, "every row carries the button, cold ones included");
+  const kids = rowOf(sb, "m1").children;
+  assert.ok(kids[kids.length - 1].classList.contains("cc-dot"), "unload stays rightmost");
+  assert.ok(kids[kids.length - 2] === rm, "the bin sits just left of it");
   fire(rm, "click");
   assert.deepEqual(removed, ["m1"]);
   assert.deepEqual(selected, [], "the click stays off the row");

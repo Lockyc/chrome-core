@@ -911,7 +911,7 @@
 }
 
 /* ── Remove slot ── opt-in per app (rendered only when the consumer supplies `onRemove`): a muted bin
- * after the live dot that turns red on hover and fires at once. */
+ * just left of the live dot that turns red on hover and fires at once. */
 .cc-remove {
   flex: none;
   width: 16px;
