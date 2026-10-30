@@ -1290,7 +1290,7 @@ class Sidebar {
       this._disarmKill();
       if (this.cb.onDestroy) this.cb.onDestroy(id);
     } else if (intent === "arm") {
-      this._armKill(id, this._revealRow(id));
+      this._armKill(id, this.revealRow(id));
       if (this.armedKill === id) {
         this._armTimer = setTimeout(() => {
           if (this.armedKill === id) this._disarmKill();
@@ -1299,12 +1299,13 @@ class Sidebar {
     }
   }
 
-  /** A row for `id` to arm, preferring a visible one. A tab with no row is revealed first — a search
+  /** The row for `id`, preferring a visible one. A tab with no row is revealed first — a search
    *  hiding it is cleared, and every collapsed folder above it is stored expanded and repainted —
-   *  because arming must show the confirm row: a destroy armed out of sight would fire blind on the
-   *  second request. Null only when the tab has no row to reveal — including a hidden member of a
-   *  collapsed headed group, whose `collapsed` state is the app's to change, not this component's. */
-  _revealRow(id) {
+   *  because its callers must show the row: a destroy armed out of sight would fire blind on the
+   *  second request, and an app's in-place rename edits the row itself. Null only when the tab has
+   *  no row to reveal — including a hidden member of a collapsed headed group, whose `collapsed`
+   *  state is the app's to change, not this component's. */
+  revealRow(id) {
     const pick = () => {
       const rows = this._rowsById(id);
       return rows.find((r) => r.offsetParent !== null) || rows[0] || null;

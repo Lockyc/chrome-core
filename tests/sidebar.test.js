@@ -666,3 +666,14 @@ test("no_banner_listener_without_callback", () => {
   assert.equal(fire(bare.banner, "contextmenu").defaultPrevented, false);
   assert.ok(!(bare.banner.listeners.contextmenu || []).length);
 });
+
+test("revealRow_clears_a_search_hiding_the_row", () => {
+  const sb = mountFleet();
+  sb.searchInput.value = "solo";
+  fire(sb.searchInput, "input");
+  assert.equal(rowOf(sb, "loose"), null, "the search hides it");
+  const r = sb.revealRow("loose");
+  assert.ok(r && r.dataset.id === "loose");
+  assert.equal(sb.query, "");
+  assert.equal(sb.revealRow("nope"), null);
+});

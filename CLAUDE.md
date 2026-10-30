@@ -7,8 +7,8 @@ links:
 
 # chrome-core — agent notes
 
-The shared sidebar chrome for **curator**, **warden**, and **lector** (sibling public macOS Tauri
-apps). One component, consumed by all three, so a look/behaviour change is made once and every
+The shared sidebar chrome for **curator**, **warden**, **lector** and **flotilla** (sibling public
+macOS Tauri apps). One component, consumed by all four, so a look/behaviour change is made once and every
 app moves together.
 
 ## What this is
@@ -112,7 +112,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 - **methods:** `update(dto)`, `setActive(id)`, `setLive(id,live)`, `setAttention(id,val)`,
   `setPresence(id,state)`, `selectByOffset(dir,{liveOnly,from})`, `selectByIndex(n)`,
   `focusSearch()` (shell-core's Find in Sidebar ⌘⇧F — see *Search* below), `requestEnd(id, "suspend"|"destroy")` (the keyboard route to the confirm row: suspend fires at once,
-  destroy arms the row and fires on a second request — `endIntent`), `setError(msg)`, `clearError()`, `pointerAway()` (a host compositing a view over the chrome calls it; see its docblock), `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update-bar view),
+  destroy arms the row and fires on a second request — `endIntent`), `revealRow(id)` (the tab's row, un-hidden from a search or collapsed folder first; flotilla's in-place rename), `setError(msg)`, `clearError()`, `pointerAway()` (a host compositing a view over the chrome calls it; see its docblock), `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update-bar view),
   **`checkForUpdateNow()`** (the menu "Check for Updates…" path — check + announce the result; the app
   forwards its own app-named menu event here), and **`destroy()`** (stop the recurring update check —
   the only long-lived resource the component holds).
