@@ -767,6 +767,19 @@ test("Recoverable section: arrow click expands, persists \"0\", mirrors appear",
   assert.deepEqual(mirrorIds(again), ["g1"], "the expanded state is remembered");
 });
 
+test("section header: a click on its body toggles like the arrow, and it is no drag region", () => {
+  const storage = installStorage();
+  const sb = mountSections({ windowDrag: true }, storage);
+  const head = headOf(sb, "Recoverable");
+  assert.ok(!head.hasAttribute("data-tauri-drag-region"));
+  fire(head.querySelector(".cc-section-label"), "click");
+  assert.equal(storage.getItem("cc-section:w:recoverable"), "0");
+  assert.deepEqual(mirrorIds(sb), ["g1"]);
+  fire(headOf(sb, "Recoverable"), "click");
+  assert.equal(storage.getItem("cc-section:w:recoverable"), "1");
+  assert.deepEqual(mirrorIds(sb), []);
+});
+
 test("Recoverable section: no recoverable tabs or flag off → no header", () => {
   assert.deepEqual(heads(mountSections({ tabs: [row("ok", "fine", null, { presence: "on" })] })), []);
   assert.deepEqual(heads(mountSections({ recoverableSection: undefined })), []);

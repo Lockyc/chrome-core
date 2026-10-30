@@ -372,11 +372,14 @@
 .cc-open:empty {
   display: none;
 }
-/* A mirror section's header: the group header's look, led by the disclosure arrow. */
+/* A mirror section's header: the group header's look, led by the disclosure arrow; the whole
+ * header toggles, like a tree folder row. */
 .cc-group.cc-section-head {
   display: flex;
   align-items: center;
   gap: var(--cc-row-gap);
+  cursor: pointer;
+  user-select: none;
 }
 .cc-section-label {
   overflow: hidden;

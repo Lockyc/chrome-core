@@ -726,12 +726,12 @@ class Sidebar {
     this.openEl.toggleAttribute("data-rows", anyRows);
   }
 
-  /** A mirror section's sticky header: a disclosure arrow that flips and persists the section's
-   *  collapse state, then repaints the sections, followed by its title. */
+  /** A mirror section's sticky header: a disclosure arrow followed by its title. A click anywhere on
+   *  it flips and persists the section's collapse state, then repaints the sections — like a tree
+   *  folder row, so it carries no drag region (a drag region turns the mousedown into a window drag). */
   _renderSectionHead(spec, collapsed) {
     const head = el("div", { class: "cc-group cc-section-head" });
     head.style.background = this.tint; // sticky header matches the tinted sidebar
-    this._setDrag(head, this.drag);
     if (collapsed) head.setAttribute("data-collapsed", "");
     const arrow = el("button", {
       class: "cc-disclosure",
@@ -740,7 +740,7 @@ class Sidebar {
       title: collapsed ? "Expand section" : "Collapse section",
     });
     arrow.appendChild(el("span", { class: "cc-chevron" }));
-    arrow.addEventListener("click", (e) => {
+    head.addEventListener("click", (e) => {
       e.stopPropagation();
       localStorage.setItem(this._sectionKey(spec.key), collapsed ? "0" : "1");
       this._paintMirrorSections();
