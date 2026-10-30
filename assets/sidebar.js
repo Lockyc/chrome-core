@@ -1309,7 +1309,7 @@ class Sidebar {
     patchTab(this.tabs, id, { presence: state == null ? null : state });
     // Repaint the sections only when this tab entered or left "Recoverable": probes report every
     // tab on each sweep, and an unconditional repaint would disarm an armed "Open" mirror each time.
-    if (recoverable() !== was) {
+    if (this.recoverableSection && recoverable() !== was) {
       this._paintMirrorSections();
       this._paint();
     }

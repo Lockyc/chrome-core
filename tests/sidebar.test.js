@@ -760,3 +760,52 @@ test("nav skips Recoverable mirrors", () => {
   assert.deepEqual(mirrorIds(sb), ["g1"]);
   assert.equal(sb._navRows().length, ghosts().length);
 });
+
+test("an armed Open mirror survives probe sweeps that move no tab between sections", () => {
+  const storage = installStorage();
+  storage.setItem("cc-section:w:recoverable", "0");
+  // A fresh pair per mount: `setPresence` patches the records it was handed.
+  const tabs = () => [
+    row("x", "armed", "work", { live: true, presence: "on", killable: true }),
+    row("y", "cold", "work", { presence: "off" }),
+  ];
+  const arm = (sb) => {
+    fire(sb.openEl.querySelector('.cc-tab[data-id="x"]').querySelector(".cc-presence"), "click");
+    assert.equal(sb.armedKill, "x");
+  };
+  const sb = mountSections({ openSection: true, tabs: tabs() }, storage);
+  arm(sb);
+  sb.setPresence("x", "on");
+  sb.setPresence("y", "off");
+  assert.equal(sb.armedKill, "x", "a sweep that changes no section keeps the confirm row");
+  sb.setPresence("y", "ghost");
+  assert.equal(sb.armedKill, null, "a section repaint wipes the armed mirror, so it disarms");
+
+  // With Recoverable off, a tab turning ghost changes nothing visible — no repaint, still armed.
+  const off = mountSections({ openSection: true, recoverableSection: false, tabs: tabs() }, storage);
+  arm(off);
+  off.setPresence("y", "ghost");
+  assert.equal(off.armedKill, "x");
+});
+
+test("search narrows mirrors; a collapsed section stays collapsed under it", () => {
+  const storage = installStorage();
+  const tabs = [
+    row("a", "alpha", null, { presence: "ghost" }),
+    row("z", "zeta", null, { presence: "ghost" }),
+  ];
+  const sb = mountSections({ tabs }, storage);
+  const search = (q) => {
+    sb.searchInput.value = q;
+    fire(sb.searchInput, "input");
+  };
+  search("zeta");
+  assert.deepEqual(heads(sb), ["Recoverable"]);
+  assert.deepEqual(mirrorIds(sb), [], "collapsed stays collapsed");
+  assert.ok(!sb.openEl.hasAttribute("data-rows"));
+  storage.setItem("cc-section:w:recoverable", "0");
+  search("zet");
+  assert.deepEqual(mirrorIds(sb), ["z"]);
+  search("nothing");
+  assert.deepEqual(heads(sb), []);
+});
