@@ -154,9 +154,6 @@ class FakeNode {
     for (let n = this; n; n = n.parentNode) if (n instanceof FakeNode && m(n)) return n;
     return null;
   }
-  getBoundingClientRect() {
-    return { width: 0, height: 0 };
-  }
   focus() {}
   blur() {}
   select() {}

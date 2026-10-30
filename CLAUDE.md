@@ -257,14 +257,8 @@ of its section, so it carries a dimmed **where-it-lives label** after the title 
 the pure `mirrorContext(t)`: a tree row's parent folder, else its group, none for a loose tab) — the
 title alone can't tell `rotary/website` from any other `website`, or two same-titled tabs apart.
 
-**The pinned Incoming section** (`incoming`; absent or empty → not painted): `.cc-incoming`, the list's first
-child, lists items waiting on an action — each a tile, title, optional `.cc-inbox-problem` line and a row of
-`button[data-action]`. It is rebuilt whole by `_paintIncoming` on every `_paintList`, is not searched, and its
-items are not `.cc-tab`s, so nav (`selectByIndex`), `_rowsById` and `_paint` never see them. It follows the
-`.cc-open` scroller rules below (`flex-shrink: 0`, `max-height`, no `padding-top`).
-
 The tab list therefore has **two containers, always both present**: `.cc-open` and `.cc-main`
-(everything else). **`#cc-tab-list` is no longer a scroller** — it is the column that lays the two
+(everything else), plus `.cc-incoming` before them only while `incoming` has items (below). **`#cc-tab-list` is no longer a scroller** — it is the column that lays them
 out, and each section scrolls on its own: the pinned one is content-sized up to `--cc-open-max`
 (2/5 of the window) and then scrolls within itself, the main one takes the rest. Paging through a
 long project list therefore never pushes the open tabs off the top, which is the whole point of
@@ -291,6 +285,12 @@ sections themselves.
 > on every long list* and starts scrolling at three or four rows, nowhere near the ceiling, which
 > reads as a scrollbar on a section occupying a fifth of the window. The degenerate case shrink was guarding does not exist: `--cc-open-max` could only exceed the
 > list's own height in a window shorter than the banner it carries.
+
+**The pinned Incoming section** (`incoming`; absent or empty → not painted): `.cc-incoming`, the list's first
+child, lists items waiting on an action — each a tile, title, optional `.cc-inbox-problem` line and a row of
+`button[data-action]`. It is rebuilt whole by `_paintIncoming` on every `_paintList`, is not searched, and its
+items are not `.cc-tab`s, so nav (`selectByIndex`), `_rowsById` and `_paint` never see them. It follows the
+`.cc-open` scroller rules above (`flex-shrink: 0`, `max-height`, no `padding-top`).
 
 `.cc-main` also lets the CSS address the main list as a unit, which buys two more things. `.cc-group:first-child` means "first header of its own list" again in both containers — the
 pinned section is always the list's first child, so without the split the main list's first header

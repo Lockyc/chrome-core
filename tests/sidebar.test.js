@@ -899,3 +899,9 @@ test("incoming_rows_are_outside_keyboard_nav", () => {
   sb.selectByIndex(1);
   assert.deepEqual(selected, ["loose"]);
 });
+
+test("incoming_action_without_a_callback_fires_nothing_and_does_not_throw", () => {
+  const sb = mountFleet({}, { incoming: incomingItems() });
+  assert.doesNotThrow(() => fire(incomingBtn(sb, "in-1", "add"), "click"));
+  assert.equal(sb.active, "loose");
+});
