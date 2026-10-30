@@ -1,6 +1,6 @@
 <h1 align="center">chrome-core</h1>
 
-<p align="center">The shared sidebar chrome for <a href="https://github.com/Lockyc/curator">curator</a>, <a href="https://github.com/Lockyc/warden">warden</a>, and <a href="https://github.com/Lockyc/lector">lector</a> — one component, three apps.</p>
+<p align="center">The shared sidebar chrome for <a href="https://github.com/Lockyc/curator">curator</a>, <a href="https://github.com/Lockyc/warden">warden</a>, <a href="https://github.com/Lockyc/lector">lector</a>, and <a href="https://github.com/Lockyc/flotilla">flotilla</a> — one component, four apps.</p>
 
 <p align="center">
   <img alt="Platform" src="https://img.shields.io/badge/platform-macOS-555">

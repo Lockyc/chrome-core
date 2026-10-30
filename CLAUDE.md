@@ -78,8 +78,8 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   (`checkForUpdateNow()`) works regardless of it. See the dividing-line decision above.
   `maxFraction` caps the sidebar at a share of `window.innerWidth`; pass a **falsy** value (e.g. `0`)
   to skip that cap. The cap is only meaningful when the sidebar's `innerWidth` IS the host window's
-  width — i.e. the sidebar is the window's full-size main webview, which **all three** current
-  consumers are (curator, warden, and lector are hole-punch main webviews), so each passes a real
+  width — i.e. the sidebar is the window's full-size main webview, which **every** current
+  consumer is (curator, warden, lector and flotilla are hole-punch main webviews), so each passes a real
   `maxFraction`. A consumer
   whose sidebar were instead an isolated child webview (its `innerWidth` = the sidebar's own width,
   not the window's) would have the cap pin every drag to `minWidth`, so it would pass a falsy value
@@ -329,7 +329,7 @@ Each app is a **build-dependency** consumer pinned by `rev`; its `build.rs` writ
 `SIDEBAR_JS` into the app's `frontendDist` (`src/` for curator and lector, `ui/` for warden) as
 `chrome-core.{css,js}` before `generate_context!` embeds it. The generated files are git-ignored in
 each app. **Pin this crate by `rev` and bump it in lockstep with config-core and the Rust toolchain
-pin** across curator, warden, and lector (the same lockstep discipline those already follow).
+pin** across curator, warden, lector and flotilla (the same lockstep discipline those already follow).
 
 The `rev` **is** this crate's version identity — the Cargo `version` field is inert (`publish = false`,
 nothing reads it) and stays parked at `0.1.0`, matching config-core / shell-core. Footgun: don't bump the
