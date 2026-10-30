@@ -528,6 +528,26 @@ test("remove_button_only_with_onRemove_and_fires_without_selecting", () => {
   assert.deepEqual(selected, [], "the click stays off the row");
 });
 
+test("confirm_remove_row_arms_on_first_click_and_fires_on_second", () => {
+  const removed = [];
+  const tabs = fleet().map((t) => (t.id === "h1" ? { ...t, confirmRemove: true } : t));
+  const sb = mountFleet({ onRemove: (id) => removed.push(id) }, { tabs });
+  const rm = () => rowOf(sb, "h1").querySelector(".cc-remove");
+  fire(rm(), "click");
+  assert.deepEqual(removed, [], "the first click only arms");
+  assert.ok(rowOf(sb, "h1").classList.contains("cc-remove-armed"));
+  sb.update({ title: "w", active: "loose", tabs });
+  assert.ok(rowOf(sb, "h1").classList.contains("cc-remove-armed"), "a repaint keeps the arm");
+  fire(rm(), "click");
+  assert.deepEqual(removed, ["h1"]);
+  assert.ok(!rowOf(sb, "h1").classList.contains("cc-remove-armed"), "firing disarms");
+  // Arming one row, then removing another, disarms the first.
+  fire(rm(), "click");
+  fire(rowOf(sb, "m1").querySelector(".cc-remove"), "click");
+  assert.deepEqual(removed, ["h1", "m1"], "an unconfirmed row still fires at once");
+  assert.ok(!rowOf(sb, "h1").classList.contains("cc-remove-armed"));
+});
+
 test("collapsed_group_hides_members_not_head", () => {
   const sb = mountFleet({ onToggleGroup() {} }, { collapsed: ["h1"] });
   assert.deepEqual(mainIds(sb), ["loose", "h1", "other"]);

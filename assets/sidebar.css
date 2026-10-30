@@ -930,6 +930,15 @@
 .cc-root:not(.cc-away) .cc-remove:hover {
   color: #f85149;
 }
+/* An armed `confirmRemove` bin: the row reddens like the kill-confirm row and the bin stays lit. */
+.cc-tab.cc-remove-armed,
+.cc-root:not(.cc-away) .cc-tab.cc-remove-armed:hover {
+  background: #5a1f1f !important;
+  color: #fff;
+}
+.cc-tab.cc-remove-armed .cc-remove {
+  color: #ff5b52;
+}
 
 /* ── Pop-out slot ── opt-in per app (rendered only when the consumer supplies `onPopOut`): pop the
  * tab into its own window. Muted glyph that brightens on hover — the same fire-immediately model as

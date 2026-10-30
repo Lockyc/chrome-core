@@ -396,6 +396,9 @@ const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 // How long a keyboard-armed confirm row (`requestEnd`) stays armed before it lapses on its own.
 const KEY_ARM_TIMEOUT_MS = 4000;
 
+// How long an armed `confirmRemove` bin waits for its second click before it lapses.
+const REMOVE_ARM_TIMEOUT_MS = 4000;
+
 // How long a tree-head shows a finished rescan's outcome ("+2 −1" / "No changes").
 const RESCAN_STATUS_MS = 4000;
 
@@ -409,6 +412,7 @@ class Sidebar {
     );
     this.active = null;
     this.armedKill = null;
+    this.armedRemove = null;
     this.windowColour = NEUTRAL_COLOUR;
     this.tabs = [];
     this.collapsed = [];
@@ -1050,12 +1054,19 @@ class Sidebar {
     if (t.presence != null) row.appendChild(this._makePresence(t, t.presence));
 
     // Remove slot — opt-in per app (rendered only when the consumer supplies `onRemove`): take the
-    // tab out of the sidebar. Always on screen, muted until hovered; fires at once, no confirm.
+    // tab out of the sidebar. Always on screen, muted until hovered; fires at once, unless the row
+    // carries `confirmRemove`, whose first click arms the bin and only a second one fires.
     if (this.cb.onRemove) {
       const rm = el("span", { class: "cc-remove", title: "Remove" });
       rm.innerHTML = REMOVE_SVG;
+      if (this.armedRemove === t.id) {
+        row.classList.add("cc-remove-armed");
+        rm.title = "Click again to remove";
+      }
       rm.addEventListener("click", (e) => {
         e.stopPropagation();
+        if (t.confirmRemove && this.armedRemove !== t.id) return this._armRemove(t.id);
+        this._disarmRemove();
         this.cb.onRemove(t.id);
       });
       row.appendChild(rm);
@@ -1494,6 +1505,49 @@ class Sidebar {
     this._armTimer = null;
     if (prev) {
       for (const row of this._rowsById(prev)) row.classList.remove("confirming");
+    }
+  }
+
+  // ── remove-confirm ──
+
+  /** Arms row `id`'s bin (`confirmRemove`): its next click fires `onRemove`. Escape, a click
+   *  anywhere but that bin, or `REMOVE_ARM_TIMEOUT_MS` disarms it. The state lives in
+   *  `armedRemove`, so a repaint while armed (a DTO push) keeps it. */
+  _armRemove(id) {
+    this._disarmRemove();
+    this.armedRemove = id;
+    this._paintRemoveArm(id, true);
+    this._onRemoveKey = (e) => {
+      if (e.key === "Escape") this._disarmRemove();
+    };
+    this._onRemoveOutside = (e) => {
+      const onBin = this._rowsById(id).some((row) => {
+        const rm = row.querySelector(".cc-remove");
+        return rm && rm.contains(e.target);
+      });
+      if (!onBin) this._disarmRemove();
+    };
+    document.addEventListener("keydown", this._onRemoveKey);
+    document.addEventListener("click", this._onRemoveOutside, true);
+    this._removeTimer = setTimeout(() => this._disarmRemove(), REMOVE_ARM_TIMEOUT_MS);
+  }
+
+  _disarmRemove() {
+    const prev = this.armedRemove;
+    this.armedRemove = null;
+    if (this._onRemoveKey) document.removeEventListener("keydown", this._onRemoveKey);
+    if (this._onRemoveOutside) document.removeEventListener("click", this._onRemoveOutside, true);
+    this._onRemoveKey = this._onRemoveOutside = null;
+    clearTimeout(this._removeTimer);
+    this._removeTimer = null;
+    if (prev) this._paintRemoveArm(prev, false);
+  }
+
+  _paintRemoveArm(id, armed) {
+    for (const row of this._rowsById(id)) {
+      row.classList.toggle("cc-remove-armed", armed);
+      const rm = row.querySelector(".cc-remove");
+      if (rm) rm.title = armed ? "Click again to remove" : "Remove";
     }
   }
 
