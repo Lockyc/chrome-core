@@ -583,6 +583,7 @@ class Sidebar {
     this.openSection = dto.openSection === true;
     this.recoverableSection = dto.recoverableSection === true;
     this.trees = dto.trees || [];
+    this.incoming = dto.incoming || [];
     // Headed groups whose members are hidden. The app owns this (it persists it and answers each
     // `onToggleGroup` with a fresh DTO); the component only reads it, so every `update` is authoritative.
     this.collapsed = dto.collapsed || [];
@@ -606,7 +607,9 @@ class Sidebar {
     // rescan must not jump a scrolled list back to the top. (A search repaint starts at the top.)
     const mainTop = this.mainEl ? this.mainEl.scrollTop : 0;
     const openTop = this.openEl ? this.openEl.scrollTop : 0;
+    const incomingTop = this.incomingEl ? this.incomingEl.scrollTop : 0;
     this._paintList();
+    if (this.incomingEl) this.incomingEl.scrollTop = incomingTop;
     if (this.mainEl) this.mainEl.scrollTop = mainTop;
     if (this.openEl) this.openEl.scrollTop = openTop;
     if (dto.active === undefined && this.active && this.active !== prevActive && this.cb.onSelect) {
@@ -628,6 +631,7 @@ class Sidebar {
     const tabs = this._shown();
     this.list.innerHTML = "";
     this._rescanEls = new Map();
+    this._paintIncoming();
     // The pinned mirror sections ("Open", "Recoverable"), each opt-in per window DTO. They live in
     // one container at the top of the list so `setLive`/`setPresence` can rebuild JUST them when a
     // tab's membership changes, without a full re-render.
@@ -915,6 +919,66 @@ class Sidebar {
     return row;
   }
 
+  /** The row's leading tile: the DTO `icon` image, else the title's initial on its colour. Shared by
+   *  tab rows and Incoming items so an `icon` means the same on both. */
+  _makeTile(t) {
+    if (t.icon) {
+      const icon = el("span", { class: "cc-icon cc-icon-image" });
+      icon.appendChild(el("img", { src: t.icon, alt: "", draggable: "false" }));
+      return icon;
+    }
+    const icon = el("span", { class: "cc-icon" }, tileInitial(t.title));
+    icon.style.background = tileColour(t.title);
+    return icon;
+  }
+
+  // ── the pinned Incoming section (opt-in: `incoming` in the DTO) ──
+
+  /** Rebuild the "Incoming" section: items waiting on an action, pinned above `.cc-open`. Absent or
+   *  empty `incoming` → nothing is added, so the list is exactly as it was. The section is not
+   *  searched and its items are not tabs (no `.cc-tab`, no `data-id`), so keyboard nav, `_rowsById`
+   *  and `_paint` never see them. Rebuilt whole by every `_paintList`. */
+  _paintIncoming() {
+    const items = this.incoming || [];
+    this.incomingEl = null;
+    if (!items.length) return;
+    const section = el("div", { class: "cc-incoming" });
+    this._setDrag(section, this.drag);
+    const head = el("div", { class: "cc-group cc-section-head cc-incoming-head" });
+    head.style.background = this.tint;
+    this._setDrag(head, this.drag);
+    head.append(el("span", { class: "cc-section-label" }, "Incoming"), el("span", { class: "cc-count" }, String(items.length)));
+    section.appendChild(head);
+    for (const item of items) section.appendChild(this._renderIncomingItem(item));
+    this.list.appendChild(section);
+    this.incomingEl = section;
+  }
+
+  _renderIncomingItem(item) {
+    const node = el("div", { class: "cc-inbox-item", "data-incoming": item.id });
+    const line = el("div", { class: "cc-inbox-line" });
+    line.append(this._makeTile(item), el("span", { class: "cc-inbox-title", title: item.title || "" }, item.title || ""));
+    node.appendChild(line);
+    if (item.problem) node.appendChild(el("div", { class: "cc-inbox-problem" }, item.problem));
+    const actions = el("div", { class: "cc-inbox-actions" });
+    for (const a of item.actions || []) {
+      const btn = el("button", { class: "cc-inbox-action", type: "button", "data-action": a.id }, a.label);
+      if (a.disabled) {
+        btn.setAttribute("disabled", "");
+        btn.setAttribute("title", a.disabled);
+      }
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (btn.hasAttribute("disabled") || !this.cb.onIncomingAction) return;
+        const r = btn.getBoundingClientRect();
+        this.cb.onIncomingAction(item.id, a.id, { x: r.left, y: r.bottom });
+      });
+      actions.appendChild(btn);
+    }
+    node.appendChild(actions);
+    return node;
+  }
+
   /** `context` (optional) is a dimmed where-it-lives label after the title — passed only for
    *  a mirror row in the pinned "Open" section (see `mirrorContext`); a home row's own section and
    *  tree already say it. */
@@ -939,14 +1003,7 @@ class Sidebar {
 
     // An `icon` image (opt-in: any image URL the page can load) stands in for the initial and
     // colour; the tile keeps its box, so the overlay and accent sit on it either way.
-    let icon;
-    if (t.icon) {
-      icon = el("span", { class: "cc-icon cc-icon-image" });
-      icon.appendChild(el("img", { src: t.icon, alt: "", draggable: "false" }));
-    } else {
-      icon = el("span", { class: "cc-icon" }, tileInitial(t.title));
-      icon.style.background = tileColour(t.title);
-    }
+    const icon = this._makeTile(t);
     // Pop-out / pop-in as a hover overlay ON the initial tile (opt-in: capability-by-callback-
     // presence — rendered only when the app supplied onPopOut). A docked tab shows the pop-OUT icon (window + arrow leaving)
     // and fires onPopOut; a detached tab shows the pop-IN icon (arrow entering) and fires onPopIn.

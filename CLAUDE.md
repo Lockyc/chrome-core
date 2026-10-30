@@ -61,6 +61,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   **`onToggleGroup(group, collapsed)`** (optional): a head row's disclosure arrow was clicked; it repaints nothing itself — the app persists the state and answers with `update(dto)` (absent → the arrow shows the state, disabled).
   **`onContextMenu(id, {x, y})`** (optional): a right-click on any row, the webview's own menu suppressed (absent → no listener).
   **`onBannerMenu({x, y})`** (optional): a right-click on the banner (window title row), the webview's own menu suppressed (absent → no listener).
+  **`onIncomingAction(itemId, actionId, {x, y})`** (optional): an Incoming item's button was clicked; `x, y` is the button's bottom-left (absent → no listener).
   (The update bar is wired **internally** —
   self-update is a core capability, see the dividing-line decision above — so there is **no**
   `onUpdate`/`onUpdateDismiss` callback.)
@@ -87,7 +88,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   per-instance namespace for tree-collapse persistence (below) — it need only be unique per mounted
   sidebar, its literal contents don't matter beyond that.
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
-  windowDrag?: bool, openSection?: bool, recoverableSection?: bool, active?: id, trees?: string[], collapsed?: string[], tabs: TabDTO[] }` where `TabDTO = { id, title, group: string|null,
+  windowDrag?: bool, openSection?: bool, recoverableSection?: bool, active?: id, trees?: string[], collapsed?: string[], incoming?: IncomingDTO[], tabs: TabDTO[] }` where `IncomingDTO = { id, title, icon?, problem?, actions: { id, label, disabled? }[] }` (`disabled` is the reason: the button is disabled and its `title` is that text), and `TabDTO = { id, title, group: string|null,
   live: bool, attention: null|true|number, presence: null|'on'|'ghost'|'off', killable: bool, suspendable: bool, startable: bool,
   warn: bool, tree?: bool, treePath?: string[], detached?: bool, accent?: string, icon?: string, head?: bool, groupName?: string }`.
   **`icon`** is opt-in (an image URL the page can load): the tile shows it (`.cc-icon-image`) in place of the initial and colour.
@@ -255,6 +256,12 @@ group/tree as well, so the main list never shuffles; the sections repaint whole
 of its section, so it carries a dimmed **where-it-lives label** after the title (`.cc-context`, from
 the pure `mirrorContext(t)`: a tree row's parent folder, else its group, none for a loose tab) — the
 title alone can't tell `rotary/website` from any other `website`, or two same-titled tabs apart.
+
+**The pinned Incoming section** (`incoming`; absent or empty → not painted): `.cc-incoming`, the list's first
+child, lists items waiting on an action — each a tile, title, optional `.cc-inbox-problem` line and a row of
+`button[data-action]`. It is rebuilt whole by `_paintIncoming` on every `_paintList`, is not searched, and its
+items are not `.cc-tab`s, so nav (`selectByIndex`), `_rowsById` and `_paint` never see them. It follows the
+`.cc-open` scroller rules below (`flex-shrink: 0`, `max-height`, no `padding-top`).
 
 The tab list therefore has **two containers, always both present**: `.cc-open` and `.cc-main`
 (everything else). **`#cc-tab-list` is no longer a scroller** — it is the column that lays the two

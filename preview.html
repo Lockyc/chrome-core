@@ -29,6 +29,9 @@
                           The main list below renders de-emphasised while the section is showing —
                           hover anywhere in it (the empty space under the last row counts) to
                           bring it back.
+       ?incoming=1        mount the pinned "Incoming" section (`incoming` in the DTO): a document
+                          item with four actions and a rejected link with a problem line and a
+                          disabled action. Clicking an action logs `onIncomingAction`.
        ?q=<text>          type <text> into the search field, rendering the filtered list.
 
      Raw headless invocation (what `just shot` wraps):
@@ -74,6 +77,22 @@
       // for every app that does not opt in.
       const openSection = params.get("open") === "1";
       const recoverableSection = params.get("recover") === "1";
+      const incoming = params.get("incoming") !== "1" ? undefined : [
+        {
+          id: "in-1", title: "Quarterly budget review", icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231a9e5f'/%3E%3C/svg%3E",
+          actions: [
+            { id: "add", label: "Add" }, { id: "add-active", label: "Add to active" },
+            { id: "open", label: "Open" }, { id: "dismiss", label: "Dismiss" },
+          ],
+        },
+        {
+          id: "in-2", title: "https://example.com/a/very/long/link/that/is/not/a/document", problem: "Not a document",
+          actions: [
+            { id: "add", label: "Add" },
+            { id: "add-active", label: "Add to active", disabled: "No active group" },
+          ],
+        },
+      ];
       const T = (id, title, group, tree, treePath, extra = {}) => ({
         id, title, group, tree, treePath,
         live: false, attention: null, presence: null, killable: false, startable: false, warn: false,
@@ -86,6 +105,7 @@
         windowDrag: false,
         openSection,
         recoverableSection,
+        incoming,
         // Headed groups whose members are hidden — app-owned; onToggleGroup below answers with a
         // fresh update, as a real app does.
         collapsed: ["/f/ops"],
@@ -147,6 +167,7 @@
             dto.collapsed = collapsed ? [...dto.collapsed, group] : dto.collapsed.filter((g) => g !== group);
             sb.update(dto);
           },
+          onIncomingAction(item, action, at) { console.log("onIncomingAction", item, action, at); },
           onContextMenu(id, at) { console.log("onContextMenu", id, at); },
         },
         { storageKey: "preview", header, appName: "preview" }

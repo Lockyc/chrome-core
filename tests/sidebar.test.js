@@ -834,3 +834,68 @@ test("search narrows mirrors; a collapsed section stays collapsed under it", () 
   search("nothing");
   assert.deepEqual(heads(sb), []);
 });
+
+// ── the pinned "Incoming" section (opt-in `incoming`: items waiting on an action) ──
+
+const incomingItems = () => [
+  {
+    id: "in-1", title: "Quarterly budget", icon: "icons/sheet.svg",
+    actions: [{ id: "add", label: "Add" }, { id: "add-active", label: "Add to active" }, { id: "open", label: "Open" }, { id: "dismiss", label: "Dismiss" }],
+  },
+  {
+    id: "in-2", title: "https://example.com/private", problem: "Not a document",
+    actions: [{ id: "add", label: "Add" }, { id: "add-active", label: "Add to active", disabled: "No active group" }],
+  },
+];
+// The fake DOM takes compound selectors only, so descend one step at a time.
+const incomingItem = (sb, item) => sb.list.querySelector(".cc-incoming").querySelector('[data-incoming="' + item + '"]');
+const incomingBtn = (sb, item, action) => incomingItem(sb, item).querySelector('[data-action="' + action + '"]');
+
+test("incoming_section_lists_every_item_above_open", () => {
+  const sb = mountFleet({}, { incoming: incomingItems() });
+  const section = sb.list.children[0];
+  assert.ok(section.classList.contains("cc-incoming"), "above .cc-open and .cc-main");
+  assert.ok(sb.list.children[1].classList.contains("cc-open"));
+  assert.match(section.querySelector(".cc-group").textContent, /Incoming\D*2/);
+  assert.deepEqual(section.querySelectorAll(".cc-inbox-item").map((r) => r.dataset.incoming), ["in-1", "in-2"]);
+  assert.equal(incomingItem(sb, "in-1").querySelector("img").getAttribute("src"), "icons/sheet.svg");
+  assert.equal(incomingItem(sb, "in-1").querySelector(".cc-inbox-problem"), null);
+  assert.equal(incomingItem(sb, "in-2").querySelector(".cc-inbox-problem").textContent, "Not a document");
+  assert.equal(incomingItem(sb, "in-2").querySelector(".cc-inbox-title").getAttribute("title"), "https://example.com/private");
+  assert.equal(incomingItem(sb, "in-1").querySelectorAll("[data-action]").length, 4);
+});
+
+test("incoming_action_fires_with_ids_and_a_disabled_one_does_not", () => {
+  const fired = [];
+  const sb = mountFleet({ onIncomingAction: (item, action, at) => fired.push([item, action, typeof at.x]) }, { incoming: incomingItems() });
+  fire(incomingBtn(sb, "in-1", "add"), "click");
+  assert.deepEqual(fired, [["in-1", "add", "number"]]);
+  const off = incomingBtn(sb, "in-2", "add-active");
+  assert.ok(off.hasAttribute("disabled"));
+  assert.equal(off.getAttribute("title"), "No active group");
+  fire(off, "click");
+  assert.equal(fired.length, 1);
+  // The row is not a tab: a click on a button neither selects nor reaches a row handler.
+  assert.equal(sb.active, "loose");
+});
+
+test("incoming_absent_or_empty_renders_nothing_and_ignores_search", () => {
+  const none = mountFleet();
+  assert.equal(none.list.querySelector(".cc-incoming"), null);
+  assert.ok(none.list.children[0].classList.contains("cc-open"));
+  assert.equal(mountFleet({}, { incoming: [] }).list.querySelector(".cc-incoming"), null);
+  const sb = mountFleet({}, { incoming: incomingItems() });
+  sb.searchInput.value = "zzz-no-match";
+  fire(sb.searchInput, "input");
+  assert.equal(sb.list.querySelectorAll(".cc-inbox-item").length, 2, "a search does not filter it");
+  // Dropping `incoming` on the next update removes the section.
+  sb.update({ title: "w", active: "loose", tabs: fleet() });
+  assert.equal(sb.list.querySelector(".cc-incoming"), null);
+});
+
+test("incoming_rows_are_outside_keyboard_nav", () => {
+  const selected = [];
+  const sb = mountFleet({ onSelect: (id) => selected.push(id) }, { incoming: incomingItems() });
+  sb.selectByIndex(1);
+  assert.deepEqual(selected, ["loose"]);
+});

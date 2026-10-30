@@ -161,6 +161,9 @@ class FakeNode {
   blur() {}
   select() {}
   scrollIntoView() {}
+  getBoundingClientRect() {
+    return { left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0 };
+  }
 }
 
 /** Compound selectors only (no combinators): `tag`, `.class`, `[attr]`, `[attr="v"]`,

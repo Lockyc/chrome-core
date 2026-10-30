@@ -386,6 +386,90 @@
   transform: rotate(0deg); /* collapsed → points right */
 }
 
+/* ── The pinned Incoming section ── items waiting on an action (opt-in `incoming`), above `.cc-open`.
+ * Same scroller rules as `.cc-open`: `flex-shrink: 0` with `max-height` as the only bound, and no
+ * `padding-top` (its sticky header would sit that far down). The header is tinted amber so the
+ * section reads as a call to act rather than another list. */
+.cc-incoming {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+  border-bottom: 2px solid #313640;
+  padding-bottom: 8px;
+  flex: 0 0 auto;
+  max-height: var(--cc-open-max);
+  overflow-y: auto;
+}
+.cc-incoming > * {
+  flex-shrink: 0;
+}
+.cc-group.cc-incoming-head {
+  color: #e0a030;
+}
+.cc-incoming-head .cc-count {
+  flex: none;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #e0a030;
+  color: #1e1e1e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-align: center;
+}
+.cc-inbox-item {
+  margin: 0 6px;
+  padding: var(--cc-row-pad);
+  border-radius: 5px;
+  font-size: var(--cc-row-font);
+  color: #ddd;
+}
+.cc-root:not(.cc-away) .cc-inbox-item:hover {
+  background: #2a2a2a;
+}
+.cc-inbox-line {
+  display: flex;
+  align-items: center;
+  gap: var(--cc-row-gap);
+}
+.cc-inbox-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cc-inbox-problem {
+  margin-top: 3px;
+  color: #f0883e;
+  font-size: 0.9em;
+}
+.cc-inbox-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.cc-inbox-action {
+  padding: 2px 8px;
+  border: 1px solid #3a404b;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.cc-root:not(.cc-away) .cc-inbox-action:not(:disabled):hover {
+  background: #343a44;
+}
+.cc-inbox-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ── The main list ── everything that is not the pinned section. It is a container only so the CSS
  * can address it as a unit; it re-states the list's column flow for the same reason `.cc-open` does.
  *
