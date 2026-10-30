@@ -60,6 +60,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   Esc left the search field — hand focus back to the content).
   **`onToggleGroup(group, collapsed)`** (optional): a head row's disclosure arrow was clicked; it repaints nothing itself — the app persists the state and answers with `update(dto)` (absent → the arrow shows the state, disabled).
   **`onContextMenu(id, {x, y})`** (optional): a right-click on any row, the webview's own menu suppressed (absent → no listener).
+  **`onBannerMenu({x, y})`** (optional): a right-click on the banner (window title row), the webview's own menu suppressed (absent → no listener).
   (The update bar is wired **internally** —
   self-update is a core capability, see the dividing-line decision above — so there is **no**
   `onUpdate`/`onUpdateDismiss` callback.)

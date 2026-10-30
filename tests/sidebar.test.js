@@ -652,3 +652,17 @@ test("a disabled disclosure arrow fires nothing", () => {
   assert.deepEqual(toggles, []);
   assert.deepEqual(selected, [], "nor does the click fall through to select the head");
 });
+
+test("banner_contextmenu_fires_with_coords", () => {
+  const menus = [];
+  const sb = mountFleet({ onBannerMenu: (at) => menus.push(at) });
+  const ev = fire(sb.banner, "contextmenu", { clientX: 7, clientY: 9 });
+  assert.deepEqual(menus, [{ x: 7, y: 9 }]);
+  assert.ok(ev.defaultPrevented, "the app's menu replaces the webview's");
+});
+
+test("no_banner_listener_without_callback", () => {
+  const bare = mountFleet();
+  assert.equal(fire(bare.banner, "contextmenu").defaultPrevented, false);
+  assert.ok(!(bare.banner.listeners.contextmenu || []).length);
+});

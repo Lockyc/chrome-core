@@ -439,6 +439,14 @@ class Sidebar {
     this.titlebarEl = this.cfg.appName ? el("div", { id: "cc-titlebar" }) : null;
     if (this.titlebarEl) this.titlebarEl.textContent = this.cfg.appName;
     this.banner = el("div", { id: "cc-banner" });
+    // Right-click on the window title row → the app's own menu (opt-in, like `onContextMenu`).
+    // `data-tauri-drag-region` only claims left-button mousedown, so the event still arrives.
+    if (this.cb.onBannerMenu) {
+      this.banner.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        this.cb.onBannerMenu({ x: e.clientX, y: e.clientY });
+      });
+    }
     if (this.cfg.header) this.banner.appendChild(this.cfg.header);
     this.nameEl = el("span", { class: "cc-name" });
     this.banner.appendChild(this.nameEl);
