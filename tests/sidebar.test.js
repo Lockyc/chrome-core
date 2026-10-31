@@ -768,21 +768,24 @@ test("revealRow_clears_a_search_hiding_the_row", () => {
 // ── mirror sections: the pinned Open + Recoverable sections, each with a collapsible header ──
 
 
-test("recoverableTabs: ghost and unloaded, DTO order; missing list → []", () => {
+test("recoverableTabs: running or ghost session, unloaded, DTO order; missing list → []", () => {
   const tabs = [
     { id: "a", presence: "ghost" },
     { id: "b", presence: "on" },
     { id: "c", presence: "ghost" },
     { id: "d", presence: "ghost", live: true },
     { id: "e", presence: "ghost", detached: true },
+    { id: "f", presence: "off" },
+    { id: "g", presence: "on", live: true },
+    { id: "h" },
   ];
-  assert.deepEqual(recoverableTabs(tabs).map((t) => t.id), ["a", "c"]);
+  assert.deepEqual(recoverableTabs(tabs).map((t) => t.id), ["a", "b", "c"]);
   assert.deepEqual(recoverableTabs(undefined), []);
 });
 
 const ghosts = () => [
   row("g1", "crashed", "work", { presence: "ghost" }),
-  row("ok", "fine", "work", { presence: "on" }),
+  row("ok", "fine", "work", { presence: "off" }),
   row("lv", "open", "work", { presence: "ghost", live: true }),
 ];
 function mountSections(dto = {}, storage = installStorage()) {
@@ -829,7 +832,7 @@ test("section header: a click on its body toggles like the arrow, and it is no d
 });
 
 test("Recoverable section: no recoverable tabs or flag off → no header", () => {
-  assert.deepEqual(heads(mountSections({ tabs: [row("ok", "fine", null, { presence: "on" })] })), []);
+  assert.deepEqual(heads(mountSections({ tabs: [row("ok", "fine", null, { presence: "off" }), row("lv", "open", null, { presence: "on", live: true })] })), []);
   assert.deepEqual(heads(mountSections({ recoverableSection: undefined })), []);
 });
 
@@ -844,14 +847,16 @@ test("Open section: expanded by default and collapsible", () => {
   assert.deepEqual(heads(sb), ["Open"], "a collapsed section keeps its header");
 });
 
-test("setPresence: ghost adds a Recoverable mirror, on removes it", () => {
+test("setPresence: ghost or on adds a Recoverable mirror, off removes it", () => {
   const storage = installStorage();
   storage.setItem("cc-section:w:recoverable", "0");
   const sb = mountSections({}, storage);
-  sb.setPresence("ok", "ghost");
-  assert.deepEqual(mirrorIds(sb), ["g1", "ok"]);
-  sb.setPresence("g1", "on");
+  sb.setPresence("ok", "on");
+  assert.deepEqual(mirrorIds(sb), ["g1", "ok"], "a running session behind an unloaded tab");
+  sb.setPresence("g1", "off");
   assert.deepEqual(mirrorIds(sb), ["ok"]);
+  sb.setPresence("ok", "ghost");
+  assert.deepEqual(mirrorIds(sb), ["ok"], "on → ghost stays in the section");
   sb.setPresence("ok", "off");
   assert.deepEqual(heads(sb), [], "the last one leaving takes the header with it");
 });

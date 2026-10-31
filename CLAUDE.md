@@ -251,7 +251,7 @@ and a **mirror row** per member; a member of a headed group nests under a mirror
 (`mirrorEntries`), which collapses with the app's `collapsed` like the main list's. **Open** (`openSection`; warden's `open_tabs_section`) mirrors
 `openTabs(tabs)` — `live || detached`; a session probe (`presence`) is deliberately not openness.
 **Recoverable** (`recoverableSection`; warden's `recoverable_tabs_section`) mirrors
-`recoverableTabs(tabs)` — `presence: "ghost"` on a tab that is not open, so the two never share a tab.
+`recoverableTabs(tabs)` — `presence` `on` or `ghost` on a tab that is not open, so the two never share a tab.
 A header's arrow persists its section's collapse state in `localStorage` (`_sectionKey`, per
 `storageKey`); Open defaults expanded, Recoverable collapsed. The mirrored tab keeps its row in its own
 group/tree as well, so the main list never shuffles; the sections repaint whole

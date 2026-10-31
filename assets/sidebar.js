@@ -112,10 +112,11 @@ function openTabs(tabs) {
 }
 
 /** The tabs the pinned "Recoverable" section mirrors, in the DTO's own order: the host reports a
- *  recoverable session (`presence: "ghost"`) and nothing is open — the complement of `openTabs`, so
- *  the two sections never mirror the same tab. Opening one restores it and moves it to "Open". */
+ *  session behind the tab — running (`presence: "on"`) or restorable (`"ghost"`) — and nothing is
+ *  open. The complement of `openTabs`, so the two sections never mirror the same tab. Opening one
+ *  reattaches or restores it and moves it to "Open". */
 function recoverableTabs(tabs) {
-  return (tabs || []).filter((t) => t.presence === "ghost" && !t.live && !t.detached);
+  return (tabs || []).filter((t) => (t.presence === "on" || t.presence === "ghost") && !t.live && !t.detached);
 }
 
 /** The pinned mirror sections, top to bottom. `flag` is the window-DTO field that opts a sidebar
