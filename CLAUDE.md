@@ -61,6 +61,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   a second click once the first has armed it, `.cc-remove-armed`), `onSearchExit()` (optional:
   Esc left the search field — hand focus back to the content).
   **`onToggleGroup(group, collapsed)`** (optional): a head row's disclosure arrow was clicked; it repaints nothing itself — the app persists the state and answers with `update(dto)` (absent → the arrow shows the state, disabled).
+  **`onUnloadGroup(group)`** (optional): a head row's unload-group button, `.cc-unload-group`, left of the bin, was clicked; disabled while no tab of the group is `live` or active (a `detached` one excepted). The app unloads the group (absent → no button).
   **`onContextMenu(id, {x, y})`** (optional): a right-click on any row, the webview's own menu suppressed (absent → no listener).
   **`onBannerMenu({x, y})`** (optional): a right-click on the banner (window title row), the webview's own menu suppressed (absent → no listener).
   **`onIncomingAction(itemId, actionId, {x, y})`** (optional): an Incoming item's button was clicked; `x, y` is the button's bottom-left (absent → no listener).
@@ -130,7 +131,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 > `update()` rebuilds them). Any new targeted setter takes the same write-back. Full mechanism:
 > `patchTab`'s comment in `assets/sidebar.js`.
 
-**Dot slots (fixed order): attention · presence · remove (opt-in) · live/unload — unload is always rightmost.** Attention = amber dot, rendered as a
+**Dot slots (fixed order): attention · presence · unload-group (opt-in, heads only) · remove (opt-in) · live/unload — unload is always rightmost.** Attention = amber dot, rendered as a
 count pill when `attention` is a number (curator's unread count). Live/unload = green live ↔ hover-✕
 unload / hollow cold. (Pop-out is **not** a dot slot — it's a hover overlay on the icon tile, below.)
 

@@ -548,6 +548,34 @@ test("remove_button_only_with_onRemove_and_fires_without_selecting", () => {
   assert.deepEqual(selected, [], "the click stays off the row");
 });
 
+test("unload_group_button_on_heads_only_enabled_while_the_group_has_a_loaded_tab", () => {
+  assert.equal(rowOf(mountFleet(), "h1").querySelector(".cc-unload-group"), null, "absent without onUnloadGroup");
+  const unloaded = [], selected = [];
+  const cb = { onUnloadGroup: (g) => unloaded.push(g), onSelect: (id) => selected.push(id), onRemove() {} };
+  const sb = mountFleet(cb);
+  assert.equal(rowOf(sb, "m1").querySelector(".cc-unload-group"), null, "members carry none");
+  const btn = () => rowOf(sb, "h1").querySelector(".cc-unload-group");
+  const kids = rowOf(sb, "h1").children;
+  assert.ok(kids[kids.length - 3] === btn(), "left of the bin, which stays beside the dot");
+  assert.ok(btn().hasAttribute("disabled"), "nothing in the group is loaded");
+  assert.equal(btn().title, "Unload group — nothing loaded");
+  // A loaded member enables it on the head.
+  const live = (ids, extra = {}) => fleet().map((t) => (ids.includes(t.id) ? { ...t, live: true, ...extra } : t));
+  sb.update({ title: "w", active: "loose", tabs: live(["m2"]) });
+  assert.ok(!btn().hasAttribute("disabled"));
+  fire(btn(), "click");
+  assert.deepEqual(unloaded, ["h1"]);
+  assert.deepEqual(selected, [], "the click stays off the row");
+  // The active tab always has a surface; a popped-out one does not count.
+  sb.update({ title: "w", active: "m1", tabs: fleet() });
+  assert.ok(!btn().hasAttribute("disabled"), "the active member counts as loaded");
+  sb.update({ title: "w", active: "loose", tabs: live(["m1"], { detached: true }) });
+  assert.ok(btn().hasAttribute("disabled"), "a popped-out member's window keeps it");
+  // A targeted setLive repaints it.
+  sb.setLive("m2", true);
+  assert.ok(!btn().hasAttribute("disabled"));
+});
+
 test("confirm_remove_row_arms_on_first_click_and_fires_on_second", () => {
   const removed = [];
   const tabs = fleet().map((t) => (t.id === "h1" ? { ...t, confirmRemove: true } : t));

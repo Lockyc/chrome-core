@@ -257,6 +257,15 @@ const POP_OUT_SVG = `<svg viewBox="0 0 52 52" fill="currentColor" aria-hidden="t
 // The row's remove button: a bin, so it never reads as the live dot's unload ✕ beside it.
 const REMOVE_SVG = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.75 6.5v4.5M9.25 6.5v4.5"/></svg>`;
 
+// A head row's unload-group button: two stacked dots, the live dot's shape for "every tab here".
+const UNLOAD_GROUP_SVG = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="6" cy="6" r="3.25"/><circle cx="10" cy="10" r="3.25"/></svg>`;
+
+/** Whether group `group` has a tab an unload-group would close: one with a local surface (`live`,
+ *  or `active`, which always has one), a popped-out tab excepted since its own window shows it. */
+function groupLoaded(tabs, group, active) {
+  return (tabs || []).some((t) => t.group === group && !t.detached && (t.live || t.id === active));
+}
+
 /** Build a nested folder tree from flat rows carrying `treePath` segment arrays.
  *  Single-child folder chains are compressed (label joined with "/"). Pure — tested. */
 function buildTree(rows) {
@@ -944,6 +953,16 @@ class Sidebar {
   _renderHead(sec, collapsed, searching) {
     const row = this._renderRow(sec.head);
     row.classList.add("cc-head");
+    if (this.cb.onUnloadGroup) {
+      const btn = el("button", { class: "cc-unload-group", type: "button", "data-group": sec.group });
+      btn.innerHTML = UNLOAD_GROUP_SVG;
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation(); // the button unloads; the rest of the row selects
+        if (!btn.hasAttribute("disabled")) this.cb.onUnloadGroup(sec.group);
+      });
+      // Left of the bin, so every row's bin and dot stay in their columns.
+      row.insertBefore(btn, row.querySelector(".cc-remove") || row.querySelector(".cc-dot"));
+    }
     if (!sec.rows.length) {
       row.insertBefore(el("span", { class: "cc-disclosure-blank", "aria-hidden": "true" }), row.firstChild);
       return row;
@@ -1287,6 +1306,11 @@ class Sidebar {
     const anchor = navAnchor(this.tabs, this.collapsed, this.active);
     for (const row of this.list.querySelectorAll(".cc-head")) {
       row.classList.toggle("cc-contains-active", anchor !== this.active && row.dataset.id === anchor && row.hasAttribute("data-collapsed"));
+    }
+    for (const btn of this.list.querySelectorAll(".cc-unload-group")) {
+      const loaded = groupLoaded(this.tabs, btn.dataset.group, this.active);
+      btn.toggleAttribute("disabled", !loaded);
+      btn.title = loaded ? "Unload group" : "Unload group — nothing loaded";
     }
   }
 

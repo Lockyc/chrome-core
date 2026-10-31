@@ -933,6 +933,35 @@
 .cc-root:not(.cc-away) .cc-remove:hover {
   color: #f85149;
 }
+
+/* ── Unload-group slot ── opt-in per app (`onUnloadGroup`), head rows only: left of the bin, green
+ * while any tab of the group is loaded, red on hover; dimmed and inert when none is. */
+.cc-unload-group {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: rgba(63, 185, 80, 0.75);
+  cursor: pointer;
+}
+.cc-unload-group svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+.cc-unload-group:disabled {
+  color: rgba(238, 238, 238, 0.3);
+  cursor: default;
+}
+.cc-root:not(.cc-away) .cc-unload-group:not(:disabled):hover {
+  color: #f85149;
+}
 /* An armed `confirmRemove` bin: the row reddens like the kill-confirm row and the bin stays lit. */
 .cc-tab.cc-remove-armed,
 .cc-root:not(.cc-away) .cc-tab.cc-remove-armed:hover {
@@ -990,6 +1019,7 @@
 .cc-tab.confirming .cc-presence,
 .cc-tab.confirming .cc-dot,
 .cc-tab.confirming .cc-remove,
+.cc-tab.confirming .cc-unload-group,
 .cc-tab.confirming .cc-icon-pop {
   display: none;
 }
