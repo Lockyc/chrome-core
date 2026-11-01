@@ -857,14 +857,15 @@
 }
 .cc-root:not(.cc-away) .cc-presence.ghost.start:hover::before {
   background: #56b4e9; /* brighten — foreshadows the restore picker coming up */
-  filter: drop-shadow(0 0 3px rgba(86, 180, 233, 0.55));
 }
 .cc-presence.on.kill,
 .cc-presence.ghost.kill {
   cursor: pointer;
 }
+/* The ghost's mask clips everything outside the silhouette — a box-shadow or drop-shadow halo
+ * included — so its hovers recolour the fill itself. */
 .cc-root:not(.cc-away) .cc-presence.ghost.kill:hover::before {
-  filter: drop-shadow(0 0 3px rgba(255, 91, 82, 0.55)); /* the mask clips a box-shadow */
+  background: #ff5b52; /* the kill red — foreshadows ☠ discard */
 }
 .cc-root:not(.cc-away) .cc-presence.on.kill:hover::before {
   box-shadow: 0 0 0 3px rgba(255, 91, 82, 0.22);
