@@ -57,8 +57,9 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 - **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onSuspend(id)` + `onDestroy(id)` (the
   confirm row's two actions — see below), `onStart(id)`, `onResize(width)`,
   `onRescan(group)`, `onPopOut(id)` + `onPopIn(id)` (optional pair — see below), `onRemove(id)` (optional:
-  every row gets a muted bin, `.cc-remove`, firing at once — or, on a row with `confirmRemove`, on
-  a second click once the first has armed it, `.cc-remove-armed`), `onSearchExit()` (optional:
+  every row gets a muted bin, `.cc-remove`, firing at once — or, on a row whose `confirmRemove` is
+  the sentence saying what goes, opening `.cc-remove-confirm` under the row: that sentence, then
+  Remove, which fires, and Keep), `onSearchExit()` (optional:
   Esc left the search field — hand focus back to the content).
   **`onToggleGroup(group, collapsed)`** (optional): a head row's disclosure arrow was clicked; it repaints nothing itself — the app persists the state and answers with `update(dto)` (absent → the arrow shows the state, disabled).
   **`onUnloadGroup(group)`** (optional): a head row's unload-group button, `.cc-unload-group`, left of the bin, was clicked; disabled while no tab of the group is `live` or active (a `detached` one excepted). The app unloads the group (absent → no button).

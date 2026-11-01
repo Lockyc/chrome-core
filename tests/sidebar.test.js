@@ -593,24 +593,37 @@ test("unload_group_button_on_heads_only_enabled_while_the_group_has_a_loaded_tab
   assert.ok(!btn().hasAttribute("disabled"));
 });
 
-test("confirm_remove_row_arms_on_first_click_and_fires_on_second", () => {
+test("confirm_remove_opens_in_place_and_only_its_remove_fires", () => {
   const removed = [];
-  const tabs = fleet().map((t) => (t.id === "h1" ? { ...t, confirmRemove: true } : t));
-  const sb = mountFleet({ onRemove: (id) => removed.push(id) }, { tabs });
+  const selected = [];
+  const why = "Closes this group and its 2 documents.";
+  const tabs = fleet().map((t) => (t.id === "h1" ? { ...t, confirmRemove: why } : t));
+  const sb = mountFleet({ onRemove: (id) => removed.push(id), onSelect: (id) => selected.push(id) }, { tabs });
   const rm = () => rowOf(sb, "h1").querySelector(".cc-remove");
+  const box = () => rowOf(sb, "h1").querySelector(".cc-remove-confirm");
   fire(rm(), "click");
-  assert.deepEqual(removed, [], "the first click only arms");
-  assert.ok(rowOf(sb, "h1").classList.contains("cc-remove-armed"));
+  assert.deepEqual(removed, [], "the bin only opens the confirm");
+  assert.equal(box().querySelector(".cc-remove-why").textContent, why);
   sb.update({ title: "w", active: "loose", tabs });
-  assert.ok(rowOf(sb, "h1").classList.contains("cc-remove-armed"), "a repaint keeps the arm");
+  assert.ok(box(), "a repaint keeps it open");
+  // The bin again, and Keep, close it without removing.
   fire(rm(), "click");
+  assert.equal(box(), null);
+  fire(rm(), "click");
+  fire(box().querySelector(".cc-remove-keep"), "click");
+  assert.equal(box(), null);
+  assert.deepEqual(removed, []);
+  // Remove fires and closes it, and the click stays off the row.
+  fire(rm(), "click");
+  fire(box().querySelector(".cc-remove-go"), "click");
   assert.deepEqual(removed, ["h1"]);
-  assert.ok(!rowOf(sb, "h1").classList.contains("cc-remove-armed"), "firing disarms");
-  // Arming one row, then removing another, disarms the first.
+  assert.equal(box(), null);
+  assert.deepEqual(selected, []);
+  // Opening one, then removing another, closes the first.
   fire(rm(), "click");
   fire(rowOf(sb, "m1").querySelector(".cc-remove"), "click");
   assert.deepEqual(removed, ["h1", "m1"], "an unconfirmed row still fires at once");
-  assert.ok(!rowOf(sb, "h1").classList.contains("cc-remove-armed"));
+  assert.equal(box(), null);
 });
 
 test("collapsed_group_hides_members_not_head", () => {

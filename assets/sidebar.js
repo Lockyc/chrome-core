@@ -449,9 +449,6 @@ const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 // How long a keyboard-armed confirm row (`requestEnd`) stays armed before it lapses on its own.
 const KEY_ARM_TIMEOUT_MS = 4000;
 
-// How long an armed `confirmRemove` bin waits for its second click before it lapses.
-const REMOVE_ARM_TIMEOUT_MS = 4000;
-
 // How long a tree-head shows a finished rescan's outcome ("+2 −1" / "No changes").
 const RESCAN_STATUS_MS = 4000;
 
@@ -1134,17 +1131,15 @@ class Sidebar {
 
     // Remove slot — opt-in per app (rendered only when the consumer supplies `onRemove`): take the
     // tab out of the sidebar. Always on screen, muted until hovered; fires at once, unless the row
-    // carries `confirmRemove`, whose first click arms the bin and only a second one fires.
+    // carries `confirmRemove` (the sentence saying what goes): then the bin opens the row's confirm
+    // in place, under it, and only its Remove fires.
     if (this.cb.onRemove) {
       const rm = el("span", { class: "cc-remove", title: "Remove" });
       rm.innerHTML = REMOVE_SVG;
-      if (this.armedRemove === t.id) {
-        row.classList.add("cc-remove-armed");
-        rm.title = "Click again to remove";
-      }
       rm.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (t.confirmRemove && this.armedRemove !== t.id) return this._armRemove(t.id);
+        if (this.armedRemove === t.id) return this._disarmRemove();
+        if (t.confirmRemove) return this._armRemove(t.id);
         this._disarmRemove();
         this.cb.onRemove(t.id);
       });
@@ -1169,6 +1164,7 @@ class Sidebar {
 
     // Kill-confirm controls (only for armable rows; hidden until `.confirming`).
     if (armable(t)) this._appendConfirmControls(row, t);
+    if (this.armedRemove === t.id) this._openRemoveConfirm(row, t);
     return row;
   }
 
@@ -1635,9 +1631,10 @@ class Sidebar {
 
   // ── remove-confirm ──
 
-  /** Arms row `id`'s bin (`confirmRemove`): its next click fires `onRemove`. Escape, a click
-   *  anywhere but that bin, or `REMOVE_ARM_TIMEOUT_MS` disarms it. The state lives in
-   *  `armedRemove`, so a repaint while armed (a DTO push) keeps it. */
+  /** Opens row `id`'s confirm (`confirmRemove`) under it: the row's sentence, then Remove, which
+   *  fires `onRemove`, and Keep. Keep, the bin again, Escape or a click anywhere outside the
+   *  confirm closes it. The state lives in `armedRemove`, so a repaint while open (a DTO push)
+   *  keeps it. */
   _armRemove(id) {
     this._disarmRemove();
     this.armedRemove = id;
@@ -1646,15 +1643,16 @@ class Sidebar {
       if (e.key === "Escape") this._disarmRemove();
     };
     this._onRemoveOutside = (e) => {
-      const onBin = this._rowsById(id).some((row) => {
-        const rm = row.querySelector(".cc-remove");
-        return rm && rm.contains(e.target);
-      });
-      if (!onBin) this._disarmRemove();
+      const inside = this._rowsById(id).some((row) =>
+        [".cc-remove", ".cc-remove-confirm"].some((sel) => {
+          const part = row.querySelector(sel);
+          return part && part.contains(e.target);
+        })
+      );
+      if (!inside) this._disarmRemove();
     };
     document.addEventListener("keydown", this._onRemoveKey);
     document.addEventListener("click", this._onRemoveOutside, true);
-    this._removeTimer = setTimeout(() => this._disarmRemove(), REMOVE_ARM_TIMEOUT_MS);
   }
 
   _disarmRemove() {
@@ -1663,16 +1661,36 @@ class Sidebar {
     if (this._onRemoveKey) document.removeEventListener("keydown", this._onRemoveKey);
     if (this._onRemoveOutside) document.removeEventListener("click", this._onRemoveOutside, true);
     this._onRemoveKey = this._onRemoveOutside = null;
-    clearTimeout(this._removeTimer);
-    this._removeTimer = null;
     if (prev) this._paintRemoveArm(prev, false);
   }
 
+  /** Adds row `t`'s open confirm to `row`, on its own line under the row's own contents. */
+  _openRemoveConfirm(row, t) {
+    row.classList.add("cc-remove-armed");
+    const box = el("div", { class: "cc-remove-confirm" });
+    box.addEventListener("click", (e) => e.stopPropagation());
+    box.appendChild(el("span", { class: "cc-remove-why" }, String(t.confirmRemove)));
+    const btns = el("div", { class: "cc-remove-btns" });
+    const remove = el("button", { class: "cc-remove-go", type: "button" }, "Remove");
+    remove.addEventListener("click", () => {
+      this._disarmRemove();
+      this.cb.onRemove(t.id);
+    });
+    const keep = el("button", { class: "cc-remove-keep", type: "button" }, "Keep");
+    keep.addEventListener("click", () => this._disarmRemove());
+    btns.appendChild(remove);
+    btns.appendChild(keep);
+    box.appendChild(btns);
+    row.appendChild(box);
+  }
+
   _paintRemoveArm(id, armed) {
+    const t = this.tabs.find((x) => x.id === id);
     for (const row of this._rowsById(id)) {
-      row.classList.toggle("cc-remove-armed", armed);
-      const rm = row.querySelector(".cc-remove");
-      if (rm) rm.title = armed ? "Click again to remove" : "Remove";
+      const open = row.querySelector(".cc-remove-confirm");
+      if (open) open.remove();
+      row.classList.remove("cc-remove-armed");
+      if (armed && t) this._openRemoveConfirm(row, t);
     }
   }
 

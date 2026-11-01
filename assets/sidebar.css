@@ -966,14 +966,50 @@
 .cc-root:not(.cc-away) .cc-unload-group:not(:disabled):hover {
   color: #f85149;
 }
-/* An armed `confirmRemove` bin: the row reddens like the kill-confirm row and the bin stays lit. */
+/* An open `confirmRemove`: the row reddens like the kill-confirm row, the bin stays lit, and the
+ * confirm wraps onto its own line under the row's contents. */
 .cc-tab.cc-remove-armed,
 .cc-root:not(.cc-away) .cc-tab.cc-remove-armed:hover {
-  background: #5a1f1f !important;
+  flex-wrap: wrap;
+  background: #4a1f1f !important;
   color: #fff;
 }
 .cc-tab.cc-remove-armed .cc-remove {
   color: #ff5b52;
+}
+.cc-remove-confirm {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 2px 0 2px;
+  color: #ffd;
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: normal;
+  cursor: default;
+}
+.cc-remove-btns {
+  display: flex;
+  gap: 4px;
+}
+.cc-remove-btns button {
+  padding: 2px 7px;
+  border: 0;
+  border-radius: 4px;
+  font: inherit;
+  color: #eee;
+  background: #2a2f37;
+  cursor: pointer;
+}
+.cc-remove-btns button:hover {
+  background: #363c46;
+}
+.cc-remove-btns .cc-remove-go {
+  background: #8a2b2b;
+}
+.cc-remove-btns .cc-remove-go:hover {
+  background: #a33333;
 }
 
 /* ── Pop-out slot ── opt-in per app (rendered only when the consumer supplies `onPopOut`): pop the
