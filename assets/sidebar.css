@@ -1,4 +1,4 @@
-/* chrome-core — the shared sidebar chrome for curator and warden.
+/* chrome-core — the shared sidebar chrome for curator, warden, lector and flotilla.
  *
  * The component owns everything under the mount container (`.cc-root`): the banner, the error bar,
  * the grouped tab rows (tile + title + three dot slots), the kill-confirm row overlay, and the
@@ -141,7 +141,7 @@
 }
 
 /* Error bar: one opaque red strip between the banner and the tab list, shown via setError().
- * Sidebar-scoped in both apps (below the traffic-light inset + banner → no per-app inset needed). */
+ * Sidebar-scoped in every app (below the traffic-light inset + banner → no per-app inset needed). */
 #cc-error {
   flex: none;
   display: none; /* set to flex by setError() */
@@ -1003,13 +1003,13 @@
   background: #2a2f37;
   cursor: pointer;
 }
-.cc-remove-btns button:hover {
+.cc-root:not(.cc-away) .cc-remove-btns button:hover {
   background: #363c46;
 }
 .cc-remove-btns .cc-remove-go {
   background: #8a2b2b;
 }
-.cc-remove-btns .cc-remove-go:hover {
+.cc-root:not(.cc-away) .cc-remove-btns .cc-remove-go:hover {
   background: #a33333;
 }
 

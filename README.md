@@ -9,7 +9,8 @@
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/Lockyc/chrome-core"></a>
 </p>
 
-curator (browser keeper-tabs), warden (terminals), and lector (local doc sites) are sibling macOS
+curator (browser keeper-tabs), warden (terminals), lector (local doc sites) and flotilla (document
+workspace) are sibling macOS
 Tauri apps with the same sidebar. `chrome-core` is that sidebar: a framework-free CSS + vanilla-JS
 component (`ChromeSidebar`) plus a thin Rust crate that exposes the two asset files as string
 constants.
@@ -32,8 +33,8 @@ controller. The interface contract is in [`CLAUDE.md`](CLAUDE.md).
 
 ## Status
 
-In use. [curator](https://github.com/Lockyc/curator), [warden](https://github.com/Lockyc/warden), and
-[lector](https://github.com/Lockyc/lector) all consume chrome-core, each pinned to a **commit rev**.
+In use. [curator](https://github.com/Lockyc/curator), [warden](https://github.com/Lockyc/warden),
+[lector](https://github.com/Lockyc/lector) and [flotilla](https://github.com/Lockyc/flotilla) all consume chrome-core, each pinned to a **commit rev**.
 There are no tags or releases.
 
 ## How it's consumed

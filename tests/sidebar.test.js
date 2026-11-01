@@ -565,6 +565,17 @@ test("remove_button_only_with_onRemove_and_fires_without_selecting", () => {
   assert.deepEqual(selected, [], "the click stays off the row");
 });
 
+test("setAttention / setPresence keep the slot order on a row with a bin", () => {
+  const sb = mountFleet({ onRemove() {} });
+  sb.setPresence("m1", "on");
+  sb.setAttention("m1", true);
+  const slots = ["cc-attention", "cc-presence", "cc-remove", "cc-dot"];
+  const order = [...rowOf(sb, "m1").children]
+    .map((c) => slots.find((k) => c.classList.contains(k)))
+    .filter(Boolean);
+  assert.deepEqual(order, slots);
+});
+
 test("unload_group_button_on_heads_only_enabled_while_the_group_has_a_loaded_tab", () => {
   assert.equal(rowOf(mountFleet(), "h1").querySelector(".cc-unload-group"), null, "absent without onUnloadGroup");
   const unloaded = [], selected = [];

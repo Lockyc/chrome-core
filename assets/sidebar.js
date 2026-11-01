@@ -1,4 +1,4 @@
-// chrome-core — the shared sidebar chrome for curator, warden, and lector.
+// chrome-core — the shared sidebar chrome for curator, warden, lector, and flotilla.
 //
 // Framework-free: exposes a global `ChromeSidebar` factory (browser) and CommonJS exports (the
 // factory + the pure helpers, for node:test). The component renders a window DTO into a mount
@@ -84,7 +84,7 @@ function liftColour(hex, minL) {
 /** Clamp a desired sidebar width into [min, min(max, fraction*windowWidth)]. `fraction` caps the
  *  sidebar at a share of the window, but is only meaningful when `windowWidth` (the sidebar view's
  *  own `window.innerWidth`) IS the host window's width — i.e. the sidebar is the window's full-size
- *  main webview. All current consumers (curator, warden, lector) are hole-punch main webviews, so
+ *  main webview. All current consumers (curator, warden, lector, flotilla) are hole-punch main webviews, so
  *  each passes a real `fraction`. A consumer whose sidebar were instead an isolated child webview —
  *  `innerWidth` being just the sidebar's own width — would see this cap collapse below `min` and pin
  *  every drag to the floor; it passes a falsy `fraction` to skip the cap here and enforce its
@@ -186,6 +186,17 @@ function patchTab(tabs, id, patch) {
   if (!t) return false;
   Object.assign(t, patch);
   return true;
+}
+
+/** A row's dot slots, in their fixed order (CLAUDE.md). */
+const DOT_SLOTS = [".cc-attention", ".cc-presence", ".cc-unload-group", ".cc-remove", ".cc-dot"];
+
+/** Insert `node` (the slot `slot`, one of DOT_SLOTS) into `row` before the first later slot the
+ *  row has, so a slot added after render keeps the fixed order. */
+function insertSlot(row, node, slot) {
+  const later = DOT_SLOTS.slice(DOT_SLOTS.indexOf(slot) + 1);
+  const before = later.map((sel) => row.querySelector(sel)).find(Boolean) || null;
+  row.insertBefore(node, before);
 }
 
 /** Does this row carry the end-session confirm controls? Either ending action — ⏻ suspend
@@ -1504,8 +1515,7 @@ class Sidebar {
       }
       if (!a) {
         a = this._makeAttention(val);
-        // keep order [attention][presence][live]: insert before presence if present, else the dot
-        row.insertBefore(a, row.querySelector(".cc-presence") || row.querySelector(".cc-dot"));
+        insertSlot(row, a, ".cc-attention");
       } else {
         const fresh = this._makeAttention(val);
         a.className = fresh.className;
@@ -1535,7 +1545,10 @@ class Sidebar {
       if (!s) {
         const t = this.tabs.find((x) => x.id === id) || {};
         s = this._makePresence(t, state);
-        row.insertBefore(s, row.querySelector(".cc-dot"));
+        // Painted from the row's live dot, not the record: the active tab paints live while its
+        // record can say cold, and a cold paint would drop the dot's `start` affordance.
+        this._paintPresence(s, state, t, live);
+        insertSlot(row, s, ".cc-presence");
       } else {
         this._paintPresence(s, state, this._capsOf(s), live);
       }
@@ -1563,6 +1576,7 @@ class Sidebar {
     } else if (intent === "arm") {
       this._armKill(id, this.revealRow(id));
       if (this.armedKill === id) {
+        clearTimeout(this._armTimer); // a re-arm restarts the lapse; the old timer would cut it short
         this._armTimer = setTimeout(() => {
           if (this.armedKill === id) this._disarmKill();
         }, KEY_ARM_TIMEOUT_MS);
