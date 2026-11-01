@@ -188,10 +188,23 @@ function patchTab(tabs, id, patch) {
   return true;
 }
 
-/** Can this row arm the end-session confirm? Either ending action — ⏻ suspend (`suspendable`) or
- *  ☠ destroy (`killable`) — is enough; the armed row shows both, disabling whichever the tab lacks. */
+/** Does this row carry the end-session confirm controls? Either ending action — ⏻ suspend
+ *  (`suspendable`) or ☠ destroy (`killable`) — is enough; the armed row shows both, disabling
+ *  whichever can't run. A capability, fixed for the row's life; what can run NOW is `canEnd`. */
 function armable(t) {
   return !!(t.killable || t.suspendable);
+}
+
+/** Can ⏻ suspend run on `t` right now? Not on a ghost: it is already restorable, with nothing
+ *  running to suspend. */
+function canSuspend(t) {
+  return !!t.suspendable && t.presence !== "ghost";
+}
+
+/** Can either ending action run on `t` right now — i.e. may its confirm row arm? ☠ on a ghost
+ *  discards the restorable session (warden: the tab's `kill`, which retires amux's restore offer). */
+function canEnd(t) {
+  return !!t.killable || canSuspend(t);
 }
 
 /** What a keyboard request to end `t`'s session does (`requestEnd`), given which row is armed.
@@ -200,27 +213,31 @@ function armable(t) {
  *  arms the row instead, whose disabled control says why; a tab with neither action gets nothing.
  *  → "suspend" | "destroy" | "arm" | null. */
 function endIntent(t, how, armedId) {
-  if (!t || !armable(t)) return null;
-  if (how === "suspend") return t.suspendable ? "suspend" : "arm";
+  if (!t || !canEnd(t)) return null;
+  if (how === "suspend") return canSuspend(t) ? "suspend" : "arm";
   if (armedId !== t.id) return "arm";
   return t.killable ? "destroy" : null;
 }
 
-/** Class list for a presence dot given session state + capabilities. Three states:
- *  `on` = a probe reported a live session → a kill affordance when `killable`;
- *  `ghost` = no live session, but the host reports a *recoverable* one (warden: a crashed amux
- *  session a plain launch would offer to restore) → decoration on the same start affordance;
+/** Class list for a presence dot given session state, the tab's capabilities (`killable`,
+ *  `suspendable`, `startable`) and whether it is live. Three states:
+ *  `on` = a probe reported a live session → a kill affordance (arms the confirm) when `canEnd`;
+ *  `ghost` = no live session, but the host reports a *recoverable* one (warden: a crashed or
+ *  suspended amux session a plain launch would offer to restore);
  *  `off` = configured-but-absent.
  *  `on` and `ghost` are mutually exclusive. The *start* affordance (re-run the tab's command) is
  *  offered for BOTH non-`on` states, and only when `startable` AND the tab is `live` — a cold tab
- *  has no shell to type into, and is started by activating the row instead. `ghost` never gets a
- *  kill affordance: a recoverable drop is on a dead server, so there is nothing to kill. */
-function presenceClass(state, killable, startable, live) {
+ *  has no shell to type into, and is started by activating the row instead. A ghost without start
+ *  takes the kill affordance when `killable` (☠ discards it); a live ghost keeps the click for
+ *  start, and reaches ☠ through `requestEnd`. */
+function presenceClass(state, caps, live) {
   const on = state === "on";
   const ghost = state === "ghost";
+  const t = { ...caps, presence: state };
   let cls = "cc-presence " + (on ? "on" : ghost ? "ghost" : "off");
-  if (on && killable) cls += " kill";
-  if (!on && startable && live) cls += " start";
+  const start = !on && !!t.startable && live;
+  if (start) cls += " start";
+  else if ((on || ghost) && canEnd(t)) cls += " kill";
   return cls;
 }
 
@@ -1166,7 +1183,7 @@ class Sidebar {
 
   _makePresence(t, state) {
     const s = el("span");
-    this._paintPresence(s, t.id, state, armable(t), !!t.startable, !!t.live);
+    this._paintPresence(s, state, t, !!t.live);
     // The dot is a session toggle: click a present session to kill (2-step confirm), or click an
     // absent-but-startable one to restart (single click — non-destructive). Both are gated by the
     // painted classes (`.kill` / `.start`), so a click that matches neither is inert.
@@ -1184,19 +1201,33 @@ class Sidebar {
     return s;
   }
 
-  _paintPresence(span, id, state, killable, startable, live) {
-    span.className = presenceClass(state, killable, startable, live);
-    span.dataset.kill = killable ? "1" : "";
-    span.dataset.start = startable ? "1" : "";
+  /** Paint a dot from its state + the tab's capabilities, which ride on the span (`data-kill`,
+   *  `data-suspend`, `data-start`) so a later repaint needs only the new state (`_capsOf`). */
+  _paintPresence(span, state, caps, live) {
+    span.className = presenceClass(state, caps, live);
+    span.dataset.kill = caps.killable ? "1" : "";
+    span.dataset.suspend = caps.suspendable ? "1" : "";
+    span.dataset.start = caps.startable ? "1" : "";
+    const ghost = span.classList.contains("ghost");
     span.title = span.classList.contains("kill")
-      ? "End session…"
-      : span.classList.contains("ghost")
+      ? ghost
+        ? "Restorable session — discard…"
+        : "End session…"
+      : ghost
         ? span.classList.contains("start")
-          ? "Crashed session — start to restore it"
-          : "Crashed session — restorable"
+          ? "Restorable session — start to restore it"
+          : "Restorable session"
         : span.classList.contains("start")
           ? "Start session"
           : "";
+  }
+
+  _capsOf(span) {
+    return {
+      killable: span.dataset.kill === "1",
+      suspendable: span.dataset.suspend === "1",
+      startable: span.dataset.start === "1",
+    };
   }
 
   /** Re-evaluate a row's presence dot after a live-state change — the `start` affordance is gated on
@@ -1205,7 +1236,7 @@ class Sidebar {
     const s = row.querySelector(".cc-presence");
     if (!s) return;
     const state = derivePresenceState(Array.from(s.classList));
-    this._paintPresence(s, row.dataset.id, state, s.dataset.kill === "1", s.dataset.start === "1", live);
+    this._paintPresence(s, state, this._capsOf(s), live);
   }
 
   _makeDot(live) {
@@ -1222,12 +1253,13 @@ class Sidebar {
   /** One armed-row confirm action (⏻ or ☠). They differ only in glyph + which callback fires, so
    *  the click contract lives here once: swallow the row click, ignore a re-click mid-animation,
    *  fire against the row that is actually armed, then press + pulse (~180ms) and disarm. A
-   *  `disabled` control stays on screen (muted, titled with why) but swallows the click inertly. */
-  _makeConfirmControl(row, { cls, title, glyph, fire, disabled }) {
-    const ctl = el("span", { class: cls + (disabled ? " cc-disabled" : ""), title }, glyph);
+   *  disabled control (`.cc-disabled`, painted by `_paintConfirmControls`) stays on screen, muted
+   *  and titled with why, but swallows the click inertly. */
+  _makeConfirmControl(row, { cls, glyph, fire }) {
+    const ctl = el("span", { class: cls }, glyph);
     ctl.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (disabled || row.classList.contains("killing")) return;
+      if (ctl.classList.contains("cc-disabled") || row.classList.contains("killing")) return;
       const armed = this.armedKill;
       if (!armed) {
         this._disarmKill();
@@ -1255,31 +1287,55 @@ class Sidebar {
     row.append(
       this._makeConfirmControl(row, {
         cls: "cc-confirm-destroy",
-        title: t.killable ? "Destroy session + close" : "Destroy — not configured for this tab",
         glyph: "☠",
-        disabled: !t.killable,
         fire: (armed) => {
           if (this.cb.onDestroy) this.cb.onDestroy(armed);
         },
       }),
       this._makeConfirmControl(row, {
         cls: "cc-confirm-suspend",
-        title: t.suspendable
-          ? "Suspend session + close (restorable)"
-          : "Suspend — not configured for this tab",
         glyph: "⏻",
-        disabled: !t.suspendable,
         fire: (armed) => {
           if (this.cb.onSuspend) this.cb.onSuspend(armed);
         },
       }),
     );
+    this._paintConfirmControls(row, t);
     const cancel = el("span", { class: "cc-confirm-cancel", title: "cancel" }, "↩︎");
     cancel.addEventListener("click", (e) => {
       e.stopPropagation();
       this._disarmKill();
     });
     row.append(cancel);
+  }
+
+  /** Enable/title the armed row's ☠ and ⏻ for `t` as it is NOW: suspend depends on presence (a
+   *  ghost has nothing running to suspend), so `_armKill` repaints these before showing them. */
+  _paintConfirmControls(row, t) {
+    const ghost = t.presence === "ghost";
+    const paint = (ctl, ok, title) => {
+      if (!ctl) return;
+      ctl.classList.toggle("cc-disabled", !ok);
+      ctl.title = title;
+    };
+    paint(
+      row.querySelector(".cc-confirm-destroy"),
+      !!t.killable,
+      !t.killable
+        ? "Destroy — not configured for this tab"
+        : ghost
+          ? "Discard the restorable session"
+          : "Destroy session + close",
+    );
+    paint(
+      row.querySelector(".cc-confirm-suspend"),
+      canSuspend(t),
+      !t.suspendable
+        ? "Suspend — not configured for this tab"
+        : ghost
+          ? "Suspend — nothing running; already restorable"
+          : "Suspend session + close (restorable)",
+    );
   }
 
   /** EVERY row for `id` — plural because a pinned mirror section mirrors a tab's row, so one
@@ -1463,12 +1519,13 @@ class Sidebar {
   }
 
   setPresence(id, state) {
-    const recoverable = () => backgroundTabs(this.tabs).some((t) => t.id === id);
-    const was = recoverable();
+    const inBackground = () => backgroundTabs(this.tabs).some((t) => t.id === id);
+    const was = inBackground();
+    const prev = (this.tabs.find((t) => t.id === id) || {}).presence ?? null;
     patchTab(this.tabs, id, { presence: state == null ? null : state });
     // Repaint the sections only when this tab entered or left "Background": probes report every
     // tab on each sweep, and an unconditional repaint would disarm an armed "Open" mirror each time.
-    if (this.backgroundSection && recoverable() !== was) {
+    if (this.backgroundSection && inBackground() !== was) {
       this._paintMirrorSections();
       this._paint();
     }
@@ -1478,19 +1535,18 @@ class Sidebar {
         if (s) s.remove();
         continue;
       }
-      const killable = s ? s.dataset.kill === "1" : false;
-      const startable = s ? s.dataset.start === "1" : false;
       const live = !!row.querySelector(".cc-dot.live");
       if (!s) {
         const t = this.tabs.find((x) => x.id === id) || {};
         s = this._makePresence(t, state);
         row.insertBefore(s, row.querySelector(".cc-dot"));
       } else {
-        this._paintPresence(s, id, state, killable, startable, live);
+        this._paintPresence(s, state, this._capsOf(s), live);
       }
     }
-    // Session gone → nothing left to kill, on either row.
-    if (state !== "on" && this.armedKill === id) this._disarmKill();
+    // The session the confirm row was armed against changed (ended, crashed, discarded) → the
+    // armed actions no longer describe it, on either row.
+    if (state !== prev && this.armedKill === id) this._disarmKill();
   }
 
   // ── kill-confirm state machine ──
@@ -1547,6 +1603,8 @@ class Sidebar {
     if (!rowEl || this.armedKill === id) return;
     this._disarmKill();
     this.armedKill = id;
+    const t = this.tabs.find((x) => x.id === id);
+    if (t) this._paintConfirmControls(rowEl, t);
     rowEl.classList.add("confirming");
     this._onArmKey = (e) => {
       if (e.key === "Escape") this._disarmKill();
@@ -1805,7 +1863,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, Sidebar, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, backgroundTabs, mirrorContext, filterTabs, treeRows, rescanSummary };
+  module.exports = { ChromeSidebar, Sidebar, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, canSuspend, canEnd, endIntent, derivePresenceState, buildTree, patchTab, openTabs, backgroundTabs, mirrorContext, filterTabs, treeRows, rescanSummary };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;

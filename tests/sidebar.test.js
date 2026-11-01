@@ -9,6 +9,8 @@ const {
   clampWidth,
   resolveOffset,
   presenceClass,
+  canSuspend,
+  canEnd,
   armable,
   endIntent,
   derivePresenceState,
@@ -88,25 +90,36 @@ test("clampWidth: [min, min(max, fraction*window)]", () => {
   assert.equal(clampWidth(50, isolated), 160); // still bounded by min
 });
 
-test("presenceClass: kill affordance when on+killable, start affordance when off+startable+live", () => {
-  // session present → base on; kill only when killable
-  assert.equal(presenceClass("on", false, false, true), "cc-presence on");
-  assert.equal(presenceClass("on", true, false, true), "cc-presence on kill");
-  // killable is irrelevant while off; startable is irrelevant while on
-  assert.equal(presenceClass("on", false, true, true), "cc-presence on");
+test("presenceClass: kill affordance when on + an ending action, start when off+startable+live", () => {
+  const P = (state, caps, live) => presenceClass(state, caps, live);
+  // session present → base on; kill when either ending action can run
+  assert.equal(P("on", {}, true), "cc-presence on");
+  assert.equal(P("on", { killable: true }, true), "cc-presence on kill");
+  assert.equal(P("on", { suspendable: true }, true), "cc-presence on kill");
+  // startable is irrelevant while on
+  assert.equal(P("on", { startable: true }, true), "cc-presence on");
   // session absent → base off; start only when startable AND live (a shell to re-run cmd in)
-  assert.equal(presenceClass("off", false, false, true), "cc-presence off");
-  assert.equal(presenceClass("off", false, true, true), "cc-presence off start");
-  assert.equal(presenceClass("off", false, true, false), "cc-presence off"); // cold: no start
-  assert.equal(presenceClass("off", true, true, true), "cc-presence off start"); // killable ignored while off
+  assert.equal(P("off", {}, true), "cc-presence off");
+  assert.equal(P("off", { startable: true }, true), "cc-presence off start");
+  assert.equal(P("off", { startable: true }, false), "cc-presence off"); // cold: no start
+  assert.equal(P("off", { killable: true }, true), "cc-presence off"); // nothing to end while off
+  assert.equal(P("off", { killable: true, startable: true }, true), "cc-presence off start");
 });
 
-test("armable: either ending action arms the confirm row", () => {
+test("armable: either ending action gives the row its confirm controls", () => {
   assert.equal(armable({ killable: true }), true);
   assert.equal(armable({ suspendable: true }), true);
   assert.equal(armable({ killable: true, suspendable: true }), true);
   assert.equal(armable({ killable: false, suspendable: false }), false);
   assert.equal(armable({}), false); // curator/lector send neither
+});
+
+test("canSuspend / canEnd: a ghost has nothing running to suspend, but ☠ discards it", () => {
+  assert.equal(canSuspend({ suspendable: true, presence: "on" }), true);
+  assert.equal(canSuspend({ suspendable: true, presence: "ghost" }), false);
+  assert.equal(canEnd({ suspendable: true, presence: "ghost" }), false);
+  assert.equal(canEnd({ killable: true, presence: "ghost" }), true);
+  assert.equal(canEnd({ suspendable: true, presence: "on" }), true);
 });
 
 test("endIntent: suspend fires at once; destroy arms, then fires only on the armed row", () => {
@@ -127,21 +140,25 @@ test("endIntent: an action the tab lacks arms the row to show why; neither → n
   assert.equal(endIntent(undefined, "destroy", null), null); // unknown id
 });
 
-test("presenceClass: ghost is the third state — start affordance, never kill", () => {
-  // A recoverable drop lives on a DEAD server — there is nothing to kill.
-  assert.equal(presenceClass("ghost", true, false, true), "cc-presence ghost");
-  // The ghost is decoration on start: clicking types `cmd`, amux's picker offers the restore.
-  assert.equal(presenceClass("ghost", false, true, true), "cc-presence ghost start");
-  // Cold: no live shell to type into — activating the row lazy-spawns and runs `cmd` instead.
-  assert.equal(presenceClass("ghost", false, true, false), "cc-presence ghost");
-  // killable is ignored while ghost, exactly as it is while off.
-  assert.equal(presenceClass("ghost", true, true, true), "cc-presence ghost start");
+test("endIntent: a ghost — ⏻ arms to show why it can't, ☠ discards on the second request", () => {
+  const ghost = { id: "a", killable: true, suspendable: true, presence: "ghost" };
+  assert.equal(endIntent(ghost, "suspend", null), "arm");
+  assert.equal(endIntent(ghost, "destroy", null), "arm");
+  assert.equal(endIntent(ghost, "destroy", "a"), "destroy");
+  assert.equal(endIntent({ id: "a", suspendable: true, presence: "ghost" }, "destroy", null), null);
 });
 
-test("presenceClass: on and off are unchanged by the ghost state", () => {
-  assert.equal(presenceClass("on", true, false, true), "cc-presence on kill");
-  assert.equal(presenceClass("off", false, true, true), "cc-presence off start");
-  assert.equal(presenceClass("off", false, true, false), "cc-presence off");
+test("presenceClass: ghost is the third state — start when live, else ☠ to discard", () => {
+  const P = (caps, live) => presenceClass("ghost", caps, live);
+  // Cold: no live shell to type into, so a killable ghost's click arms ☠ (discard the offer).
+  assert.equal(P({ killable: true }, false), "cc-presence ghost kill");
+  assert.equal(P({ killable: true, startable: true }, false), "cc-presence ghost kill");
+  // Live + startable: the click starts — typing `cmd` lets amux's picker offer the restore.
+  assert.equal(P({ startable: true }, true), "cc-presence ghost start");
+  assert.equal(P({ killable: true, startable: true }, true), "cc-presence ghost start");
+  // Suspend alone can't end a ghost — nothing running.
+  assert.equal(P({ suspendable: true }, false), "cc-presence ghost");
+  assert.equal(P({ startable: true }, false), "cc-presence ghost");
 });
 
 test("derivePresenceState: reads state back from a dot's class list — regression guard for the " +
@@ -1006,4 +1023,45 @@ test("incoming_action_without_a_callback_fires_nothing_and_does_not_throw", () =
   const sb = mountFleet({}, { incoming: incomingItems() });
   assert.doesNotThrow(() => fire(incomingBtn(sb, "in-1", "add"), "click"));
   assert.equal(sb.active, "loose");
+});
+
+test("a cold killable ghost: its dot arms the confirm row — ☠ discards, ⏻ disabled with why", () => {
+  const root = installDom();
+  globalThis.localStorage = installStorage();
+  const fired = [];
+  const sb = new Sidebar(
+    root,
+    { onDestroy: (id) => fired.push(["destroy", id]), onSuspend: (id) => fired.push(["suspend", id]) },
+    { storageKey: "w" },
+  );
+  const tab = row("g", "crashed", null, { presence: "on", killable: true, suspendable: true });
+  sb.update({ title: "w", colour: null, density: "comfortable", tabs: [tab] });
+  sb.setPresence("g", "ghost");
+  const r = rowOf(sb, "g");
+  const dot = r.querySelector(".cc-presence");
+  assert.ok(dot.classList.contains("kill"), "a ghost that went cold keeps a kill affordance");
+  fire(dot, "click");
+  assert.equal(sb.armedKill, "g");
+  const suspend = r.querySelector(".cc-confirm-suspend");
+  const destroy = r.querySelector(".cc-confirm-destroy");
+  assert.ok(suspend.classList.contains("cc-disabled"));
+  assert.match(suspend.title, /nothing running/);
+  assert.equal(destroy.title, "Discard the restorable session");
+  fire(suspend, "click");
+  assert.deepEqual(fired, []);
+  fire(destroy, "click");
+  assert.deepEqual(fired, [["destroy", "g"]]);
+});
+
+test("an armed row disarms when its session changes state, not on a repeat report", () => {
+  const root = installDom();
+  globalThis.localStorage = installStorage();
+  const sb = new Sidebar(root, {}, { storageKey: "w" });
+  const tab = row("g", "crashed", null, { presence: "ghost", killable: true });
+  sb.update({ title: "w", colour: null, density: "comfortable", tabs: [tab] });
+  fire(rowOf(sb, "g").querySelector(".cc-presence"), "click");
+  sb.setPresence("g", "ghost");
+  assert.equal(sb.armedKill, "g", "a probe re-reporting the same state leaves it armed");
+  sb.setPresence("g", "off");
+  assert.equal(sb.armedKill, null);
 });

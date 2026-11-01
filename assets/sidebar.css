@@ -859,8 +859,12 @@
   background: #56b4e9; /* brighten — foreshadows the restore picker coming up */
   filter: drop-shadow(0 0 3px rgba(86, 180, 233, 0.55));
 }
-.cc-presence.on.kill {
+.cc-presence.on.kill,
+.cc-presence.ghost.kill {
   cursor: pointer;
+}
+.cc-root:not(.cc-away) .cc-presence.ghost.kill:hover::before {
+  filter: drop-shadow(0 0 3px rgba(255, 91, 82, 0.55)); /* the mask clips a box-shadow */
 }
 .cc-root:not(.cc-away) .cc-presence.on.kill:hover::before {
   box-shadow: 0 0 0 3px rgba(255, 91, 82, 0.22);

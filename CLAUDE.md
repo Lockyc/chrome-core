@@ -183,8 +183,9 @@ neither. The presence dot is a **session toggle**:
   (curator and lector: `startable` always false), re-running the tab's command. The start affordance is
   offered for **both** non-`on` states — a ghost is decoration *on* that same affordance, not a
   separate path.
-- **`ghost` never gets a kill affordance** — a recoverable drop is already a dead session, so there's
-  nothing to kill.
+- **`ghost` + `killable`, without start** → arms the confirm, where ☠ discards the restorable session
+  and ⏻ is disabled: nothing is running to suspend. What may run *now* is `canEnd`/`canSuspend`
+  (presence-aware); `armable` is only whether the row carries the controls.
 - **Cold (not `live`)** shows no start affordance regardless of state (no shell to type into — the
   row-click activation path starts it instead).
 
