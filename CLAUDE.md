@@ -91,7 +91,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   per-instance namespace for tree-collapse persistence (below) — it need only be unique per mounted
   sidebar, its literal contents don't matter beyond that.
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
-  windowDrag?: bool, openSection?: bool, recoverableSection?: bool, active?: id, trees?: string[], collapsed?: string[], incoming?: IncomingDTO[], tabs: TabDTO[] }` where `IncomingDTO = { id, title, icon?, problem?, actions: { id, label, disabled? }[] }` (`disabled` is the reason: the button is disabled and its `title` is that text), and `TabDTO = { id, title, group: string|null,
+  windowDrag?: bool, openSection?: bool, backgroundSection?: bool, active?: id, trees?: string[], collapsed?: string[], incoming?: IncomingDTO[], tabs: TabDTO[] }` where `IncomingDTO = { id, title, icon?, problem?, actions: { id, label, disabled? }[] }` (`disabled` is the reason: the button is disabled and its `title` is that text), and `TabDTO = { id, title, group: string|null,
   live: bool, attention: null|true|number, presence: null|'on'|'ghost'|'off', killable: bool, suspendable: bool, startable: bool,
   warn: bool, tree?: bool, treePath?: string[], detached?: bool, accent?: string, icon?: string, head?: bool, groupName?: string }`.
   **`icon`** is opt-in (an image URL the page can load): the tile shows it (`.cc-icon-image`) in place of the initial and colour.
@@ -104,9 +104,9 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   host window (interactive descendants stay clickable; Tauri drags only when the mousedown target
   itself carries the attr). Re-applied every `update`, so a consumer can hot-reload the toggle. A
   consumer opts out with `windowDrag: false`; warden drives it from its `sidebar_drag` config.
-  **`openSection`** / **`recoverableSection`** (each default **off** when absent) pin the "Open" /
-  "Recoverable" sections above the main list — see *The pinned mirror sections* below; warden drives
-  them from its `open_tabs_section` / `recoverable_tabs_section` config.
+  **`openSection`** / **`backgroundSection`** (each default **off** when absent) pin the "Open" /
+  "Background" sections above the main list — see *The pinned mirror sections* below; warden drives
+  them from its `open_tabs_section` / `background_tabs_section` config.
   **`active`** selects the ownership model: **present** ⇒ the app owns selection (curator, whose Rust
   side is authoritative) — the component honours it and does NOT fire `onSelect`; **absent** ⇒ the
   component owns it (warden) — it preserves the current selection, falls back to the first tab, and
@@ -250,13 +250,13 @@ container pinned above the main list holding, per opted-in section with members,
 and a **mirror row** per member; a member of a headed group nests under a mirror of its head
 (`mirrorEntries`), which collapses with the app's `collapsed` like the main list's. **Open** (`openSection`; warden's `open_tabs_section`) mirrors
 `openTabs(tabs)` — `live || detached`; a session probe (`presence`) is deliberately not openness.
-**Recoverable** (`recoverableSection`; warden's `recoverable_tabs_section`) mirrors
-`recoverableTabs(tabs)` — `presence` `on` or `ghost` on a tab that is not open, so the two never share a tab.
+**Background** (`backgroundSection`; warden's `background_tabs_section`) mirrors
+`backgroundTabs(tabs)` — `presence` `on` or `ghost` on a tab that is not open, so the two never share a tab.
 A header's arrow persists its section's collapse state in `localStorage` (`_sectionKey`, per
-`storageKey`); Open defaults expanded, Recoverable collapsed. The mirrored tab keeps its row in its own
+`storageKey`); Open defaults expanded, Background collapsed. The mirrored tab keeps its row in its own
 group/tree as well, so the main list never shuffles; the sections repaint whole
 (`_paintMirrorSections`) rather than patching a row in or out, from `update()`, `setLive`, and
-`setPresence` when it moves a tab into or out of Recoverable. A mirror row is lifted out
+`setPresence` when it moves a tab into or out of Background. A mirror row is lifted out
 of its section, so it carries a dimmed **where-it-lives label** after the title (`.cc-context`, from
 the pure `mirrorContext(t)`: a tree row's parent folder, else its group, none for a loose tab or a
 nested member) — the

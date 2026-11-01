@@ -15,7 +15,7 @@ const {
   buildTree,
   patchTab,
   openTabs,
-  recoverableTabs,
+  backgroundTabs,
   mirrorContext,
   folderChain,
   listSections,
@@ -765,10 +765,10 @@ test("revealRow_clears_a_search_hiding_the_row", () => {
   assert.equal(sb.revealRow("nope"), null);
 });
 
-// ── mirror sections: the pinned Open + Recoverable sections, each with a collapsible header ──
+// ── mirror sections: the pinned Open + Background sections, each with a collapsible header ──
 
 
-test("recoverableTabs: running or ghost session, unloaded, DTO order; missing list → []", () => {
+test("backgroundTabs: running or ghost session, unloaded, DTO order; missing list → []", () => {
   const tabs = [
     { id: "a", presence: "ghost" },
     { id: "b", presence: "on" },
@@ -779,8 +779,8 @@ test("recoverableTabs: running or ghost session, unloaded, DTO order; missing li
     { id: "g", presence: "on", live: true },
     { id: "h" },
   ];
-  assert.deepEqual(recoverableTabs(tabs).map((t) => t.id), ["a", "b", "c"]);
-  assert.deepEqual(recoverableTabs(undefined), []);
+  assert.deepEqual(backgroundTabs(tabs).map((t) => t.id), ["a", "b", "c"]);
+  assert.deepEqual(backgroundTabs(undefined), []);
 });
 
 const ghosts = () => [
@@ -792,27 +792,27 @@ function mountSections(dto = {}, storage = installStorage()) {
   const root = installDom();
   globalThis.localStorage = storage;
   const sb = new Sidebar(root, {}, { storageKey: "w" });
-  sb.update({ title: "w", colour: null, density: "comfortable", tabs: ghosts(), recoverableSection: true, ...dto });
+  sb.update({ title: "w", colour: null, density: "comfortable", tabs: ghosts(), backgroundSection: true, ...dto });
   return sb;
 }
 const heads = (sb) => sb.openEl.querySelectorAll(".cc-group").map((h) => h.querySelector(".cc-section-label").textContent);
 const mirrorIds = (sb) => sb.openEl.querySelectorAll(".cc-tab[data-mirror]").map((r) => r.dataset.id);
 const headOf = (sb, title) => sb.openEl.querySelectorAll(".cc-group").find((h) => h.querySelector(".cc-section-label").textContent === title);
 
-test("Recoverable section: collapsed by default — header only, no mirrors", () => {
+test("Background section: collapsed by default — header only, no mirrors", () => {
   const sb = mountSections();
-  assert.deepEqual(heads(sb), ["Recoverable"]);
-  const head = headOf(sb, "Recoverable");
+  assert.deepEqual(heads(sb), ["Background"]);
+  const head = headOf(sb, "Background");
   assert.equal(head.querySelector(".cc-disclosure").getAttribute("aria-expanded"), "false");
   assert.ok(head.hasAttribute("data-collapsed"));
   assert.deepEqual(mirrorIds(sb), []);
 });
 
-test("Recoverable section: arrow click expands, persists \"0\", mirrors appear", () => {
+test("Background section: arrow click expands, persists \"0\", mirrors appear", () => {
   const storage = installStorage();
   const sb = mountSections({}, storage);
-  fire(headOf(sb, "Recoverable").querySelector(".cc-disclosure"), "click");
-  assert.equal(storage.getItem("cc-section:w:recoverable"), "0");
+  fire(headOf(sb, "Background").querySelector(".cc-disclosure"), "click");
+  assert.equal(storage.getItem("cc-section:w:background"), "0");
   assert.deepEqual(mirrorIds(sb), ["g1"], "a live ghost is open, not recoverable");
   const again = mountSections({}, storage);
   assert.deepEqual(mirrorIds(again), ["g1"], "the expanded state is remembered");
@@ -821,24 +821,24 @@ test("Recoverable section: arrow click expands, persists \"0\", mirrors appear",
 test("section header: a click on its body toggles like the arrow, and it is no drag region", () => {
   const storage = installStorage();
   const sb = mountSections({ windowDrag: true }, storage);
-  const head = headOf(sb, "Recoverable");
+  const head = headOf(sb, "Background");
   assert.ok(!head.hasAttribute("data-tauri-drag-region"));
   fire(head.querySelector(".cc-section-label"), "click");
-  assert.equal(storage.getItem("cc-section:w:recoverable"), "0");
+  assert.equal(storage.getItem("cc-section:w:background"), "0");
   assert.deepEqual(mirrorIds(sb), ["g1"]);
-  fire(headOf(sb, "Recoverable"), "click");
-  assert.equal(storage.getItem("cc-section:w:recoverable"), "1");
+  fire(headOf(sb, "Background"), "click");
+  assert.equal(storage.getItem("cc-section:w:background"), "1");
   assert.deepEqual(mirrorIds(sb), []);
 });
 
-test("Recoverable section: no recoverable tabs or flag off → no header", () => {
+test("Background section: no recoverable tabs or flag off → no header", () => {
   assert.deepEqual(heads(mountSections({ tabs: [row("ok", "fine", null, { presence: "off" }), row("lv", "open", null, { presence: "on", live: true })] })), []);
-  assert.deepEqual(heads(mountSections({ recoverableSection: undefined })), []);
+  assert.deepEqual(heads(mountSections({ backgroundSection: undefined })), []);
 });
 
 test("Open section: expanded by default and collapsible", () => {
   const storage = installStorage();
-  const sb = mountSections({ openSection: true, recoverableSection: false }, storage);
+  const sb = mountSections({ openSection: true, backgroundSection: false }, storage);
   assert.deepEqual(heads(sb), ["Open"]);
   assert.deepEqual(mirrorIds(sb), ["lv"]);
   fire(headOf(sb, "Open").querySelector(".cc-disclosure"), "click");
@@ -847,9 +847,9 @@ test("Open section: expanded by default and collapsible", () => {
   assert.deepEqual(heads(sb), ["Open"], "a collapsed section keeps its header");
 });
 
-test("setPresence: ghost or on adds a Recoverable mirror, off removes it", () => {
+test("setPresence: ghost or on adds a Background mirror, off removes it", () => {
   const storage = installStorage();
-  storage.setItem("cc-section:w:recoverable", "0");
+  storage.setItem("cc-section:w:background", "0");
   const sb = mountSections({}, storage);
   sb.setPresence("ok", "on");
   assert.deepEqual(mirrorIds(sb), ["g1", "ok"], "a running session behind an unloaded tab");
@@ -861,11 +861,11 @@ test("setPresence: ghost or on adds a Recoverable mirror, off removes it", () =>
   assert.deepEqual(heads(sb), [], "the last one leaving takes the header with it");
 });
 
-test("a live ghost tab mirrors in Open only; setLive on a Recoverable tab moves its mirror to Open", () => {
+test("a live ghost tab mirrors in Open only; setLive on a Background tab moves its mirror to Open", () => {
   const storage = installStorage();
-  storage.setItem("cc-section:w:recoverable", "0");
+  storage.setItem("cc-section:w:background", "0");
   const sb = mountSections({ openSection: true }, storage);
-  assert.deepEqual(heads(sb), ["Open", "Recoverable"]);
+  assert.deepEqual(heads(sb), ["Open", "Background"]);
   assert.deepEqual(mirrorIds(sb), ["lv", "g1"]);
   sb.setLive("g1", true);
   assert.deepEqual(heads(sb), ["Open"]);
@@ -876,13 +876,13 @@ test("dimming marker: data-rows only while an expanded section has rows", () => 
   const storage = installStorage();
   const sb = mountSections({}, storage);
   assert.ok(!sb.openEl.hasAttribute("data-rows"), "a lone collapsed header does not dim the list");
-  fire(headOf(sb, "Recoverable").querySelector(".cc-disclosure"), "click");
+  fire(headOf(sb, "Background").querySelector(".cc-disclosure"), "click");
   assert.ok(sb.openEl.hasAttribute("data-rows"));
 });
 
-test("nav skips Recoverable mirrors", () => {
+test("nav skips Background mirrors", () => {
   const storage = installStorage();
-  storage.setItem("cc-section:w:recoverable", "0");
+  storage.setItem("cc-section:w:background", "0");
   const sb = mountSections({}, storage);
   assert.deepEqual(mirrorIds(sb), ["g1"]);
   assert.equal(sb._navRows().length, ghosts().length);
@@ -890,7 +890,7 @@ test("nav skips Recoverable mirrors", () => {
 
 test("an armed Open mirror survives probe sweeps that move no tab between sections", () => {
   const storage = installStorage();
-  storage.setItem("cc-section:w:recoverable", "0");
+  storage.setItem("cc-section:w:background", "0");
   // A fresh pair per mount: `setPresence` patches the records it was handed.
   const tabs = () => [
     row("x", "armed", "work", { live: true, presence: "on", killable: true }),
@@ -908,8 +908,8 @@ test("an armed Open mirror survives probe sweeps that move no tab between sectio
   sb.setPresence("y", "ghost");
   assert.equal(sb.armedKill, null, "a section repaint wipes the armed mirror, so it disarms");
 
-  // With Recoverable off, a tab turning ghost changes nothing visible — no repaint, still armed.
-  const off = mountSections({ openSection: true, recoverableSection: false, tabs: tabs() }, storage);
+  // With Background off, a tab turning ghost changes nothing visible — no repaint, still armed.
+  const off = mountSections({ openSection: true, backgroundSection: false, tabs: tabs() }, storage);
   arm(off);
   off.setPresence("y", "ghost");
   assert.equal(off.armedKill, "x");
@@ -927,10 +927,10 @@ test("search narrows mirrors; a collapsed section stays collapsed under it", () 
     fire(sb.searchInput, "input");
   };
   search("zeta");
-  assert.deepEqual(heads(sb), ["Recoverable"]);
+  assert.deepEqual(heads(sb), ["Background"]);
   assert.deepEqual(mirrorIds(sb), [], "collapsed stays collapsed");
   assert.ok(!sb.openEl.hasAttribute("data-rows"));
-  storage.setItem("cc-section:w:recoverable", "0");
+  storage.setItem("cc-section:w:background", "0");
   search("zet");
   assert.deepEqual(mirrorIds(sb), ["z"]);
   search("nothing");

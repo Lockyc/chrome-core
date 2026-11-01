@@ -335,7 +335,7 @@
   padding-top: var(--cc-group-first-top);
 }
 
-/* ── The pinned mirror sections ── "Open" (tabs with a terminal/view standing) and "Recoverable"
+/* ── The pinned mirror sections ── "Open" (tabs with a terminal/view standing) and "Background"
  * (unloaded tabs with a recoverable session), above the main list, each under a collapsible header.
  * A plain container so the sections can be repainted on their own; it re-states the list's own
  * column flow because wrapping the rows takes them out of it, and closes with a heavier rule than a

@@ -111,11 +111,11 @@ function openTabs(tabs) {
   return (tabs || []).filter((t) => t.live || t.detached);
 }
 
-/** The tabs the pinned "Recoverable" section mirrors, in the DTO's own order: the host reports a
+/** The tabs the pinned "Background" section mirrors, in the DTO's own order: the host reports a
  *  session behind the tab — running (`presence: "on"`) or restorable (`"ghost"`) — and nothing is
  *  open. The complement of `openTabs`, so the two sections never mirror the same tab. Opening one
  *  reattaches or restores it and moves it to "Open". */
-function recoverableTabs(tabs) {
+function backgroundTabs(tabs) {
   return (tabs || []).filter((t) => (t.presence === "on" || t.presence === "ghost") && !t.live && !t.detached);
 }
 
@@ -123,7 +123,7 @@ function recoverableTabs(tabs) {
  *  in; `key` names the section's persisted collapse state (`_sectionKey`). */
 const MIRROR_SECTIONS = [
   { key: "open", title: "Open", flag: "openSection", members: openTabs, defaultCollapsed: false },
-  { key: "recoverable", title: "Recoverable", flag: "recoverableSection", members: recoverableTabs, defaultCollapsed: true },
+  { key: "background", title: "Background", flag: "backgroundSection", members: backgroundTabs, defaultCollapsed: true },
 ];
 
 /** A mirror section's `members` arranged for painting, in the order of each entry's first member:
@@ -623,7 +623,7 @@ class Sidebar {
     this._setDrag(this.list, drag);
 
     this.openSection = dto.openSection === true;
-    this.recoverableSection = dto.recoverableSection === true;
+    this.backgroundSection = dto.backgroundSection === true;
     this.trees = dto.trees || [];
     this.incoming = dto.incoming || [];
     // Headed groups whose members are hidden. The app owns this (it persists it and answers each
@@ -674,7 +674,7 @@ class Sidebar {
     this.list.innerHTML = "";
     this._rescanEls = new Map();
     this._paintIncoming();
-    // The pinned mirror sections ("Open", "Recoverable"), each opt-in per window DTO. They live in
+    // The pinned mirror sections ("Open", "Background"), each opt-in per window DTO. They live in
     // one container at the top of the list so `setLive`/`setPresence` can rebuild JUST them when a
     // tab's membership changes, without a full re-render.
     this.openEl = el("div", { class: "cc-open" });
@@ -721,7 +721,7 @@ class Sidebar {
     this._paint();
   }
 
-  // ── the pinned mirror sections (opt-in per section: `openSection` / `recoverableSection`) ──
+  // ── the pinned mirror sections (opt-in per section: `openSection` / `backgroundSection`) ──
 
   /** Rebuild every pinned section (`MIRROR_SECTIONS`) from `_shown()` — per section, a header plus a
    *  MIRROR row for each member unless the section is collapsed, headed groups' members nested under
@@ -1463,12 +1463,12 @@ class Sidebar {
   }
 
   setPresence(id, state) {
-    const recoverable = () => recoverableTabs(this.tabs).some((t) => t.id === id);
+    const recoverable = () => backgroundTabs(this.tabs).some((t) => t.id === id);
     const was = recoverable();
     patchTab(this.tabs, id, { presence: state == null ? null : state });
-    // Repaint the sections only when this tab entered or left "Recoverable": probes report every
+    // Repaint the sections only when this tab entered or left "Background": probes report every
     // tab on each sweep, and an unconditional repaint would disarm an armed "Open" mirror each time.
-    if (this.recoverableSection && recoverable() !== was) {
+    if (this.backgroundSection && recoverable() !== was) {
       this._paintMirrorSections();
       this._paint();
     }
@@ -1805,7 +1805,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, Sidebar, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, recoverableTabs, mirrorContext, filterTabs, treeRows, rescanSummary };
+  module.exports = { ChromeSidebar, Sidebar, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, endIntent, derivePresenceState, buildTree, patchTab, openTabs, backgroundTabs, mirrorContext, filterTabs, treeRows, rescanSummary };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;

@@ -23,8 +23,8 @@
                           rows above the main list for every `live` or `detached` tab, which in
                           this fixture pulls rows out of all three section kinds (loose, a plain
                           group, and a project tree) while leaving every one of them in place.
-       ?recover=1         mount the pinned "Recoverable" section (warden's
-                          `recoverable_tabs_section`): unloaded `on` / `ghost` tabs, collapsed until its
+       ?background=1         mount the pinned "Background" section (warden's
+                          `background_tabs_section`): unloaded `on` / `ghost` tabs, collapsed until its
                           arrow is clicked (remembered in localStorage).
                           The main list below renders de-emphasised while the section is showing —
                           hover anywhere in it (the empty space under the last row counts) to
@@ -76,7 +76,7 @@
       // ?open=1 → the pinned "Open" section (warden's `open_tabs_section`); off by default, as it is
       // for every app that does not opt in.
       const openSection = params.get("open") === "1";
-      const recoverableSection = params.get("recover") === "1";
+      const backgroundSection = params.get("background") === "1";
       const incoming = params.get("incoming") !== "1" ? undefined : [
         {
           id: "in-1", title: "Quarterly budget review", icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231a9e5f'/%3E%3C/svg%3E",
@@ -104,7 +104,7 @@
         density,
         windowDrag: false,
         openSection,
-        recoverableSection,
+        backgroundSection,
         incoming,
         // Headed groups whose members are hidden — app-owned; onToggleGroup below answers with a
         // fresh update, as a real app does.
