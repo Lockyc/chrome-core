@@ -26,7 +26,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 
 - **Stays in the app** — behaviour tied to *what the app is*: app-specific Tauri command *names*,
   `#terminal-hole`/`reportRect` (warden's native-surface plumbing), browser-nav logic. Divergence
-  between apps enters **only** through the DTO, the callbacks, and the optional `header` slot;
+  between apps enters **only** through the DTO, the callbacks, and the mount config;
   each app keeps a thin controller binding those to its backend.
 - **Belongs in the core** — capabilities that are the same for *any* app regardless of what it hosts.
   **Self-update is the exemplar:** checking for a release, the update bar, download/install/relaunch,
@@ -66,10 +66,16 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   **`onContextMenu(id, {x, y})`** (optional): a right-click on any row, the webview's own menu suppressed (absent → no listener).
   **`onBannerMenu({x, y})`** (optional): a right-click on the banner (window title row), the webview's own menu suppressed (absent → no listener).
   **`onIncomingAction(itemId, actionId, {x, y})`** (optional): an Incoming item's button was clicked; `x, y` is the button's bottom-left (absent → no listener).
+  **`onNav(action)`**, **`onUrlSubmit(value) → Promise`** (Enter; resolve clears the field, reject → `setError`), **`onDownloads({x, y, width, height})`** (the button's rect): the header's controls (below).
   (The update bar is wired **internally** —
   self-update is a core capability, see the dividing-line decision above — so there is **no**
   `onUpdate`/`onUpdateDismiss` callback.)
-- **config:** `{ header: Node|null, appName: string|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
+- **config:** `{ nav: string[], urlField: {placeholder}|null, downloads: bool, appName: string|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
+  **The header** is chrome-core's own, never app DOM (`_buildHeader`): the title row is the name, left,
+  then **`nav`** (any of `back`/`forward`/`reload`/`home`, always in that order) as a right-aligned
+  `.cc-nav` pill; **`urlField`** adds `#cc-toolbar` under it, a full-width `input.cc-url`;
+  **`downloads`** adds `button.cc-downloads`, after the field in the toolbar, else on the title row just
+  before the pill. The title row is `--cc-title-row-h` tall with or without its controls.
   **`appName`** (default null) names the host app in a strip above the banner, beside the macOS
   traffic lights. Every consumer uses `TitleBarStyle::Overlay`, which hides the native window title
   entirely — so without this the app's own name appears nowhere on screen. chrome-core owns the
@@ -117,7 +123,9 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   state, e.g. the neighbour activated after an unload).
 - **methods:** `update(dto)`, `setActive(id)`, `setLive(id,live)`, `setAttention(id,val)`,
   `setPresence(id,state)`, `selectByOffset(dir,{liveOnly,from})`, `selectByIndex(n)`,
-  `focusSearch()` (shell-core's Find in Sidebar ⌘⇧F — see *Search* below), `requestEnd(id, "suspend"|"destroy")` (the keyboard route to the confirm row: suspend fires at once,
+  `focusSearch()` (shell-core's Find in Sidebar ⌘⇧F — see *Search* below), `setNavEnabled(enabled)`
+  (disabled, each button's title says `— no tab open`), `focusUrlField()`, `setDownloads({active, unseen,
+  unseenFailed})` (`cc-dl-active` spinner ring; `cc-dl-unseen` blue dot; `cc-dl-failed` red dot, winning over blue), `requestEnd(id, "suspend"|"destroy")` (the keyboard route to the confirm row: suspend fires at once,
   destroy arms the row and fires on a second request — `endIntent`), `revealRow(id)` (the tab's row, un-hidden from a search or collapsed folder first; flotilla's in-place rename), `setError(msg)`, `clearError()`, `pointerAway()` (a host compositing a view over the chrome calls it; see its docblock), `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update-bar view),
   **`checkForUpdateNow()`** (the menu "Check for Updates…" path — check + announce the result; the app
   forwards its own app-named menu event here), and **`destroy()`** (stop the recurring update check —
@@ -215,16 +223,6 @@ left stripe) — the single place either is computed. `_paint()` only toggles `.
 The component owns `cc-`-prefixed IDs (`#cc-banner`, `#cc-tab-list`, `#cc-error`, `#cc-resize`) so
 they never collide with an app's page-shell IDs; the mount container itself carries the `.cc-root`
 class (not an id).
-
-**The banner is a fixed height regardless of the header slot** (`--cc-banner-min` per density; `#cc-banner`
-is `box-sizing: border-box` + `min-height`). So curator (nav pill in the slot) and warden (no slot) get
-an **identical-height title strip** — without it warden's slot-less banner is ~11px shorter. The token is
-sized to curator's nav-pill row (2px pad + 26px `.nav-btn` = 30px, plus that density's title padding). The
-`border-box` is set explicitly here because curator resets `box-sizing` globally but warden/`preview.html`
-don't — pinning it makes `min-height` mean the total strip height in every host. **Footgun:** this couples
-chrome-core to curator's `.nav-btn`/`.nav-pill` height, which live in curator's `chrome.css` (the slot content
-is app-owned) — CSS can't import across the repo boundary, so if curator changes that pill height, bump
-`--cc-banner-min` to match (the chrome-core-rev lockstep bump across every consuming app is where this is caught).
 
 **Project-tree sections** (`tree`/`treePath` on `TabDTO`, warden-only — curator and lector never
 set them): a

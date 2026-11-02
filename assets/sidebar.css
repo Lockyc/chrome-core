@@ -34,12 +34,9 @@
    * Not restated per density: it is a fraction of the window either way, and a compact scale simply
    * fits more rows inside the same ceiling, which is the point of compact. */
   --cc-open-max: 40vh;
-  /* Banner (title strip) height, held CONSTANT whether or not the header slot is filled, so
-   * curator (nav pill in the slot) and warden (no slot) get an identical-height title strip.
-   * Sized to curator's nav-pill row: pill = 2px pad + 26px .nav-btn = 30px, + this density's
-   * title padding (10px×2). If curator's nav-btn/nav-pill height changes, bump this to match
-   * (caught by the chrome-core-rev lockstep bump across every consuming app). */
-  --cc-banner-min: 50px;
+  /* The title row's height, with or without the nav pill: the pill is 2px pad + 26px buttons, so
+   * a window with no nav (warden) gets the same strip as one with it. */
+  --cc-title-row-h: 30px;
   /* Title-bar strip: the zone macOS's traffic lights float in when the host window uses
    * TitleBarStyle::Overlay (all three consumers do). chrome-core owns this strip so the app name
    * sits BESIDE the lights, and a consumer reserves no space of its own for them.
@@ -75,7 +72,6 @@
   --cc-glyph-confirm: 12px;
   --cc-sidebar-w: 200px;
   --cc-indent: 12px;
-  --cc-banner-min: 44px; /* 30px nav-pill row + compact title padding (7px×2) */
 }
 
 /* The mount container. The app positions it (its own page shell / webview); the component makes it a
@@ -114,23 +110,28 @@
   text-overflow: ellipsis;
 }
 
-/* Window-name banner (curator's title strip / warden's banner), coloured by JS to the window accent.
- * The optional `header` slot (curator's nav pill) mounts before the name inside `.cc-banner`. */
+/* Window-name banner, coloured by JS to the window accent: the title row (name left; downloads, then
+ * the nav pill, right) and the optional toolbar row under it (URL field, then downloads). */
 #cc-banner {
   flex: none;
   order: -1;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  /* border-box so --cc-banner-min is the TOTAL strip height in every host: curator resets box-sizing
-   * globally, but warden/preview don't — pin it here so the min-height means the same everywhere. */
-  box-sizing: border-box;
-  min-height: var(--cc-banner-min);
+  flex-direction: column;
+  gap: 6px;
   padding: var(--cc-title-pad);
   font-size: var(--cc-title-font);
   font-weight: 700;
   color: #fff;
   background: #6b7280; /* neutral default; JS sets the window colour */
+}
+/* border-box so --cc-title-row-h is the row's total height whatever the host's box-sizing. */
+.cc-title-row,
+#cc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  min-height: var(--cc-title-row-h);
 }
 #cc-banner .cc-name {
   flex: 1 1 auto;
@@ -138,6 +139,111 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.cc-nav {
+  flex: none;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.cc-nav-btn,
+.cc-downloads {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 30px;
+  height: calc(var(--cc-title-row-h) - 4px);
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #ddd;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.12s ease, background 0.12s ease;
+}
+.cc-nav-btn svg,
+.cc-downloads svg {
+  display: block;
+}
+.cc-root:not(.cc-away) .cc-nav-btn:hover:not(:disabled),
+.cc-root:not(.cc-away) .cc-downloads:hover {
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 1;
+}
+.cc-nav-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+/* Standalone, so it carries the pill's own box: the same height and backing. */
+.cc-downloads {
+  position: relative;
+  height: var(--cc-title-row-h);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+/* A download in flight: a ring turning round the icon. */
+.cc-downloads.cc-dl-active::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 2px solid transparent;
+  border-top-color: #4a9eff;
+  border-radius: 50%;
+  animation: cc-spin 0.9s linear infinite;
+}
+@keyframes cc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cc-downloads.cc-dl-active::after {
+    animation-duration: 3s;
+  }
+}
+/* Finished downloads not yet looked at: blue, or red when one of them failed. */
+.cc-downloads.cc-dl-unseen::before,
+.cc-downloads.cc-dl-failed::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4a9eff;
+}
+.cc-downloads.cc-dl-failed::before {
+  background: #e5484d;
+}
+#cc-toolbar .cc-url {
+  flex: 1;
+  align-self: stretch;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  outline: none;
+  user-select: text;
+}
+#cc-toolbar .cc-url::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+#cc-toolbar .cc-url:focus {
+  border-color: rgba(10, 132, 255, 0.8);
 }
 
 /* Error bar: one opaque red strip between the banner and the tab list, shown via setError().

@@ -17,7 +17,8 @@ constants.
 
 It provides two things:
 
-- **The view**: the window-name banner and its accent colour; grouped tab rows, each with a letter
+- **The view**: the window-name banner and its accent colour, with optional back/forward/reload/home
+  buttons, a URL field and a downloads button; grouped tab rows, each with a letter
   tile (or an app-supplied icon), a title and three status dots (needs attention, session present, loaded/unload); the
   end-session confirmation (⏻ suspend / ☠ destroy); an always-on search field; optional pinned,
   collapsible "Open" (live tabs) and "Background" (unloaded tabs with a running or restorable session) sections; collapsible project trees with a rescan button; groups headed by

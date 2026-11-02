@@ -463,12 +463,25 @@ const KEY_ARM_TIMEOUT_MS = 4000;
 // How long a tree-head shows a finished rescan's outcome ("+2 −1" / "No changes").
 const RESCAN_STATUS_MS = 4000;
 
+// The header's icons: 18px, 2px round stroke in `currentColor`.
+const svgIcon = (paths) =>
+  `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+
+// The title row's nav buttons, in the order they render whichever subset `nav` asks for.
+const NAV_BUTTONS = [
+  { action: "back", name: "Back", icon: svgIcon('<path d="M15 18l-6-6 6-6"/>') },
+  { action: "forward", name: "Forward", icon: svgIcon('<path d="M9 6l6 6-6 6"/>') },
+  { action: "reload", name: "Reload", icon: svgIcon('<path d="M21 12a9 9 0 1 1-2.6-6.36"/><path d="M21 3v6h-6"/>') },
+  { action: "home", name: "Home", icon: svgIcon('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>') },
+];
+const DOWNLOADS_ICON = svgIcon('<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>');
+
 class Sidebar {
   constructor(container, callbacks, config) {
     this.root = container;
     this.cb = callbacks || {};
     this.cfg = Object.assign(
-      { header: null, appName: null, minWidth: 120, maxWidth: 400, maxFraction: 0.4, defaultWidth: 240, autoUpdate: false },
+      { nav: [], urlField: null, downloads: false, appName: null, minWidth: 120, maxWidth: 400, maxFraction: 0.4, defaultWidth: 240, autoUpdate: false },
       config || {}
     );
     this.active = null;
@@ -528,9 +541,7 @@ class Sidebar {
         this.cb.onBannerMenu({ x: e.clientX, y: e.clientY });
       });
     }
-    if (this.cfg.header) this.banner.appendChild(this.cfg.header);
-    this.nameEl = el("span", { class: "cc-name" });
-    this.banner.appendChild(this.nameEl);
+    this._buildHeader();
     this.errorBar = el("div", { id: "cc-error" });
     // Error text + a dismiss (×) button, so any surfaced error (config, update-check, …) can be
     // cleared by the user rather than lingering until something else clears it.
@@ -584,6 +595,93 @@ class Sidebar {
     this.root.append(this.banner, this.errorBar, this.updateBar, this.searchEl, this.list, this.resizeEl);
   }
 
+  /** The banner's contents: the title row (name, then the downloads button when there is no URL
+   *  field, then the `nav` pill, right-aligned) and, with `urlField`, the toolbar row under it (the
+   *  field at full width, then the downloads button). Every part is opt-in through mount config. */
+  _buildHeader() {
+    this.titleRow = el("div", { class: "cc-title-row" });
+    this.nameEl = el("span", { class: "cc-name" });
+    this.titleRow.appendChild(this.nameEl);
+    this.banner.appendChild(this.titleRow);
+
+    this.navBtns = [];
+    const wanted = this.cfg.nav || [];
+    for (const b of NAV_BUTTONS.filter((n) => wanted.includes(n.action))) {
+      const btn = el("button", { class: "cc-nav-btn", "data-nav": b.action, "aria-label": b.name });
+      btn.innerHTML = b.icon;
+      btn.dataset.name = b.name;
+      btn.addEventListener("click", () => this.cb.onNav && this.cb.onNav(b.action));
+      this.navBtns.push(btn);
+    }
+    this.setNavEnabled(false);
+
+    this.downloadsBtn = null;
+    if (this.cfg.downloads) {
+      this.downloadsBtn = el("button", { class: "cc-downloads", "aria-label": "Downloads" });
+      this.downloadsBtn.title = "Downloads";
+      this.downloadsBtn.innerHTML = DOWNLOADS_ICON;
+      this.downloadsBtn.addEventListener("click", () => {
+        const r = this.downloadsBtn.getBoundingClientRect();
+        if (this.cb.onDownloads) this.cb.onDownloads({ x: r.left, y: r.top, width: r.width, height: r.height });
+      });
+    }
+
+    this.toolbarEl = null;
+    this.urlInput = null;
+    if (this.cfg.urlField) {
+      const placeholder = this.cfg.urlField.placeholder || "";
+      this.toolbarEl = el("div", { id: "cc-toolbar" });
+      this.urlInput = el("input", {
+        class: "cc-url", type: "text", placeholder, "aria-label": placeholder, spellcheck: "false", autocomplete: "off",
+      });
+      this.urlInput.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" || !this.cb.onUrlSubmit) return;
+        Promise.resolve(this.cb.onUrlSubmit(this.urlInput.value))
+          .then(() => {
+            this.urlInput.value = "";
+            this.clearError();
+          })
+          .catch((err) => this.setError(String(err)));
+      });
+      this.toolbarEl.appendChild(this.urlInput);
+      if (this.downloadsBtn) this.toolbarEl.appendChild(this.downloadsBtn);
+      this.banner.appendChild(this.toolbarEl);
+    } else if (this.downloadsBtn) {
+      this.titleRow.appendChild(this.downloadsBtn);
+    }
+
+    if (this.navBtns.length) {
+      const pill = el("div", { class: "cc-nav" });
+      pill.append(...this.navBtns);
+      this.titleRow.appendChild(pill);
+    }
+  }
+
+  /** Enable the nav buttons while there is a tab for them to act on; disabled, each says why. */
+  setNavEnabled(enabled) {
+    for (const b of this.navBtns) {
+      b.disabled = !enabled;
+      b.title = enabled ? b.dataset.name : `${b.dataset.name} — no tab open`;
+    }
+  }
+
+  /** Focus the URL field with its text selected (no-op without `urlField`). */
+  focusUrlField() {
+    if (!this.urlInput) return;
+    this.urlInput.focus();
+    this.urlInput.select();
+  }
+
+  /** The downloads button's state: a spinner ring while any download runs, and a dot when finished
+   *  ones are unseen — red when a failure is among them, else blue. */
+  setDownloads({ active, unseen, unseenFailed } = {}) {
+    if (!this.downloadsBtn) return;
+    const c = this.downloadsBtn.classList;
+    c.toggle("cc-dl-active", !!active);
+    c.toggle("cc-dl-failed", !!unseenFailed);
+    c.toggle("cc-dl-unseen", !!unseen && !unseenFailed);
+  }
+
   /** The pointer has left the sidebar, as reported by the HOST rather than observed by the page.
    *
    * Hover state here is CSS (every `:hover` rule in sidebar.css), and CSS only recomputes it when
@@ -632,7 +730,7 @@ class Sidebar {
     this.root.style.setProperty("--cc-active-bar", liftColour(this.windowColour, ACTIVE_BAR_MIN_L));
 
     // Window-move drag surface. Unless `windowDrag` is explicitly false, the NON-interactive chrome
-    // (banner, name, the list container's empty area, group headers) carries `data-tauri-drag-region`
+    // (banner, its title row + toolbar, name, the list's empty area, group headers) carries `data-tauri-drag-region`
     // so a drag on it moves the host window (macOS: double-click zooms) — Tauri drags only when the
     // mousedown TARGET itself has the attribute, so interactive descendants (rows, dots, buttons, the
     // resize handle) stay attribute-free and clickable. Defaults ON when the field is absent (standard
@@ -644,7 +742,9 @@ class Sidebar {
     const drag = dto.windowDrag !== false;
     if (this.titlebarEl) this._setDrag(this.titlebarEl, drag);
     this._setDrag(this.banner, drag);
+    this._setDrag(this.titleRow, drag);
     this._setDrag(this.nameEl, drag);
+    if (this.toolbarEl) this._setDrag(this.toolbarEl, drag);
     this._setDrag(this.list, drag);
 
     this.openSection = dto.openSection === true;

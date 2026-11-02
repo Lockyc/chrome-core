@@ -1089,3 +1089,137 @@ test("an armed row disarms when its session changes state, not on a repeat repor
   sb.setPresence("g", "off");
   assert.equal(sb.armedKill, null);
 });
+
+// ── the standard header: title-row nav, the URL toolbar, the downloads button ──
+
+function mountHeader(cfg = {}, cb = {}) {
+  const root = installDom();
+  const sb = new Sidebar(root, cb, cfg);
+  sb.update({ title: "Work", colour: null, density: "comfortable", tabs: [] });
+  return sb;
+}
+const titleRow = (sb) => sb.banner.querySelector(".cc-title-row");
+const toolbar = (sb) => sb.banner.querySelector('[id="cc-toolbar"]');
+const tick = () => new Promise((r) => setImmediate(r));
+
+test("nav_renders_requested_buttons_in_fixed_order", () => {
+  const sb = mountHeader({ nav: ["home", "back"] });
+  const nav = titleRow(sb).querySelector(".cc-nav");
+  assert.ok(nav, "the pill sits on the title row");
+  assert.deepEqual(nav.querySelectorAll("button").map((b) => b.dataset.nav), ["back", "home"]);
+  const kids = titleRow(sb).children;
+  assert.ok(kids.indexOf(titleRow(sb).querySelector(".cc-name")) < kids.indexOf(nav), "name left, nav right");
+  assert.equal(mountHeader({}).banner.querySelector(".cc-nav"), null, "no nav requested → no pill");
+});
+
+test("nav_click_fires_onNav", () => {
+  const fired = [];
+  const sb = mountHeader({ nav: ["back", "forward", "reload", "home"] }, { onNav: (a) => fired.push(a) });
+  sb.setNavEnabled(true);
+  for (const b of sb.banner.querySelectorAll(".cc-nav-btn")) fire(b, "click");
+  assert.deepEqual(fired, ["back", "forward", "reload", "home"]);
+});
+
+test("setNavEnabled_false_disables_with_reason", () => {
+  const sb = mountHeader({ nav: ["back", "reload"] });
+  const [back, reload] = sb.banner.querySelectorAll(".cc-nav-btn");
+  sb.setNavEnabled(true);
+  assert.equal(back.disabled, false);
+  assert.equal(back.title, "Back");
+  sb.setNavEnabled(false);
+  assert.equal(back.disabled, true);
+  assert.equal(back.title, "Back — no tab open");
+  assert.equal(reload.title, "Reload — no tab open");
+});
+
+test("urlField_renders_toolbar_and_submits_on_enter", async () => {
+  const submitted = [];
+  const sb = mountHeader(
+    { urlField: { placeholder: "Open a page" } },
+    { onUrlSubmit: (v) => (submitted.push(v), Promise.resolve()) },
+  );
+  const tb = toolbar(sb);
+  assert.ok(tb, "the toolbar row exists");
+  const input = tb.querySelector(".cc-url");
+  assert.equal(input.tagName, "INPUT");
+  assert.equal(input.getAttribute("placeholder"), "Open a page");
+  input.value = "https://example.com";
+  fire(input, "keydown", { key: "a" });
+  assert.deepEqual(submitted, [], "only Enter submits");
+  fire(input, "keydown", { key: "Enter" });
+  assert.deepEqual(submitted, ["https://example.com"]);
+  await tick();
+  assert.equal(input.value, "", "a resolved submit clears the field");
+});
+
+test("url_submit_rejection_sets_error", async () => {
+  const sb = mountHeader({ urlField: { placeholder: "x" } }, { onUrlSubmit: () => Promise.reject(new Error("bad link")) });
+  const input = toolbar(sb).querySelector(".cc-url");
+  input.value = "nope";
+  fire(input, "keydown", { key: "Enter" });
+  await tick();
+  assert.equal(sb._errorText.textContent, "Error: bad link");
+  assert.equal(input.value, "nope", "a rejected submit keeps what was typed");
+});
+
+test("downloads_in_toolbar_when_urlField", () => {
+  const rects = [];
+  const sb = mountHeader({ urlField: { placeholder: "x" }, downloads: true }, { onDownloads: (r) => rects.push(r) });
+  const tb = toolbar(sb);
+  const btn = tb.querySelector(".cc-downloads");
+  assert.ok(btn, "the button is in the toolbar");
+  assert.equal(tb.children.indexOf(btn), tb.children.indexOf(tb.querySelector(".cc-url")) + 1, "after the field");
+  assert.equal(titleRow(sb).querySelector(".cc-downloads"), null);
+  assert.equal(btn.title, "Downloads");
+  fire(btn, "click");
+  assert.deepEqual(rects, [{ x: 0, y: 0, width: 0, height: 0 }]);
+});
+
+test("downloads_on_title_row_before_nav_without_urlField", () => {
+  const sb = mountHeader({ nav: ["back"], downloads: true });
+  assert.equal(toolbar(sb), null);
+  const kids = titleRow(sb).children;
+  const btn = titleRow(sb).querySelector(".cc-downloads");
+  assert.ok(btn);
+  assert.equal(kids.indexOf(btn) + 1, kids.indexOf(titleRow(sb).querySelector(".cc-nav")), "immediately before the nav");
+});
+
+test("setDownloads_sets_state_classes", () => {
+  const sb = mountHeader({ downloads: true });
+  const btn = sb.banner.querySelector(".cc-downloads");
+  const cls = () => ["cc-dl-active", "cc-dl-unseen", "cc-dl-failed"].filter((c) => btn.classList.contains(c));
+  assert.deepEqual(cls(), []);
+  sb.setDownloads({ active: true, unseen: true, unseenFailed: false });
+  assert.deepEqual(cls(), ["cc-dl-active", "cc-dl-unseen"]);
+  sb.setDownloads({ active: false, unseen: true, unseenFailed: true });
+  assert.deepEqual(cls(), ["cc-dl-failed"], "a failure among the unseen shows red, not blue");
+  sb.setDownloads({ active: false, unseen: false, unseenFailed: false });
+  assert.deepEqual(cls(), []);
+});
+
+test("no_toolbar_without_urlField_or_downloads", () => {
+  const sb = mountHeader({ nav: ["back"] });
+  assert.equal(toolbar(sb), null);
+  assert.equal(sb.banner.querySelector(".cc-downloads"), null);
+  assert.equal(sb.banner.querySelector(".cc-url"), null);
+});
+
+test("header_option_is_gone", () => {
+  const header = document.createElement("div");
+  header.className = "app-header";
+  const sb = mountHeader({ header });
+  assert.equal(sb.banner.querySelector(".app-header"), null);
+  assert.equal(sb.root.querySelector(".app-header"), null);
+});
+
+test("the title row and toolbar are drag surfaces; their controls are not", () => {
+  const sb = mountHeader({ nav: ["back"], urlField: { placeholder: "x" }, downloads: true });
+  assert.ok(titleRow(sb).hasAttribute("data-tauri-drag-region"));
+  assert.ok(toolbar(sb).hasAttribute("data-tauri-drag-region"));
+  for (const n of sb.banner.querySelectorAll("button").concat(sb.banner.querySelectorAll("input"))) {
+    assert.ok(!n.hasAttribute("data-tauri-drag-region"));
+  }
+  sb.update({ title: "Work", windowDrag: false, tabs: [] });
+  assert.ok(!titleRow(sb).hasAttribute("data-tauri-drag-region"));
+  assert.ok(!toolbar(sb).hasAttribute("data-tauri-drag-region"));
+});
