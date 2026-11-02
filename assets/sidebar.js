@@ -508,7 +508,8 @@ class Sidebar {
     this._updateTimer = null;
     // When the host last reported the pointer leaving (`pointerAway`); 0 = never.
     this._awayAt = 0;
-    if (this.cfg.emptyState) this.cfg.emptyState.classList.add("cc-empty-state");
+    this.emptyEl = this.cfg.emptyState;
+    if (this.emptyEl) this.emptyEl.classList.add("cc-empty-state");
     this._buildShell();
     this._initResize();
     this._restoreWidth();
@@ -728,7 +729,7 @@ class Sidebar {
     this.windowColour = dto.colour || NEUTRAL_COLOUR;
     this.tabs = dto.tabs || [];
     document.documentElement.setAttribute("data-density", dto.density || "comfortable");
-    if (this.cfg.emptyState) this.cfg.emptyState.classList.toggle("cc-shown", !dto.active);
+    if (this.emptyEl) this.emptyEl.classList.toggle("cc-shown", !dto.active);
 
     this.nameEl.textContent = dto.title || "";
     this.banner.style.background = this.windowColour;
