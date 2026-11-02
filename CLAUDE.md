@@ -75,7 +75,8 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   then **`nav`** (any of `back`/`forward`/`reload`/`home`, always in that order) as a right-aligned
   `.cc-nav` pill; **`urlField`** adds `#cc-toolbar` under it, a full-width `input.cc-url`;
   **`downloads`** adds `button.cc-downloads`, after the field in the toolbar, else on the title row just
-  before the pill. The title row is `--cc-title-row-h` tall with or without its controls.
+  before the pill. The title row's controls are one `.cc-title-controls` that wraps onto its own line
+  rather than crush the name below 72px; one line is `--cc-title-row-h` tall with or without them.
   **`appName`** (default null) names the host app in a strip above the banner, beside the macOS
   traffic lights. Every consumer uses `TitleBarStyle::Overlay`, which hides the native window title
   entirely — so without this the app's own name appears nowhere on screen. chrome-core owns the
@@ -124,7 +125,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 - **methods:** `update(dto)`, `setActive(id)`, `setLive(id,live)`, `setAttention(id,val)`,
   `setPresence(id,state)`, `selectByOffset(dir,{liveOnly,from})`, `selectByIndex(n)`,
   `focusSearch()` (shell-core's Find in Sidebar ⌘⇧F — see *Search* below), `setNavEnabled(enabled)`
-  (disabled, each button's title says `— no tab open`), `focusUrlField()`, `setDownloads({active, unseen,
+  (off — `.off`, `aria-disabled`, never `disabled`, so the tooltip stays — each title says `— no tab open`), `focusUrlField()`, `setDownloads({active, unseen,
   unseenFailed})` (`cc-dl-active` spinner ring; `cc-dl-unseen` blue dot; `cc-dl-failed` red dot, winning over blue), `requestEnd(id, "suspend"|"destroy")` (the keyboard route to the confirm row: suspend fires at once,
   destroy arms the row and fires on a second request — `endIntent`), `revealRow(id)` (the tab's row, un-hidden from a search or collapsed folder first; flotilla's in-place rename), `setError(msg)`, `clearError()`, `pointerAway()` (a host compositing a view over the chrome calls it; see its docblock), `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update-bar view),
   **`checkForUpdateNow()`** (the menu "Check for Updates…" path — check + announce the result; the app

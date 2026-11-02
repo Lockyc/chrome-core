@@ -595,9 +595,11 @@ class Sidebar {
     this.root.append(this.banner, this.errorBar, this.updateBar, this.searchEl, this.list, this.resizeEl);
   }
 
-  /** The banner's contents: the title row (name, then the downloads button when there is no URL
-   *  field, then the `nav` pill, right-aligned) and, with `urlField`, the toolbar row under it (the
-   *  field at full width, then the downloads button). Every part is opt-in through mount config. */
+  /** The banner's contents: the title row (name, then `.cc-title-controls` right-aligned: the
+   *  downloads button when there is no URL field, then the `nav` pill) and, with `urlField`, the
+   *  toolbar row under it (the field at full width, then the downloads button). The controls are one
+   *  element so they wrap together onto their own line when the name would be crushed. Every part is
+   *  opt-in through mount config. */
   _buildHeader() {
     this.titleRow = el("div", { class: "cc-title-row" });
     this.nameEl = el("span", { class: "cc-name" });
@@ -610,7 +612,9 @@ class Sidebar {
       const btn = el("button", { class: "cc-nav-btn", "data-nav": b.action, "aria-label": b.name });
       btn.innerHTML = b.icon;
       btn.dataset.name = b.name;
-      btn.addEventListener("click", () => this.cb.onNav && this.cb.onNav(b.action));
+      btn.addEventListener("click", () => {
+        if (!btn.classList.contains("off") && this.cb.onNav) this.cb.onNav(b.action);
+      });
       this.navBtns.push(btn);
     }
     this.setNavEnabled(false);
@@ -646,21 +650,29 @@ class Sidebar {
       this.toolbarEl.appendChild(this.urlInput);
       if (this.downloadsBtn) this.toolbarEl.appendChild(this.downloadsBtn);
       this.banner.appendChild(this.toolbarEl);
-    } else if (this.downloadsBtn) {
-      this.titleRow.appendChild(this.downloadsBtn);
     }
 
+    this.titleControls = null;
+    const onTitle = [];
+    if (this.downloadsBtn && !this.toolbarEl) onTitle.push(this.downloadsBtn);
     if (this.navBtns.length) {
       const pill = el("div", { class: "cc-nav" });
       pill.append(...this.navBtns);
-      this.titleRow.appendChild(pill);
+      onTitle.push(pill);
+    }
+    if (onTitle.length) {
+      this.titleControls = el("div", { class: "cc-title-controls" });
+      this.titleControls.append(...onTitle);
+      this.titleRow.appendChild(this.titleControls);
     }
   }
 
-  /** Enable the nav buttons while there is a tab for them to act on; disabled, each says why. */
+  /** Enable the nav buttons while there is a tab for them to act on. Off, a button is `aria-disabled`
+   *  (`.off`) rather than `disabled`, which in WebKit would also drop its tooltip, the reason. */
   setNavEnabled(enabled) {
     for (const b of this.navBtns) {
-      b.disabled = !enabled;
+      b.classList.toggle("off", !enabled);
+      b.setAttribute("aria-disabled", String(!enabled));
       b.title = enabled ? b.dataset.name : `${b.dataset.name} — no tab open`;
     }
   }
@@ -744,6 +756,7 @@ class Sidebar {
     this._setDrag(this.banner, drag);
     this._setDrag(this.titleRow, drag);
     this._setDrag(this.nameEl, drag);
+    if (this.titleControls) this._setDrag(this.titleControls, drag);
     if (this.toolbarEl) this._setDrag(this.toolbarEl, drag);
     this._setDrag(this.list, drag);
 

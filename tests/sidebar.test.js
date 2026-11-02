@@ -1108,7 +1108,7 @@ test("nav_renders_requested_buttons_in_fixed_order", () => {
   assert.ok(nav, "the pill sits on the title row");
   assert.deepEqual(nav.querySelectorAll("button").map((b) => b.dataset.nav), ["back", "home"]);
   const kids = titleRow(sb).children;
-  assert.ok(kids.indexOf(titleRow(sb).querySelector(".cc-name")) < kids.indexOf(nav), "name left, nav right");
+  assert.ok(kids.indexOf(titleRow(sb).querySelector(".cc-name")) < kids.indexOf(nav.parentNode), "name left, nav right");
   assert.equal(mountHeader({}).banner.querySelector(".cc-nav"), null, "no nav requested → no pill");
 });
 
@@ -1120,16 +1120,37 @@ test("nav_click_fires_onNav", () => {
   assert.deepEqual(fired, ["back", "forward", "reload", "home"]);
 });
 
-test("setNavEnabled_false_disables_with_reason", () => {
-  const sb = mountHeader({ nav: ["back", "reload"] });
+test("setNavEnabled_false_turns_off_with_reason_and_keeps_the_tooltip", () => {
+  const fired = [];
+  const sb = mountHeader({ nav: ["back", "reload"] }, { onNav: (a) => fired.push(a) });
   const [back, reload] = sb.banner.querySelectorAll(".cc-nav-btn");
   sb.setNavEnabled(true);
-  assert.equal(back.disabled, false);
+  assert.ok(!back.classList.contains("off"));
+  assert.equal(back.getAttribute("aria-disabled"), "false");
   assert.equal(back.title, "Back");
   sb.setNavEnabled(false);
-  assert.equal(back.disabled, true);
+  assert.ok(back.classList.contains("off"));
+  assert.equal(back.getAttribute("aria-disabled"), "true");
+  assert.ok(!back.hasAttribute("disabled"), "never `disabled`: WebKit would drop the tooltip");
   assert.equal(back.title, "Back — no tab open");
   assert.equal(reload.title, "Reload — no tab open");
+  fire(back, "click");
+  assert.deepEqual(fired, [], "an off button ignores clicks");
+});
+
+test("title_row_controls_are_one_wrapping_group", () => {
+  const sb = mountHeader({ nav: ["back", "home"], downloads: true });
+  const row = titleRow(sb);
+  const group = row.querySelector(".cc-title-controls");
+  assert.ok(group, "the controls share one element");
+  assert.deepEqual(row.children, [row.querySelector(".cc-name"), group], "name, then the controls");
+  assert.deepEqual(group.children, [group.querySelector(".cc-downloads"), group.querySelector(".cc-nav")]);
+  assert.equal(titleRow(mountHeader({})).querySelector(".cc-title-controls"), null, "no controls → no group");
+  assert.equal(
+    titleRow(mountHeader({ urlField: { placeholder: "x" }, downloads: true })).querySelector(".cc-title-controls"),
+    null,
+    "downloads in the toolbar leaves the title row bare",
+  );
 });
 
 test("urlField_renders_toolbar_and_submits_on_enter", async () => {
@@ -1181,7 +1202,9 @@ test("downloads_on_title_row_before_nav_without_urlField", () => {
   const kids = titleRow(sb).children;
   const btn = titleRow(sb).querySelector(".cc-downloads");
   assert.ok(btn);
-  assert.equal(kids.indexOf(btn) + 1, kids.indexOf(titleRow(sb).querySelector(".cc-nav")), "immediately before the nav");
+  const group = titleRow(sb).querySelector(".cc-title-controls").children;
+  assert.equal(group.indexOf(btn) + 1, group.indexOf(titleRow(sb).querySelector(".cc-nav")), "immediately before the nav");
+  assert.equal(kids.indexOf(btn), -1, "inside the controls group");
 });
 
 test("setDownloads_sets_state_classes", () => {
@@ -1216,6 +1239,7 @@ test("the title row and toolbar are drag surfaces; their controls are not", () =
   const sb = mountHeader({ nav: ["back"], urlField: { placeholder: "x" }, downloads: true });
   assert.ok(titleRow(sb).hasAttribute("data-tauri-drag-region"));
   assert.ok(toolbar(sb).hasAttribute("data-tauri-drag-region"));
+  assert.ok(titleRow(sb).querySelector(".cc-title-controls").hasAttribute("data-tauri-drag-region"), "the gaps between controls");
   for (const n of sb.banner.querySelectorAll("button").concat(sb.banner.querySelectorAll("input"))) {
     assert.ok(!n.hasAttribute("data-tauri-drag-region"));
   }

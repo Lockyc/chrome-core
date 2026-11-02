@@ -14,8 +14,9 @@
        ?density=compact   preview the compact sizing scale (default: comfortable)
        ?header=title      the header without a URL field: downloads + nav on the title row
        ?header=bare       the header with nothing but the name (warden's shape). The default mounts
-                          every part: nav, the URL toolbar and downloads. The readout in the
-                          top-right shows the title row's measured px, which is the same in all three.
+                          every part: nav, the URL toolbar and downloads. The readout shows the
+                          title row's measured px: one row in all three at 300px.
+       ?width=<px>        the sidebar's width (default 300); narrow it to see the title row wrap.
        ?dl=active|unseen|failed   paint the downloads button in that state
        ?open=1            mount the pinned "Open" section (warden's `open_tabs_section`): mirror
                           rows above the main list for every `live` or `detached` tab, which in
@@ -67,6 +68,7 @@
       const params = new URLSearchParams(location.search);
       const density = params.get("density") || "comfortable";
       const headerMode = params.get("header") || "full";
+      if (params.get("width")) document.getElementById("sidebar").style.width = `${params.get("width")}px`;
       const headerCfg = headerMode === "bare" ? {} : {
         nav: ["back", "forward", "reload", "home"],
         urlField: headerMode === "title" ? null : { placeholder: "Open a folder or page" },
@@ -177,7 +179,7 @@
         sb.searchInput.value = params.get("q");
         sb.searchInput.dispatchEvent(new Event("input"));
       }
-      // Readout: mode + measured title-row height, the same for every ?header= mode.
+      // Readout: mode + measured title-row height.
       const rh = document.querySelector("#cc-banner .cc-title-row").offsetHeight;
       document.getElementById("readout").textContent =
         `density: ${density}\nheader:  ${headerMode}\nopen:    ${openSection ? "on" : "off"}\ntitle row: ${rh}px`;

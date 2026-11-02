@@ -111,7 +111,9 @@
 }
 
 /* Window-name banner, coloured by JS to the window accent: the title row (name left; downloads, then
- * the nav pill, right) and the optional toolbar row under it (URL field, then downloads). */
+ * the nav pill, right) and the optional toolbar row under it (URL field, then downloads). The title
+ * row wraps: when the name would get under its 72px basis, the controls take their own line,
+ * right-aligned, and the name the whole of the first. */
 #cc-banner {
   flex: none;
   order: -1;
@@ -133,16 +135,30 @@
   box-sizing: border-box;
   min-height: var(--cc-title-row-h);
 }
+.cc-title-row {
+  flex-wrap: wrap;
+}
 #cc-banner .cc-name {
-  flex: 1 1 auto;
+  flex: 1 1 72px;
   min-width: 0;
+  line-height: var(--cc-title-row-h);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Capped at the row, so narrower than its controls they wrap again: the pill under the downloads. */
+.cc-title-controls {
+  flex: 0 1 auto;
+  max-width: 100%;
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
 .cc-nav {
   flex: none;
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -172,12 +188,12 @@
 .cc-downloads svg {
   display: block;
 }
-.cc-root:not(.cc-away) .cc-nav-btn:hover:not(:disabled),
+.cc-root:not(.cc-away) .cc-nav-btn:not(.off):hover,
 .cc-root:not(.cc-away) .cc-downloads:hover {
   background: rgba(255, 255, 255, 0.1);
   opacity: 1;
 }
-.cc-nav-btn:disabled {
+.cc-nav-btn.off {
   opacity: 0.25;
   cursor: default;
 }
