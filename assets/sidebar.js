@@ -481,7 +481,7 @@ class Sidebar {
     this.root = container;
     this.cb = callbacks || {};
     this.cfg = Object.assign(
-      { nav: [], urlField: null, downloads: false, appName: null, minWidth: 120, maxWidth: 400, maxFraction: 0.4, defaultWidth: 240, autoUpdate: false },
+      { nav: [], urlField: null, downloads: false, appName: null, emptyState: null, minWidth: 120, maxWidth: 400, maxFraction: 0.4, defaultWidth: 240, autoUpdate: false },
       config || {}
     );
     this.active = null;
@@ -508,6 +508,7 @@ class Sidebar {
     this._updateTimer = null;
     // When the host last reported the pointer leaving (`pointerAway`); 0 = never.
     this._awayAt = 0;
+    if (this.cfg.emptyState) this.cfg.emptyState.classList.add("cc-empty-state");
     this._buildShell();
     this._initResize();
     this._restoreWidth();
@@ -727,6 +728,7 @@ class Sidebar {
     this.windowColour = dto.colour || NEUTRAL_COLOUR;
     this.tabs = dto.tabs || [];
     document.documentElement.setAttribute("data-density", dto.density || "comfortable");
+    if (this.cfg.emptyState) this.cfg.emptyState.classList.toggle("cc-shown", !dto.active);
 
     this.nameEl.textContent = dto.title || "";
     this.banner.style.background = this.windowColour;

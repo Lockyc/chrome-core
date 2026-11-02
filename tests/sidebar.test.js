@@ -1247,3 +1247,21 @@ test("the title row and toolbar are drag surfaces; their controls are not", () =
   assert.ok(!titleRow(sb).hasAttribute("data-tauri-drag-region"));
   assert.ok(!toolbar(sb).hasAttribute("data-tauri-drag-region"));
 });
+
+// ── the empty state: the app's mark over the content area while no tab is active ──
+
+test("emptyState_shows_only_while_no_tab_is_active", () => {
+  const root = installDom();
+  const empty = document.createElement("div");
+  const sb = new Sidebar(root, {}, { emptyState: empty });
+  assert.ok(empty.classList.contains("cc-empty-state"), "chrome-core styles the element");
+  sb.update({ title: "Work", tabs: [{ id: "a", title: "A" }] });
+  assert.ok(empty.classList.contains("cc-shown"), "no active tab → shown");
+  sb.update({ title: "Work", active: "a", tabs: [{ id: "a", title: "A" }] });
+  assert.ok(!empty.classList.contains("cc-shown"), "an active tab covers the content area");
+});
+
+test("no_emptyState_configured_mounts_and_updates_as_before", () => {
+  const sb = mountHeader({});
+  assert.doesNotThrow(() => sb.update({ title: "Work", tabs: [] }));
+});

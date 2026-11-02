@@ -90,6 +90,21 @@
   cursor: default;
 }
 
+/* The `emptyState` element: the app's muted mark, filling the content area (the app makes that area
+ * its containing block) while no tab is active. Opaque, like the rest of the chrome. */
+.cc-empty-state {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: #1e1e1e;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.cc-empty-state.cc-shown { display: flex; }
+.cc-empty-state svg { width: 220px; height: 220px; opacity: 0.9; }
+
 /* App-name strip, beside the traffic lights. Only rendered when the consumer passes `appName`. */
 #cc-titlebar {
   flex: none;

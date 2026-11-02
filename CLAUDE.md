@@ -70,7 +70,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   (The update bar is wired **internally** —
   self-update is a core capability, see the dividing-line decision above — so there is **no**
   `onUpdate`/`onUpdateDismiss` callback.)
-- **config:** `{ nav: string[], urlField: {placeholder}|null, downloads: bool, appName: string|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
+- **config:** `{ nav: string[], urlField: {placeholder}|null, downloads: bool, appName: string|null, emptyState: Element|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
   **The header** is chrome-core's own, never app DOM (`_buildHeader`): the title row is the name, left,
   then **`nav`** (any of `back`/`forward`/`reload`/`home`, always in that order) as a right-aligned
   `.cc-nav` pill; **`urlField`** adds `#cc-toolbar` under it, a full-width `input.cc-url`;
@@ -85,6 +85,11 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   and drew nothing in it — **a consumer passing `appName` must drop that padding**, or the strip
   lands below the lights instead of beside them. Absent/null → no strip, and the layout is exactly
   as it was (so `preview.html` and any slot-less host are untouched).
+  **`emptyState`** (default null) is the app's own element holding its muted mark (an `<svg>`) inside
+  the content area; chrome-core styles it (`.cc-empty-state`: opaque, centred, filling its
+  positioned parent) and shows it on every `update(dto)` whose `active` is unset. The mark is the
+  app's; the treatment is shared. warden passes none: its transparent window needs an always-on
+  ground per split pane, which it paints itself.
   **`autoUpdate`** (bool, default false) is the app's config gate for self-update: when true *and* the
   Tauri runtime is present, the component runs a launch check + the recurring re-check; the menu path
   (`checkForUpdateNow()`) works regardless of it. See the dividing-line decision above.
