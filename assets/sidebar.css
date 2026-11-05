@@ -1375,8 +1375,10 @@
   top: var(--cc-titlebar-h);
   bottom: 0;
   width: var(--cc-rail-w);
+  /* The sidebar's own opaque tint: a transparent host window (warden) would show the desktop. */
+  background: inherit;
 }
-.cc-root.cc-collapsed:not(.cc-away) #cc-rail:hover { background: rgba(255, 255, 255, 0.14); }
+.cc-root.cc-collapsed:not(.cc-away) #cc-rail:hover { box-shadow: inset 0 0 0 99px rgba(255, 255, 255, 0.14); }
 .cc-hole.cc-hole-collapsed {
   margin-top: var(--cc-titlebar-h);
   margin-left: var(--cc-rail-w);
