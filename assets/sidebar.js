@@ -463,6 +463,19 @@ const KEY_ARM_TIMEOUT_MS = 4000;
 // How long a tree-head shows a finished rescan's outcome ("+2 −1" / "No changes").
 const RESCAN_STATUS_MS = 4000;
 
+// A collapsed sidebar peeks once the pointer has rested this long on the rail, so brushing the
+// window's left edge on the way to the content doesn't fling it open.
+const PEEK_DELAY_MS = 150;
+// A peek survives the pointer leaving the sidebar for this long, so a wobble past its edge onto
+// the chrome page doesn't close it. (Onto the content is `pointerAway`, which closes at once.)
+const PEEK_LEAVE_MS = 200;
+
+/** The localStorage key holding whether window `title`'s sidebar is collapsed ("1"; absent =
+ *  expanded). Per window, so each restores its own. */
+function collapseKey(storageKey, title) {
+  return `${storageKey}:collapsed:${title}`;
+}
+
 // The header's icons: 18px, 2px round stroke in `currentColor`.
 const svgIcon = (paths) =>
   `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
@@ -475,15 +488,29 @@ const NAV_BUTTONS = [
   { action: "home", name: "Home", icon: svgIcon('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>') },
 ];
 const DOWNLOADS_ICON = svgIcon('<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>');
+const SIDEBAR_ICON = svgIcon('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>');
 
 class Sidebar {
   constructor(container, callbacks, config) {
     this.root = container;
     this.cb = callbacks || {};
     this.cfg = Object.assign(
-      { nav: [], urlField: null, downloads: false, appName: null, emptyState: null, minWidth: 120, maxWidth: 400, maxFraction: 0.4, defaultWidth: 240, autoUpdate: false },
+      {
+        nav: [], urlField: null, downloads: false, appName: null, emptyState: null, hole: null,
+        minWidth: 120, maxWidth: 400, maxFraction: 0.4, defaultWidth: 240, autoUpdate: false,
+        // Timer seam for the peek's delays; tests pass one they drive by hand.
+        clock: { set: (fn, ms) => setTimeout(fn, ms), clear: (id) => clearTimeout(id) },
+      },
       config || {}
     );
+    // Collapse (see "collapse"): opt-in by handing over the content hole the sidebar gives way to.
+    this.holeEl = this.cfg.hole;
+    this.sidebarCollapsed = false;
+    this._peeking = false;
+    this._pointerInside = false;
+    this._railTimer = null;
+    this._leaveTimer = null;
+    this._collapseTitle = null;
     this.active = null;
     this.armedKill = null;
     this.armedRemove = null;
@@ -530,10 +557,21 @@ class Sidebar {
       if (e.timeStamp < this._awayAt) return;
       this.root.classList.remove("cc-away");
     });
-    // The traffic-light strip. Only exists when the consumer names itself — a host without an
-    // appName (preview.html) renders exactly as before, so the field is purely additive.
-    this.titlebarEl = this.cfg.appName ? el("div", { id: "cc-titlebar" }) : null;
-    if (this.titlebarEl) this.titlebarEl.textContent = this.cfg.appName;
+    // The traffic-light strip. Only exists when the consumer names itself or can collapse (the strip
+    // is what stays on screen collapsed) — any other host renders exactly as before.
+    this.titlebarEl = this.cfg.appName || this.holeEl ? el("div", { id: "cc-titlebar" }) : null;
+    this.titlebarName = null;
+    this.sidebarToggle = null;
+    if (this.titlebarEl) {
+      this.titlebarName = el("span", { class: "cc-titlebar-name" }, this.cfg.appName || "");
+      if (this.holeEl) {
+        this.sidebarToggle = el("button", { class: "cc-sidebar-toggle" });
+        this.sidebarToggle.innerHTML = SIDEBAR_ICON;
+        this.sidebarToggle.addEventListener("click", () => this.toggleSidebar());
+        this.titlebarEl.appendChild(this.sidebarToggle);
+      }
+      this.titlebarEl.appendChild(this.titlebarName);
+    }
     this.banner = el("div", { id: "cc-banner" });
     // Right-click on the window title row → the app's own menu (opt-in, like `onContextMenu`).
     // `data-tauri-drag-region` only claims left-button mousedown, so the event still arrives.
@@ -595,6 +633,7 @@ class Sidebar {
     this.resizeEl = el("div", { id: "cc-resize" });
     if (this.titlebarEl) this.root.append(this.titlebarEl);
     this.root.append(this.banner, this.errorBar, this.updateBar, this.searchEl, this.list, this.resizeEl);
+    if (this.holeEl) this._initCollapse();
   }
 
   /** The banner's contents: the title row (name, then `.cc-title-controls` right-aligned: the
@@ -712,6 +751,8 @@ class Sidebar {
     // in `_buildShell` — can't cancel it on arrival.
     this._awayAt = performance.now();
     this.root.classList.add("cc-away");
+    this._pointerInside = false;
+    this._endPeekUnlessTyping();
   }
 
   // ── rendering ──
@@ -732,6 +773,7 @@ class Sidebar {
     if (this.emptyEl) this.emptyEl.classList.toggle("cc-shown", !dto.active);
 
     this.nameEl.textContent = dto.title || "";
+    if (this.holeEl && dto.title !== this._collapseTitle) this._restoreCollapse(dto.title);
     this.banner.style.background = this.windowColour;
     if (this.titlebarEl) this.titlebarEl.style.background = this.windowColour;
     const tint = tintOverBase(this.windowColour, 0.12);
@@ -756,6 +798,7 @@ class Sidebar {
     // a section, not to `this.list`.
     const drag = dto.windowDrag !== false;
     if (this.titlebarEl) this._setDrag(this.titlebarEl, drag);
+    if (this.titlebarName) this._setDrag(this.titlebarName, drag);
     this._setDrag(this.banner, drag);
     this._setDrag(this.titleRow, drag);
     this._setDrag(this.nameEl, drag);
@@ -795,6 +838,7 @@ class Sidebar {
     if (this.incomingEl) this.incomingEl.scrollTop = incomingTop;
     if (this.mainEl) this.mainEl.scrollTop = mainTop;
     if (this.openEl) this.openEl.scrollTop = openTop;
+    this._paintTitlebarName();
     if (dto.active === undefined && this.active && this.active !== prevActive && this.cb.onSelect) {
       this.cb.onSelect(this.active, { wasActive: false });
     }
@@ -1500,6 +1544,8 @@ class Sidebar {
    *  accelerator (shell-core's Find in Sidebar). A host whose content is a native view (warden) must
    *  first make the webview the key view; the page can't take focus from AppKit itself. */
   focusSearch() {
+    // Collapsed, the field is off screen: peek first, and the focus inside then holds the peek.
+    if (this.sidebarCollapsed) this._setPeek(true);
     this.searchInput.focus();
     this.searchInput.select();
   }
@@ -1940,6 +1986,124 @@ class Sidebar {
     }
   }
 
+  // ── collapse ──
+  //
+  // Opt-in through mount config `hole`: the host's content-hole element, the box its Rust side
+  // places the content views over. Collapsed, the sidebar shrinks to the titlebar strip across the
+  // top plus a thin rail down the left edge, and the hole takes the rest (all sidebar.css, keyed on
+  // the classes set here). Content views composite ABOVE this page, so a peek cannot draw over
+  // them: it slides the hole right by the sidebar's width with a `transform` — same width, so the
+  // page in it doesn't reflow — and `onLayout` tells the host to re-measure the hole, since a
+  // `ResizeObserver` never sees a transform.
+
+  /** Collapse or expand the sidebar (no-op without `hole`), remembering it for this window. */
+  setSidebarCollapsed(on) {
+    if (!this.holeEl || on === this.sidebarCollapsed) return;
+    this._applyCollapsed(on);
+    if (this.cfg.storageKey && this._collapseTitle != null) {
+      const key = collapseKey(this.cfg.storageKey, this._collapseTitle);
+      if (on) localStorage.setItem(key, "1");
+      else localStorage.removeItem(key);
+    }
+    this._layoutChanged();
+  }
+
+  /** The titlebar button and the host's Toggle Sidebar menu item. */
+  toggleSidebar() {
+    this.setSidebarCollapsed(!this.sidebarCollapsed);
+  }
+
+  /** Adopt window `title`'s remembered state (`update` calls this when the title changes). */
+  _restoreCollapse(title) {
+    this._collapseTitle = title;
+    const on = !!this.cfg.storageKey && localStorage.getItem(collapseKey(this.cfg.storageKey, title)) === "1";
+    if (on === this.sidebarCollapsed) return;
+    this._applyCollapsed(on);
+    this._layoutChanged();
+  }
+
+  _applyCollapsed(on) {
+    this.sidebarCollapsed = on;
+    if (!on) this._setPeek(false, { quiet: true });
+    this.root.classList.toggle("cc-collapsed", on);
+    this.holeEl.classList.toggle("cc-hole-collapsed", on);
+    const label = on ? "Show Sidebar (⌃⌘S)" : "Hide Sidebar (⌃⌘S)";
+    this.sidebarToggle.title = label;
+    this.sidebarToggle.setAttribute("aria-label", label);
+    this.sidebarToggle.setAttribute("aria-expanded", String(!on));
+    this._paintTitlebarName();
+  }
+
+  /** The strip's text: the app's name, or while collapsed the active tab's title — the one thing the
+   *  hidden sidebar would otherwise have said about what is on screen. */
+  _paintTitlebarName() {
+    if (!this.titlebarName) return;
+    const tab = this.sidebarCollapsed ? this.tabs.find((t) => t.id === this.active) : null;
+    this.titlebarName.textContent = tab ? tab.title : this.cfg.appName || "";
+  }
+
+  _layoutChanged() {
+    if (this.cb.onLayout) this.cb.onLayout();
+  }
+
+  _initCollapse() {
+    this.holeEl.classList.add("cc-hole");
+    this.railEl = el("div", { id: "cc-rail" });
+    this.root.appendChild(this.railEl);
+    const clock = this.cfg.clock;
+    this.railEl.addEventListener("pointerenter", () => {
+      if (!this.sidebarCollapsed || this._peeking) return;
+      clock.clear(this._railTimer);
+      this._railTimer = clock.set(() => this._setPeek(true), PEEK_DELAY_MS);
+    });
+    this.railEl.addEventListener("pointerleave", () => clock.clear(this._railTimer));
+    // pointerenter/leave don't bubble in a browser; the target check keeps a child's (and the fake
+    // DOM's bubbling) events from reading as the sidebar's own.
+    this.root.addEventListener("pointerenter", (e) => {
+      if (e.target !== this.root) return;
+      this._pointerInside = true;
+      clock.clear(this._leaveTimer);
+    });
+    this.root.addEventListener("pointerleave", (e) => {
+      if (e.target !== this.root) return;
+      this._pointerInside = false;
+      if (!this._peeking) return;
+      clock.clear(this._leaveTimer);
+      this._leaveTimer = clock.set(() => this._endPeekUnlessTyping(), PEEK_LEAVE_MS);
+    });
+    // Out of the window altogether.
+    document.documentElement.addEventListener("mouseleave", () => {
+      this._pointerInside = false;
+      this._endPeekUnlessTyping();
+    });
+    // A field let go (Esc, Enter, a click on the content): close if the pointer is elsewhere.
+    this.root.addEventListener("focusout", (e) => {
+      if (e.relatedTarget && this.root.contains(e.relatedTarget)) return;
+      if (!this._pointerInside) this._endPeekUnlessTyping();
+    });
+  }
+
+  /** Whether the keyboard is in a field inside the sidebar (search, URL, a rename). */
+  _typing() {
+    const a = document.activeElement;
+    return !!a && this.root.contains(a) && (a.tagName === "INPUT" || a.tagName === "TEXTAREA");
+  }
+
+  _endPeekUnlessTyping() {
+    if (this._peeking && !this._typing()) this._setPeek(false);
+  }
+
+  _setPeek(on, { quiet = false } = {}) {
+    this.cfg.clock.clear(this._railTimer);
+    this.cfg.clock.clear(this._leaveTimer);
+    if (!this.holeEl || on === this._peeking) return;
+    this._peeking = on;
+    if (on) document.documentElement.style.setProperty("--cc-peek-w", `${Math.round(this._lastWidth || this.cfg.defaultWidth)}px`);
+    this.root.classList.toggle("cc-peek", on);
+    this.holeEl.classList.toggle("cc-hole-peek", on);
+    if (!quiet) this._layoutChanged();
+  }
+
   // ── resize ──
 
   _clamp(w) {
@@ -2011,7 +2175,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, Sidebar, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, canSuspend, canEnd, endIntent, derivePresenceState, buildTree, patchTab, openTabs, backgroundTabs, mirrorContext, filterTabs, treeRows, rescanSummary };
+  module.exports = { ChromeSidebar, Sidebar, collapseKey, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, canSuspend, canEnd, endIntent, derivePresenceState, buildTree, patchTab, openTabs, backgroundTabs, mirrorContext, filterTabs, treeRows, rescanSummary };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;

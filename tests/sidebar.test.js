@@ -472,7 +472,7 @@ test("update: keeps the main list's scroll position across a repaint", () => {
 // ── headed, collapsible groups + row context menu (opt-in: `head`/`collapsed`/`groupName`,
 // `onToggleGroup`/`onContextMenu`). These mount the real component on the fake DOM in ./dom.js.
 
-const { installDom, installStorage, fire, serialize } = require("./dom.js");
+const { installDom, installStorage, fire, serialize, FakeNode } = require("./dom.js");
 
 const row = (id, title, group, extra = {}) => ({
   id, title, group, live: false, attention: null, presence: null,
@@ -1264,4 +1264,190 @@ test("emptyState_shows_only_while_no_tab_is_active", () => {
 test("no_emptyState_configured_mounts_and_updates_as_before", () => {
   const sb = mountHeader({});
   assert.doesNotThrow(() => sb.update({ title: "Work", tabs: [] }));
+});
+
+// ── collapsible sidebar (opt-in through `hole`) ──
+
+const { collapseKey } = require("../assets/sidebar.js");
+
+/** A clock whose timers run only when the test says so. */
+function manualClock() {
+  const timers = new Map();
+  let next = 1;
+  return {
+    set(fn) {
+      timers.set(next, fn);
+      return next++;
+    },
+    clear(id) {
+      timers.delete(id);
+    },
+    run() {
+      const due = [...timers.values()];
+      timers.clear();
+      for (const fn of due) fn();
+    },
+  };
+}
+
+function mountCollapsible({ title = "Rotary", tabs = [], active, storage, cb = {}, cfg = {} } = {}) {
+  const root = installDom();
+  const store = storage || installStorage();
+  globalThis.localStorage = store;
+  const hole = new FakeNode("div");
+  const clock = manualClock();
+  const calls = { layout: 0, resize: [] };
+  const sb = new Sidebar(
+    root,
+    { onLayout: () => calls.layout++, onResize: (w) => calls.resize.push(w), ...cb },
+    { appName: "flotilla", storageKey: "flotilla:sidebar-width", hole, clock, ...cfg },
+  );
+  sb.update({ title, colour: null, density: "comfortable", tabs, active });
+  return { sb, root, hole, clock, calls, store };
+}
+const rail = (root) => root.querySelector('[id="cc-rail"]');
+const peeking = ({ root, hole }) => root.classList.contains("cc-peek") && hole.classList.contains("cc-hole-peek");
+
+test("collapseKey: per storage key and window title", () => {
+  assert.equal(collapseKey("flotilla:sidebar-width", "Rotary"), "flotilla:sidebar-width:collapsed:Rotary");
+});
+
+test("no hole, no collapse", () => {
+  const sb = mountHeader({ appName: "curator" });
+  assert.equal(sb.root.querySelector(".cc-sidebar-toggle"), null);
+  assert.equal(rail(sb.root), null);
+  sb.toggleSidebar(); // localStorage is undefined here: any persistence would throw
+  assert.equal(sb.sidebarCollapsed, false);
+  assert.ok(!sb.root.classList.contains("cc-collapsed"));
+});
+
+test("toggle collapses and persists", () => {
+  const m = mountCollapsible();
+  const key = "flotilla:sidebar-width:collapsed:Rotary";
+  fire(m.root.querySelector(".cc-sidebar-toggle"), "click");
+  assert.equal(m.sb.sidebarCollapsed, true);
+  assert.ok(m.root.classList.contains("cc-collapsed"));
+  assert.ok(m.hole.classList.contains("cc-hole") && m.hole.classList.contains("cc-hole-collapsed"));
+  assert.equal(m.store.getItem(key), "1");
+  assert.equal(m.calls.layout, 1);
+  m.sb.toggleSidebar();
+  assert.ok(!m.root.classList.contains("cc-collapsed"));
+  assert.ok(!m.hole.classList.contains("cc-hole-collapsed"));
+  assert.equal(m.store.getItem(key), null);
+  assert.equal(m.calls.layout, 2);
+});
+
+test("collapse state is per window title", () => {
+  const storage = installStorage();
+  storage.setItem("flotilla:sidebar-width:collapsed:A", "1");
+  const m = mountCollapsible({ title: "A", storage });
+  assert.equal(m.sb.sidebarCollapsed, true);
+  m.sb.update({ title: "B", tabs: [] });
+  assert.equal(m.sb.sidebarCollapsed, false);
+  assert.equal(storage.getItem("flotilla:sidebar-width:collapsed:A"), "1", "B's restore leaves A's state alone");
+});
+
+test("collapsed strip shows the active tab's title", () => {
+  const m = mountCollapsible({ tabs: [{ id: "v", title: "Volunteers" }], active: "v" });
+  const name = () => m.root.querySelector(".cc-titlebar-name").textContent;
+  assert.equal(name(), "flotilla");
+  m.sb.setSidebarCollapsed(true);
+  assert.equal(name(), "Volunteers");
+  m.sb.setSidebarCollapsed(false);
+  assert.equal(name(), "flotilla");
+});
+
+test("rail hover peeks after the dwell", () => {
+  const m = mountCollapsible({ storage: (() => { const s = installStorage(); s.setItem("flotilla:sidebar-width", "300"); return s; })() });
+  m.sb.setSidebarCollapsed(true);
+  const before = m.calls.layout;
+  fire(rail(m.root), "pointerenter");
+  assert.ok(!peeking(m), "not before the dwell");
+  m.clock.run();
+  assert.ok(peeking(m));
+  assert.equal(document.documentElement.style._props["--cc-peek-w"], "300px");
+  assert.equal(m.calls.layout, before + 1);
+});
+
+test("a brief rail hover does not peek", () => {
+  const m = mountCollapsible();
+  m.sb.setSidebarCollapsed(true);
+  fire(rail(m.root), "pointerenter");
+  fire(rail(m.root), "pointerleave");
+  m.clock.run();
+  assert.ok(!peeking(m));
+});
+
+function peeked(opts) {
+  const m = mountCollapsible(opts);
+  m.sb.setSidebarCollapsed(true);
+  fire(rail(m.root), "pointerenter");
+  m.clock.run();
+  assert.ok(peeking(m));
+  return m;
+}
+
+test("pointerAway ends a peek", () => {
+  const m = peeked();
+  const before = m.calls.layout;
+  m.sb.pointerAway();
+  assert.ok(!peeking(m));
+  assert.ok(m.root.classList.contains("cc-collapsed"), "still collapsed");
+  assert.equal(m.calls.layout, before + 1);
+});
+
+test("leaving the sidebar ends a peek after the grace", () => {
+  const m = peeked();
+  fire(m.root, "pointerleave");
+  fire(m.root, "pointerenter");
+  m.clock.run();
+  assert.ok(peeking(m), "came back within the grace");
+  fire(m.root, "pointerleave");
+  m.clock.run();
+  assert.ok(!peeking(m));
+});
+
+test("leaving the window ends a peek", () => {
+  const m = peeked();
+  fire(document.documentElement, "mouseleave");
+  assert.ok(!peeking(m));
+});
+
+test("peek holds while a field inside has focus", () => {
+  const m = peeked();
+  document.activeElement = m.sb.searchInput;
+  m.sb.pointerAway();
+  assert.ok(peeking(m), "typing keeps it open");
+  document.activeElement = null;
+  fire(m.sb.searchInput, "focusout", { relatedTarget: null });
+  assert.ok(!peeking(m), "focus gone and the pointer away → closes");
+});
+
+test("focusSearch peeks a collapsed sidebar", () => {
+  const m = mountCollapsible();
+  m.sb.setSidebarCollapsed(true);
+  let focused = false;
+  m.sb.searchInput.focus = () => (focused = true);
+  m.sb.focusSearch();
+  assert.ok(peeking(m));
+  assert.ok(focused);
+});
+
+test("collapse keeps the stored width", () => {
+  const s = installStorage();
+  s.setItem("flotilla:sidebar-width", "300");
+  const m = mountCollapsible({ storage: s });
+  const resizes = m.calls.resize.length;
+  m.sb.setSidebarCollapsed(true);
+  m.sb.setSidebarCollapsed(false);
+  assert.equal(m.calls.resize.length, resizes, "collapsing never reports a width");
+  assert.equal(s.getItem("flotilla:sidebar-width"), "300");
+});
+
+test("expanding while peeking clears the peek", () => {
+  const m = peeked();
+  m.sb.setSidebarCollapsed(false);
+  assert.ok(!m.root.classList.contains("cc-peek"));
+  assert.ok(!m.hole.classList.contains("cc-hole-peek"));
+  assert.ok(!m.hole.classList.contains("cc-hole-collapsed"));
 });

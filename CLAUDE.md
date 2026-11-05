@@ -66,11 +66,12 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   **`onContextMenu(id, {x, y})`** (optional): a right-click on any row, the webview's own menu suppressed (absent → no listener).
   **`onBannerMenu({x, y})`** (optional): a right-click on the banner (window title row), the webview's own menu suppressed (absent → no listener).
   **`onIncomingAction(itemId, actionId, {x, y})`** (optional): an Incoming item's button was clicked; `x, y` is the button's bottom-left (absent → no listener).
+  **`onLayout()`** (with `hole`): the hole moved or resized by collapse or peek. Re-measure and report it, because a peek's `transform` never reaches a `ResizeObserver`.
   **`onNav(action)`**, **`onUrlSubmit(value) → Promise`** (Enter; resolve clears the field, reject → `setError`), **`onDownloads({x, y, width, height})`** (the button's rect): the header's controls (below).
   (The update bar is wired **internally** —
   self-update is a core capability, see the dividing-line decision above — so there is **no**
   `onUpdate`/`onUpdateDismiss` callback.)
-- **config:** `{ nav: string[], urlField: {placeholder}|null, downloads: bool, appName: string|null, emptyState: Element|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
+- **config:** `{ nav: string[], urlField: {placeholder}|null, downloads: bool, appName: string|null, emptyState: Element|null, hole: Element|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
   **The header** is chrome-core's own, never app DOM (`_buildHeader`): the title row is the name, left,
   then **`nav`** (any of `back`/`forward`/`reload`/`home`, always in that order) as a right-aligned
   `.cc-nav` pill; **`urlField`** adds `#cc-toolbar` under it, a full-width `input.cc-url`;
@@ -90,6 +91,16 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   positioned parent) and shows it on every `update(dto)` whose `active` is unset. The mark is the
   app's; the treatment is shared. warden passes none: its transparent window needs an always-on
   ground per split pane, which it paints itself.
+  **`hole`** (default null) makes the sidebar collapsible. It is the app's content-hole element, a
+  flex sibling of the mount container. The titlebar strip (built even without `appName`) leads with
+  `.cc-sidebar-toggle`. Collapsed (`cc-collapsed` / `cc-hole-collapsed`), the container is only that
+  strip across the window, showing the active tab's title, plus `#cc-rail` down the left edge, and the
+  hole fills the rest. Resting on the rail `PEEK_DELAY_MS` peeks (`cc-peek` / `cc-hole-peek`): the
+  column at `--cc-peek-w`, and the hole slides right by a `transform` at its collapsed width, since
+  the content views composite above the chrome and can't be drawn over. A peek ends on `pointerAway`,
+  on leaving the window, or `PEEK_LEAVE_MS` after leaving the column, unless a field inside has focus.
+  `focusSearch()` peeks a collapsed sidebar. The state persists per window under
+  `collapseKey(storageKey, title)`, and the stored width is never touched.
   **`autoUpdate`** (bool, default false) is the app's config gate for self-update: when true *and* the
   Tauri runtime is present, the component runs a launch check + the recurring re-check; the menu path
   (`checkForUpdateNow()`) works regardless of it. See the dividing-line decision above.
@@ -130,7 +141,9 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 - **methods:** `update(dto)`, `setActive(id)`, `setLive(id,live)`, `setAttention(id,val)`,
   `setPresence(id,state)`, `selectByOffset(dir,{liveOnly,from})`, `selectByIndex(n)`,
   `focusSearch()` (shell-core's Find in Sidebar ⌘⇧F — see *Search* below), `setNavEnabled(enabled)`
-  (off — `.off`, `aria-disabled`, never `disabled`, so the tooltip stays — each title says `— no tab open`), `focusUrlField()`, `setDownloads({active, unseen,
+  (off — `.off`, `aria-disabled`, never `disabled`, so the tooltip stays — each title says `— no tab open`), `focusUrlField()`,
+  `toggleSidebar()` / `setSidebarCollapsed(on)` / `sidebarCollapsed` (with `hole`; the host's Toggle
+  Sidebar menu item calls the first), `setDownloads({active, unseen,
   unseenFailed})` (`cc-dl-active` spinner ring; `cc-dl-unseen` blue dot; `cc-dl-failed` red dot, winning over blue), `requestEnd(id, "suspend"|"destroy")` (the keyboard route to the confirm row: suspend fires at once,
   destroy arms the row and fires on a second request — `endIntent`), `revealRow(id)` (the tab's row, un-hidden from a search or collapsed folder first; flotilla's in-place rename), `setError(msg)`, `clearError()`, `pointerAway()` (a host compositing a view over the chrome calls it; see its docblock), `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update-bar view),
   **`checkForUpdateNow()`** (the menu "Check for Updates…" path — check + announce the result; the app

@@ -44,6 +44,8 @@
    * the app name starts after them. */
   --cc-titlebar-h: 28px;
   --cc-lights-inset: 78px;
+  /* A collapsed sidebar's left-edge strip, which peeks the sidebar on hover. */
+  --cc-rail-w: 6px;
   /* Ghost presence mark — a scale-free vector silhouette, sized off --cc-dot-size in the
    * .cc-presence.ghost::before rule, so (like --cc-tree-glyph) it needs no per-density
    * restatement in the compact override block below.
@@ -105,12 +107,14 @@
 .cc-empty-state.cc-shown { display: flex; }
 .cc-empty-state svg { width: 220px; height: 220px; opacity: 0.9; }
 
-/* App-name strip, beside the traffic lights. Only rendered when the consumer passes `appName`. */
+/* App-name strip, beside the traffic lights. Rendered when the consumer passes `appName` or `hole`;
+ * with `hole` it leads with the sidebar toggle. */
 #cc-titlebar {
   flex: none;
   order: -2; /* above #cc-banner, which is order: -1 */
   display: flex;
   align-items: center;
+  gap: 6px;
   box-sizing: border-box;
   height: var(--cc-titlebar-h);
   padding-left: var(--cc-lights-inset);
@@ -119,11 +123,31 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   color: #fff;
-  opacity: 0.72;
   white-space: nowrap;
+  overflow: hidden;
+}
+.cc-titlebar-name {
+  min-width: 0;
+  opacity: 0.72;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.cc-sidebar-toggle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.72;
+}
+.cc-sidebar-toggle svg { width: 16px; height: 16px; }
+.cc-root:not(.cc-away) .cc-sidebar-toggle:hover { opacity: 1; background: rgba(255, 255, 255, 0.12); }
 
 /* Window-name banner, coloured by JS to the window accent: the title row (name left; downloads, then
  * the nav pill, right) and the optional toolbar row under it (URL field, then downloads). The title
@@ -1304,4 +1328,48 @@
 .cc-root:not(.cc-away) #cc-resize:hover,
 #cc-resize.dragging {
   background: rgba(255, 255, 255, 0.14);
+}
+
+/* ── Collapse (mount config `hole`; sidebar.js "collapse") ──
+ * Collapsed: the sidebar is only its titlebar strip across the top of the window plus the rail down
+ * the left edge, and the hole fills the rest. Peeking: the whole sidebar, at its own width, down the
+ * left; the hole keeps its collapsed width and slides right past it, so the page in it never reflows. */
+.cc-root.cc-collapsed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--cc-titlebar-h);
+  width: auto !important;
+  z-index: 2;
+}
+.cc-root.cc-collapsed:not(.cc-peek) > :not(#cc-titlebar):not(#cc-rail),
+.cc-root.cc-collapsed #cc-resize {
+  display: none;
+}
+.cc-root.cc-collapsed.cc-peek {
+  right: auto;
+  bottom: 0;
+  height: auto;
+  width: var(--cc-peek-w) !important;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.45);
+}
+/* The strip stays put across the window while the column under it peeks. */
+.cc-root.cc-collapsed.cc-peek #cc-titlebar { width: 100vw; }
+#cc-rail { display: none; }
+.cc-root.cc-collapsed:not(.cc-peek) #cc-rail {
+  display: block;
+  position: fixed;
+  left: 0;
+  top: var(--cc-titlebar-h);
+  bottom: 0;
+  width: var(--cc-rail-w);
+}
+.cc-root.cc-collapsed:not(.cc-away) #cc-rail:hover { background: rgba(255, 255, 255, 0.14); }
+.cc-hole.cc-hole-collapsed {
+  margin-top: var(--cc-titlebar-h);
+  margin-left: var(--cc-rail-w);
+}
+.cc-hole.cc-hole-peek {
+  transform: translateX(calc(var(--cc-peek-w) - var(--cc-rail-w)));
 }

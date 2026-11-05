@@ -32,6 +32,10 @@
                           item with four actions and a rejected link with a problem line and a
                           disabled action. Clicking an action logs `onIncomingAction`.
        ?q=<text>          type <text> into the search field, rendering the filtered list.
+       ?hole=1            lay the sidebar out beside a content hole (a grid stands in for the page)
+                          and mount with `hole`: the titlebar's toggle collapses it; hover the left
+                          edge to peek. Add &collapsed=1 to start collapsed, &peek=1 to start peeking.
+                          The shot needs a wider window: `--window-size=1100,700`.
 
      Raw headless invocation (what `just shot` wraps):
        chrome --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 \
@@ -58,11 +62,20 @@
         font: 12px ui-monospace, monospace; color: #cdd; background: #1b1f24cc;
         border: 1px solid #333; border-radius: 6px; padding: 4px 8px; white-space: pre;
       }
+      /* ?hole=1: the page shell every consumer uses — a row of the sidebar and the content hole. */
+      #app.with-hole { display: flex; height: 100vh; }
+      #app.with-hole #sidebar { flex: none; }
+      #hole { display: none; }
+      #app.with-hole #hole {
+        display: block; flex: 1; min-width: 0;
+        background: repeating-linear-gradient(90deg, transparent 0 119px, #ccd 119px 120px),
+                    repeating-linear-gradient(0deg, transparent 0 27px, #ccd 27px 28px) #f7f7f7;
+      }
     </style>
   </head>
   <body>
     <div id="readout"></div>
-    <aside id="sidebar"></aside>
+    <div id="app"><aside id="sidebar"></aside><div id="hole"></div></div>
     <script src="assets/sidebar.js"></script>
     <script>
       const params = new URLSearchParams(location.search);
@@ -76,6 +89,9 @@
       };
       // ?open=1 → the pinned "Open" section (warden's `open_tabs_section`); off by default, as it is
       // for every app that does not opt in.
+      const withHole = params.get("hole") === "1";
+      if (withHole) document.getElementById("app").classList.add("with-hole");
+      const holeCfg = withHole ? { hole: document.getElementById("hole") } : {};
       const openSection = params.get("open") === "1";
       const backgroundSection = params.get("background") === "1";
       const incoming = params.get("incoming") !== "1" ? undefined : [
@@ -168,9 +184,13 @@
           onUrlSubmit(value) { console.log("onUrlSubmit", value); return Promise.resolve(); },
           onDownloads(rect) { console.log("onDownloads", rect); },
         },
-        { storageKey: "preview", appName: "preview", ...headerCfg }
+        { storageKey: "preview", appName: "preview", ...headerCfg, ...holeCfg }
       );
       sb.update(dto);
+      if (withHole) {
+        sb.setSidebarCollapsed(params.get("collapsed") === "1" || params.get("peek") === "1");
+        if (params.get("peek") === "1") sb._setPeek(true);
+      }
       sb.setNavEnabled(true);
       const dl = params.get("dl");
       if (dl) sb.setDownloads({ active: dl === "active", unseen: dl !== "active", unseenFailed: dl === "failed" });
