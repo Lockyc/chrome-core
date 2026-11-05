@@ -123,12 +123,12 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   color: #fff;
+  opacity: 0.72;
   white-space: nowrap;
   overflow: hidden;
 }
 .cc-titlebar-name {
   min-width: 0;
-  opacity: 0.72;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -144,10 +144,21 @@
   border-radius: 5px;
   background: transparent;
   color: inherit;
-  opacity: 0.72;
+  position: relative;
 }
 .cc-sidebar-toggle svg { width: 16px; height: 16px; }
-.cc-root:not(.cc-away) .cc-sidebar-toggle:hover { opacity: 1; background: rgba(255, 255, 255, 0.12); }
+.cc-root:not(.cc-away) .cc-sidebar-toggle:hover { background: rgba(255, 255, 255, 0.16); }
+/* Collapsed with an error, an update or incoming links waiting in the hidden sidebar. */
+.cc-sidebar-toggle.cc-notice::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff9f0a;
+}
 
 /* Window-name banner, coloured by JS to the window accent: the title row (name left; downloads, then
  * the nav pill, right) and the optional toolbar row under it (URL field, then downloads). The title

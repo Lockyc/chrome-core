@@ -1340,11 +1340,17 @@ test("toggle collapses and persists", () => {
 test("collapse state is per window title", () => {
   const storage = installStorage();
   storage.setItem("flotilla:sidebar-width:collapsed:A", "1");
-  const m = mountCollapsible({ title: "A", storage });
-  assert.equal(m.sb.sidebarCollapsed, true);
+  assert.equal(mountCollapsible({ title: "A", storage }).sb.sidebarCollapsed, true);
+  assert.equal(mountCollapsible({ title: "B", storage }).sb.sidebarCollapsed, false);
+});
+
+test("renaming the window keeps its collapsed state", () => {
+  const m = mountCollapsible({ title: "A" });
+  m.sb.setSidebarCollapsed(true);
   m.sb.update({ title: "B", tabs: [] });
-  assert.equal(m.sb.sidebarCollapsed, false);
-  assert.equal(storage.getItem("flotilla:sidebar-width:collapsed:A"), "1", "B's restore leaves A's state alone");
+  assert.equal(m.sb.sidebarCollapsed, true);
+  assert.equal(m.store.getItem("flotilla:sidebar-width:collapsed:B"), "1");
+  assert.equal(m.store.getItem("flotilla:sidebar-width:collapsed:A"), null);
 });
 
 test("collapsed strip shows the active tab's title", () => {
@@ -1450,4 +1456,65 @@ test("expanding while peeking clears the peek", () => {
   assert.ok(!m.root.classList.contains("cc-peek"));
   assert.ok(!m.hole.classList.contains("cc-hole-peek"));
   assert.ok(!m.hole.classList.contains("cc-hole-collapsed"));
+});
+
+test("focusUrlField peeks a collapsed sidebar", () => {
+  const m = mountCollapsible({ cfg: { urlField: { placeholder: "Open" } } });
+  m.sb.setSidebarCollapsed(true);
+  m.sb.focusUrlField();
+  assert.ok(peeking(m));
+});
+
+test("revealRow peeks a collapsed sidebar", () => {
+  const m = mountCollapsible({ tabs: [{ id: "v", title: "Volunteers" }], active: "v" });
+  m.sb.setSidebarCollapsed(true);
+  assert.ok(m.sb.revealRow("v"));
+  assert.ok(peeking(m));
+});
+
+test("a field that lost the window's focus no longer holds a peek", () => {
+  const m = peeked();
+  document.activeElement = m.sb.searchInput;
+  m.sb.pointerAway();
+  assert.ok(peeking(m), "still typing");
+  document.hasFocus = () => false; // a click on the content: activeElement stays on the field
+  fire(window, "blur");
+  assert.ok(!peeking(m));
+});
+
+test("pointer movement in the column counts as inside after pointerAway", () => {
+  const m = peeked();
+  document.activeElement = m.sb.searchInput;
+  m.sb.pointerAway();
+  fire(m.root, "pointermove", { timeStamp: performance.now() + 1000 });
+  document.activeElement = null;
+  fire(m.sb.searchInput, "focusout", { relatedTarget: null }); // a row's mousedown moved focus
+  assert.ok(peeking(m), "the pointer is in the column");
+});
+
+test("a collapsed sidebar flags errors, updates and incoming on its toggle", () => {
+  const m = mountCollapsible();
+  const flagged = () => m.root.querySelector(".cc-sidebar-toggle").classList.contains("cc-notice");
+  m.sb.setError("Couldn't save");
+  assert.ok(!flagged(), "expanded, the bar itself shows");
+  m.sb.setSidebarCollapsed(true);
+  assert.ok(flagged());
+  m.sb.clearError();
+  assert.ok(!flagged());
+  m.sb.setUpdate({ version: "1.2.0" });
+  assert.ok(flagged());
+  m.sb.clearUpdate();
+  m.sb.update({ title: "Rotary", tabs: [], incoming: [{ id: "i", title: "doc", actions: [] }] });
+  assert.ok(flagged());
+});
+
+test("peek takes the sidebar's laid-out width", () => {
+  const s = installStorage();
+  s.setItem("flotilla:sidebar-width", "400");
+  const m = mountCollapsible({ storage: s });
+  m.root.style.width = "360px"; // the host clamped it to a narrow window
+  m.sb.setSidebarCollapsed(true);
+  fire(rail(m.root), "pointerenter");
+  m.clock.run();
+  assert.equal(document.documentElement.style._props["--cc-peek-w"], "360px");
 });

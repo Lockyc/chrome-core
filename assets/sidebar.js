@@ -556,6 +556,7 @@ class Sidebar {
     this.root.addEventListener("pointermove", (e) => {
       if (e.timeStamp < this._awayAt) return;
       this.root.classList.remove("cc-away");
+      this._pointerInside = true;
     });
     // The traffic-light strip. Only exists when the consumer names itself or can collapse (the strip
     // is what stays on screen collapsed) — any other host renders exactly as before.
@@ -721,6 +722,7 @@ class Sidebar {
   /** Focus the URL field with its text selected (no-op without `urlField`). */
   focusUrlField() {
     if (!this.urlInput) return;
+    if (this.sidebarCollapsed) this._setPeek(true);
     this.urlInput.focus();
     this.urlInput.select();
   }
@@ -839,6 +841,7 @@ class Sidebar {
     if (this.mainEl) this.mainEl.scrollTop = mainTop;
     if (this.openEl) this.openEl.scrollTop = openTop;
     this._paintTitlebarName();
+    this._paintNotice();
     if (dto.active === undefined && this.active && this.active !== prevActive && this.cb.onSelect) {
       this.cb.onSelect(this.active, { wasActive: false });
     }
@@ -1753,6 +1756,8 @@ class Sidebar {
    *  no row to reveal — including a hidden member of a collapsed headed group, whose `collapsed`
    *  state is the app's to change, not this component's. */
   revealRow(id) {
+    // Collapsed, no row is on screen: peek, so a rename field or an armed confirm row can be seen.
+    if (this.sidebarCollapsed) this._setPeek(true);
     const pick = () => {
       const rows = this._rowsById(id);
       return rows.find((r) => r.offsetParent !== null) || rows[0] || null;
@@ -1879,9 +1884,11 @@ class Sidebar {
     this._noticeTimer = null;
     this._errorText.textContent = msg;
     this.errorBar.style.display = "flex";
+    this._paintNotice();
   }
   clearError() {
     this.errorBar.style.display = "none";
+    this._paintNotice();
   }
 
   // ── update bar (view) ──
@@ -1895,9 +1902,11 @@ class Sidebar {
     this._updateBtn.disabled = false;
     this._updateBtn.textContent = "Update & Relaunch";
     this.updateBar.style.display = "flex";
+    this._paintNotice();
   }
   clearUpdate() {
     this.updateBar.style.display = "none";
+    this._paintNotice();
   }
 
   // ── self-update (app-agnostic capability) ──
@@ -2013,9 +2022,18 @@ class Sidebar {
     this.setSidebarCollapsed(!this.sidebarCollapsed);
   }
 
-  /** Adopt window `title`'s remembered state (`update` calls this when the title changes). */
+  /** Adopt window `title`'s remembered state (`update` calls this when the title changes). A page is
+   *  one window for its whole life, so a later title is a rename: the state moves with it. */
   _restoreCollapse(title) {
+    const prev = this._collapseTitle;
     this._collapseTitle = title;
+    if (prev != null) {
+      if (this.sidebarCollapsed && this.cfg.storageKey) {
+        localStorage.removeItem(collapseKey(this.cfg.storageKey, prev));
+        localStorage.setItem(collapseKey(this.cfg.storageKey, title), "1");
+      }
+      return;
+    }
     const on = !!this.cfg.storageKey && localStorage.getItem(collapseKey(this.cfg.storageKey, title)) === "1";
     if (on === this.sidebarCollapsed) return;
     this._applyCollapsed(on);
@@ -2027,11 +2045,24 @@ class Sidebar {
     if (!on) this._setPeek(false, { quiet: true });
     this.root.classList.toggle("cc-collapsed", on);
     this.holeEl.classList.toggle("cc-hole-collapsed", on);
-    const label = on ? "Show Sidebar (⌃⌘S)" : "Hide Sidebar (⌃⌘S)";
-    this.sidebarToggle.title = label;
-    this.sidebarToggle.setAttribute("aria-label", label);
     this.sidebarToggle.setAttribute("aria-expanded", String(!on));
     this._paintTitlebarName();
+    this._paintNotice();
+  }
+
+  /** Collapsed, the error bar, the update bar and Incoming are off screen, so the toggle carries a
+   *  dot naming what is waiting there. */
+  _paintNotice() {
+    if (!this.sidebarToggle) return;
+    const waiting = [];
+    if (this.errorBar.style.display === "flex") waiting.push("an error");
+    if (this.updateBar.style.display === "flex") waiting.push("an update");
+    if ((this.incoming || []).length) waiting.push("incoming links");
+    const flag = this.sidebarCollapsed && waiting.length > 0;
+    this.sidebarToggle.classList.toggle("cc-notice", flag);
+    const label = `${this.sidebarCollapsed ? "Show" : "Hide"} Sidebar (⌃⌘S)${flag ? ` — ${waiting.join(", ")}` : ""}`;
+    this.sidebarToggle.title = label;
+    this.sidebarToggle.setAttribute("aria-label", label);
   }
 
   /** The strip's text: the app's name, or while collapsed the active tab's title — the one thing the
@@ -2076,6 +2107,10 @@ class Sidebar {
       this._pointerInside = false;
       this._endPeekUnlessTyping();
     });
+    // The page lost key focus (a click on the content, another app): a field here no longer counts.
+    window.addEventListener("blur", () => {
+      if (!this._pointerInside) this._endPeekUnlessTyping();
+    });
     // A field let go (Esc, Enter, a click on the content): close if the pointer is elsewhere.
     this.root.addEventListener("focusout", (e) => {
       if (e.relatedTarget && this.root.contains(e.relatedTarget)) return;
@@ -2083,10 +2118,11 @@ class Sidebar {
     });
   }
 
-  /** Whether the keyboard is in a field inside the sidebar (search, URL, a rename). */
+  /** Whether the keyboard is in a field inside the sidebar (search, URL, a rename). `hasFocus` too:
+   *  WebKit leaves `activeElement` on the field after a click moves key focus to a content view. */
   _typing() {
     const a = document.activeElement;
-    return !!a && this.root.contains(a) && (a.tagName === "INPUT" || a.tagName === "TEXTAREA");
+    return document.hasFocus() && !!a && this.root.contains(a) && (a.tagName === "INPUT" || a.tagName === "TEXTAREA");
   }
 
   _endPeekUnlessTyping() {
@@ -2098,7 +2134,9 @@ class Sidebar {
     this.cfg.clock.clear(this._leaveTimer);
     if (!this.holeEl || on === this._peeking) return;
     this._peeking = on;
-    if (on) document.documentElement.style.setProperty("--cc-peek-w", `${Math.round(this._lastWidth || this.cfg.defaultWidth)}px`);
+    // The column's own laid-out width: the host may clamp it (a narrow window) without a resize event.
+    const w = parseFloat(this.root.style.width) || this._lastWidth || this.cfg.defaultWidth;
+    if (on) document.documentElement.style.setProperty("--cc-peek-w", `${Math.round(w)}px`);
     this.root.classList.toggle("cc-peek", on);
     this.holeEl.classList.toggle("cc-hole-peek", on);
     if (!quiet) this._layoutChanged();

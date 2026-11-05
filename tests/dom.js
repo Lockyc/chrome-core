@@ -230,8 +230,12 @@ function installDom() {
     documentElement: new FakeNode("html"),
     addEventListener() {},
     removeEventListener() {},
+    // WebKit: a page whose window lost key focus answers false here, while `activeElement` keeps
+    // pointing at the field that had it. Tests model that by swapping this out.
+    hasFocus: () => true,
   };
-  globalThis.window = { innerWidth: 1200 };
+  // A node, so a test can `fire(window, "blur")`.
+  globalThis.window = Object.assign(new FakeNode("window"), { innerWidth: 1200 });
   delete globalThis.localStorage; // an earlier test's `installStorage` must not leak into this one
   return new FakeNode("div");
 }
