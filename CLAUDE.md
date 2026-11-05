@@ -99,8 +99,10 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   column at `--cc-peek-w`, and the hole slides right by a `transform` at its collapsed width, since
   the content views composite above the chrome and can't be drawn over. A peek ends on `pointerAway`,
   on leaving the window, or `PEEK_LEAVE_MS` after leaving the column, unless a field inside has focus.
-  `focusSearch()` peeks a collapsed sidebar. The state persists per window under
-  `collapseKey(storageKey, title)`, and the stored width is never touched.
+  `focusSearch()`, `focusUrlField()` and `revealRow()` peek a collapsed sidebar. While it is
+  collapsed, a `.cc-notice` dot on the toggle stands in for the hidden error bar, update bar and
+  Incoming. The state persists per window under `collapseKey(storageKey, title)` and follows a
+  rename. The stored width is never touched.
   **`autoUpdate`** (bool, default false) is the app's config gate for self-update: when true *and* the
   Tauri runtime is present, the component runs a launch check + the recurring re-check; the menu path
   (`checkForUpdateNow()`) works regardless of it. See the dividing-line decision above.
