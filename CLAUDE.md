@@ -66,6 +66,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   **`onContextMenu(id, {x, y})`** (optional): a right-click on any row, the webview's own menu suppressed (absent → no listener).
   **`onBannerMenu({x, y})`** (optional): a right-click on the banner (window title row), the webview's own menu suppressed (absent → no listener).
   **`onIncomingAction(itemId, actionId, {x, y})`** (optional): an Incoming item's button was clicked; `x, y` is the button's bottom-left (absent → no listener).
+  **`onMoveTab(id, group)`** (optional): a `movable` row was dragged onto another section of the main list and released; `group` is that section's DTO `group`. The component moves nothing; the app answers with `update(dto)`. Absent, or under a search, nothing lifts. Mechanics: the "drag to move" docblock in `assets/sidebar.js`.
   **`onLayout()`** (with `hole`): the hole moved or resized by collapse or peek. Re-measure and report it, because a peek's `transform` never reaches a `ResizeObserver`.
   **`onNav(action)`**, **`onUrlSubmit(value) → Promise`** (Enter; resolve clears the field, reject → `setError`), **`onDownloads({x, y, width, height})`** (the button's rect): the header's controls (below).
   (The update bar is wired **internally** —
@@ -117,9 +118,10 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   per-instance namespace for tree-collapse persistence (below) — it need only be unique per mounted
   sidebar, its literal contents don't matter beyond that.
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
-  windowDrag?: bool, openSection?: bool, backgroundSection?: bool, active?: id, trees?: string[], collapsed?: string[], incoming?: IncomingDTO[], tabs: TabDTO[] }` where `IncomingDTO = { id, title, icon?, problem?, actions: { id, label, disabled? }[] }` (`disabled` is the reason: the button is disabled and its `title` is that text), and `TabDTO = { id, title, group: string|null,
+  windowDrag?: bool, openSection?: bool, backgroundSection?: bool, active?: id, trees?: string[], collapsed?: string[], incoming?: IncomingDTO[], dropSections?: { group, label }[], tabs: TabDTO[] }` where `IncomingDTO = { id, title, icon?, problem?, actions: { id, label, disabled? }[] }` (`disabled` is the reason: the button is disabled and its `title` is that text), and `TabDTO = { id, title, group: string|null,
   live: bool, attention: null|true|number, presence: null|'on'|'ghost'|'off', killable: bool, suspendable: bool, startable: bool,
-  warn: bool, tree?: bool, treePath?: string[], detached?: bool, accent?: string, icon?: string, head?: bool, groupName?: string, confirmRemove?: string }`.
+  warn: bool, tree?: bool, treePath?: string[], detached?: bool, accent?: string, icon?: string, head?: bool, groupName?: string, confirmRemove?: string, movable?: bool }`.
+  **`movable`** (with `onMoveTab`): the row can be dragged to another section; a head row never is. **`dropSections`**: sections that take a drop while they have no rows, shown as `.cc-drop-zone`s labelled `label` atop the main list only during a drag.
   **`icon`** is opt-in (an image URL the page can load): the tile shows it (`.cc-icon-image`) in place of the initial and colour.
   **`head`**: in a flat run of same-`group` rows, that row renders in place of the text header — a full tab row (`.cc-head`) led by a disclosure arrow (an arrow-wide blank when it has no members); the rest are its `.cc-member`s.
   **`collapsed`**: the headed groups whose members are hidden (app-owned; a search still shows matching members, and `navOrder` skips hidden ones — a hidden active tab is stood in for by its head, `.cc-contains-active`, which `selectByOffset` steps from; a group with no head ignores it).

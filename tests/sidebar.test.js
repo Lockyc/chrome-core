@@ -1518,3 +1518,123 @@ test("peek takes the sidebar's laid-out width", () => {
   m.clock.run();
   assert.equal(document.documentElement.style._props["--cc-peek-w"], "360px");
 });
+
+// ── drag to move (opt-in: `onMoveTab`, rows marked `movable`) ──
+
+// flotilla's shape again, with an app-keyed headless run ("unsorted") and its members movable.
+const movers = () => [
+  row("u1", "loose doc", "unsorted", { groupName: "Unsorted", movable: true }),
+  row("h1", "Fleet", "h1", { head: true, groupName: "Fleet" }),
+  row("m1", "alpha", "h1", { groupName: "Fleet", movable: true }),
+  row("h2", "Club", "h2", { head: true, groupName: "Club" }),
+];
+
+function mountMovers(cb, dto = {}) {
+  const root = installDom();
+  const sb = new Sidebar(root, cb, {});
+  sb.update({ title: "w", colour: null, density: "comfortable", active: "h1", tabs: movers(), ...dto });
+  return sb;
+}
+
+/** Press `from`, move past the threshold onto `over`, release. */
+/** A pointer event over `node`, as the page delivers it: to `window`, where the drag listens. */
+const overNode = (node, type, props) => fire(window, type, { ...props, target: node });
+
+function dragRow(sb, from, over, release = true) {
+  fire(from, "mousedown", { button: 0, clientX: 10, clientY: 10 });
+  overNode(over, "mousemove", { clientX: 10, clientY: 40, buttons: 1 });
+  if (release) fire(window, "mouseup", {});
+}
+
+test("drag_moves_a_row_onto_another_section", () => {
+  const moved = [];
+  const sb = mountMovers({ onMoveTab: (id, group) => moved.push([id, group]) });
+  dragRow(sb, rowOf(sb, "m1"), rowOf(sb, "h2"));
+  assert.deepEqual(moved, [["m1", "h2"]]);
+  // Onto a headless run's text header, and onto one of its rows.
+  dragRow(sb, rowOf(sb, "m1"), sb.mainEl.querySelector('.cc-group[data-drop-group="unsorted"]'));
+  dragRow(sb, rowOf(sb, "u1"), rowOf(sb, "m1"));
+  assert.deepEqual(moved.slice(1), [["m1", "unsorted"], ["u1", "h1"]]);
+  assert.ok(!sb.list.classList.contains("cc-dragging"));
+});
+
+test("drag_lights_the_target_and_cancels_on_its_own_section_or_escape", () => {
+  const moved = [];
+  const sb = mountMovers({ onMoveTab: (id, group) => moved.push([id, group]) });
+  dragRow(sb, rowOf(sb, "m1"), rowOf(sb, "h2"), false);
+  assert.ok(sb.list.classList.contains("cc-dragging"));
+  assert.ok(rowOf(sb, "m1").classList.contains("cc-drag-source"));
+  assert.ok(rowOf(sb, "h2").classList.contains("cc-drop-over"));
+  assert.ok(!rowOf(sb, "h1").classList.contains("cc-drop-over"));
+  // A repaint mid-drag keeps the decoration.
+  sb.update({ title: "w", colour: null, density: "comfortable", active: "h1", tabs: movers() });
+  assert.ok(rowOf(sb, "h2").classList.contains("cc-drop-over"));
+  fire(window, "keydown", { key: "Escape" });
+  fire(window, "mouseup", {});
+  // Its own section is no target.
+  dragRow(sb, rowOf(sb, "m1"), rowOf(sb, "h1"));
+  assert.deepEqual(moved, []);
+  assert.ok(!sb.mainEl.querySelector(".cc-drop-over"));
+});
+
+test("a_press_that_never_travels_is_a_click_and_a_drag_release_is_not", () => {
+  const moved = [];
+  const selected = [];
+  const sb = mountMovers({ onMoveTab: (id, g) => moved.push([id, g]), onSelect: (id) => selected.push(id) });
+  fire(rowOf(sb, "m1"), "mousedown", { button: 0, clientX: 10, clientY: 10 });
+  overNode(rowOf(sb, "m1"), "mousemove", { clientX: 12, clientY: 11, buttons: 1 });
+  fire(window, "mouseup", {});
+  fire(rowOf(sb, "m1"), "click");
+  assert.deepEqual(selected, ["m1"]);
+  dragRow(sb, rowOf(sb, "m1"), rowOf(sb, "h2"));
+  fire(rowOf(sb, "h2"), "click");
+  assert.deepEqual(selected, ["m1"], "the release that ended the drag selects nothing");
+  assert.equal(moved.length, 1);
+});
+
+test("drag_is_opt_in_per_row_and_callback_and_off_under_search", () => {
+  // No callback: nothing is a target, no row lifts.
+  const bare = mountMovers({});
+  assert.ok(!bare.mainEl.querySelector("[data-drop-group]"));
+  dragRow(bare, rowOf(bare, "m1"), rowOf(bare, "h2"), false);
+  assert.ok(!bare.list.classList.contains("cc-dragging"));
+  // A head, and a row not marked movable, never lift.
+  const moved = [];
+  const sb = mountMovers({ onMoveTab: (id, g) => moved.push([id, g]) });
+  dragRow(sb, rowOf(sb, "h1"), rowOf(sb, "h2"));
+  assert.deepEqual(moved, []);
+  // A search shows part of each group: no dragging.
+  sb.query = "a";
+  sb._paintList();
+  assert.ok(!sb.mainEl.querySelector("[data-drop-group]"));
+});
+
+test("drop_sections_show_as_zones_only_while_dragging_and_only_when_empty", () => {
+  const moved = [];
+  const tabs = movers().filter((t) => t.group !== "unsorted");
+  const sb = mountMovers({ onMoveTab: (id, g) => moved.push([id, g]) }, { tabs, dropSections: [{ group: "unsorted", label: "Unsorted" }] });
+  assert.ok(!sb.mainEl.querySelector(".cc-drop-zone"));
+  dragRow(sb, rowOf(sb, "m1"), rowOf(sb, "h2"), false);
+  const zone = sb.mainEl.querySelector(".cc-drop-zone");
+  assert.equal(zone.textContent, "Unsorted");
+  assert.equal(sb.mainEl.children[0], zone);
+  overNode(zone, "mousemove", { clientX: 10, clientY: 50, buttons: 1 });
+  fire(window, "mouseup", {});
+  assert.deepEqual(moved, [["m1", "unsorted"]]);
+  assert.ok(!sb.mainEl.querySelector(".cc-drop-zone"));
+  // With rows of its own, the section is its own target: no zone.
+  const full = mountMovers({ onMoveTab() {} }, { dropSections: [{ group: "unsorted", label: "Unsorted" }] });
+  dragRow(full, rowOf(full, "m1"), rowOf(full, "h2"), false);
+  assert.ok(!full.mainEl.querySelector(".cc-drop-zone"));
+  fire(window, "mouseup", {});
+});
+
+test("a_drag_released_outside_the_page_is_cancelled", () => {
+  const moved = [];
+  const sb = mountMovers({ onMoveTab: (id, g) => moved.push([id, g]) });
+  dragRow(sb, rowOf(sb, "m1"), rowOf(sb, "h2"), false);
+  overNode(rowOf(sb, "h2"), "mousemove", { clientX: 10, clientY: 60, buttons: 0 });
+  fire(window, "mouseup", {});
+  assert.deepEqual(moved, []);
+  assert.ok(!sb.list.classList.contains("cc-dragging"));
+});

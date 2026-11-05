@@ -1386,3 +1386,50 @@
 .cc-hole.cc-hole-peek {
   transform: translateX(calc(var(--cc-peek-w) - var(--cc-rail-w)));
 }
+
+/* Drag to move (`onMoveTab`): the lifted row dims in place, a ghost of its title follows the
+ * pointer, and the section it would land in is outlined, row by row. `.cc-drop-zone`s are the
+ * `dropSections` with no rows yet, shown only while dragging. */
+#cc-tab-list.cc-dragging,
+#cc-tab-list.cc-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.cc-tab.cc-drag-source {
+  opacity: 0.4;
+}
+.cc-drop-over {
+  box-shadow: inset 0 0 0 1px var(--cc-active-bar, #4a9eff);
+  background: color-mix(in srgb, var(--cc-active-bg, #094771) 35%, transparent);
+}
+.cc-drop-zone {
+  margin: 6px 6px 2px;
+  padding: var(--cc-row-pad);
+  border: 1px dashed #4a5260;
+  border-radius: 5px;
+  font-size: var(--cc-group-font);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9aa4b2;
+  text-align: center;
+}
+.cc-drop-zone.cc-drop-over {
+  border-color: var(--cc-active-bar, #4a9eff);
+}
+.cc-drag-ghost {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  max-width: 220px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: #2a2f38;
+  color: #ddd;
+  font-size: var(--cc-row-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}

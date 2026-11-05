@@ -469,6 +469,11 @@ const PEEK_DELAY_MS = 150;
 // A peek survives the pointer leaving the sidebar for this long, so a wobble past its edge onto
 // the chrome page doesn't close it. (Onto the content is `pointerAway`, which closes at once.)
 const PEEK_LEAVE_MS = 200;
+// A pressed row lifts into a drag once the pointer has moved this far, so a click stays a click.
+const DRAG_START_PX = 5;
+// While dragging, the list scrolls this far per move with the pointer this close to its top or bottom.
+const DRAG_SCROLL_EDGE = 28;
+const DRAG_SCROLL_STEP = 12;
 
 /** The localStorage key holding whether window `title`'s sidebar is collapsed ("1"; absent =
  *  expanded). Per window, so each restores its own. */
@@ -517,6 +522,20 @@ class Sidebar {
     this.windowColour = NEUTRAL_COLOUR;
     this.tabs = [];
     this.collapsed = [];
+    this.dropSections = [];
+    // Moving a row by dragging it (see "drag to move"): the row pressed but not yet dragged, and the
+    // drag under way. Listened for on `window`, so a drag carries on past the row it began on.
+    this._dragPress = null;
+    this._drag = null;
+    this._swallowClick = false;
+    this._onDragMove = (e) => this._dragMove(e);
+    this._onDragEnd = () => this._dragEnd(true);
+    this._onDragKey = (e) => {
+      if (e.key === "Escape" && this._drag) this._dragEnd(false);
+    };
+    window.addEventListener("mousemove", this._onDragMove);
+    window.addEventListener("mouseup", this._onDragEnd);
+    window.addEventListener("keydown", this._onDragKey);
     // The search field's text (see "search"); `this.tabs` stays whole, the list paints the filtered
     // view. `_cursor` is the id Enter would open — the highlighted match.
     this.query = "";
@@ -812,6 +831,7 @@ class Sidebar {
     this.backgroundSection = dto.backgroundSection === true;
     this.trees = dto.trees || [];
     this.incoming = dto.incoming || [];
+    this.dropSections = dto.dropSections || [];
     // Headed groups whose members are hidden. The app owns this (it persists it and answers each
     // `onToggleGroup` with a fresh DTO); the component only reads it, so every `update` is authoritative.
     this.collapsed = dto.collapsed || [];
@@ -881,25 +901,32 @@ class Sidebar {
 
     // A search shows only what matches, so an empty declared tree is not painted under one.
     const searching = !!this.query.trim();
+    // Drag to move (opt-in by `onMoveTab`): off under a search, which shows only part of each group.
+    const moving = !!this.cb.onMoveTab && !searching;
     for (const sec of listSections(tabs, searching ? [] : this.trees)) {
       if (sec.tree) {
         this._renderTreeSection(sec.group, sec.rows, tint, drag);
         continue;
       }
+      const target = (node) => {
+        if (moving && sec.group !== null) node.setAttribute("data-drop-group", sec.group);
+        return node;
+      };
       if (sec.head) {
         // A search shows every match, so it opens a collapsed group without touching `collapsed`.
         const collapsed = !searching && this.collapsed.includes(sec.group);
-        this.mainEl.appendChild(this._renderHead(sec, collapsed, searching));
+        this.mainEl.appendChild(target(this._renderHead(sec, collapsed, searching)));
         if (collapsed) continue;
       } else if (sec.group !== null) {
         const h = el("div", { class: "cc-group" }, groupLabel(sec.rows[0]));
         h.style.background = tint; // sticky header matches the tinted sidebar
         this._setDrag(h, drag);
-        this.mainEl.appendChild(h);
+        this.mainEl.appendChild(target(h));
       }
       for (const t of sec.rows) {
-        const r = this._renderRow(t);
+        const r = target(this._renderRow(t));
         if (sec.head) r.classList.add("cc-member");
+        if (moving && t.movable && !t.head) this._armMove(r, t, sec.group);
         this.mainEl.appendChild(r);
       }
     }
@@ -907,6 +934,98 @@ class Sidebar {
       this.mainEl.appendChild(el("div", { class: "cc-search-empty" }, "No tabs match \u201c" + this.query.trim() + "\u201d"));
     }
     this._paint();
+    this._paintDrag();
+  }
+
+  // \u2500\u2500 drag to move (opt-in: `onMoveTab`, rows marked `movable`) \u2500\u2500
+  //
+  // Pressing a `movable` row and dragging it past `DRAG_START_PX` lifts it: a ghost of the row
+  // follows the pointer, and every row and header of the section under it (`data-drop-group`) lights
+  // as the drop target. Releasing there reports `onMoveTab(id, group)`; the component moves nothing
+  // itself, the app answers with `update(dto)`. The section the row is in is never a target, and
+  // Escape, a release anywhere else, or a release outside the page (seen as a move with no button
+  // down) cancels. `dropSections` (`{ group, label }`) are targets that have no rows to show yet,
+  // painted as drop zones at the top of the list only while a row is lifted. Mouse events rather
+  // than HTML5 drag and drop: WebKit hands those to the host's file-drop handling, and a click
+  // must still select.
+
+  /** Make `row` (tab `t`, in section `group`) pressable to drag. */
+  _armMove(row, t, group) {
+    row.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      if (e.target && e.target.closest && e.target.closest("button, .cc-icon-pop, input")) return;
+      this._dragPress = { id: t.id, group, title: t.title, x: e.clientX, y: e.clientY };
+    });
+  }
+
+  _dragMove(e) {
+    const press = this._dragPress;
+    if (!press) return;
+    if (e.buttons === 0) return this._dragEnd(false);
+    if (!this._drag) {
+      if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < DRAG_START_PX) return;
+      this._drag = { ...press, over: null, ghost: el("div", { class: "cc-drag-ghost" }, press.title || "") };
+      this.root.appendChild(this._drag.ghost);
+      this._paintDrag();
+    }
+    const d = this._drag;
+    d.ghost.style.left = e.clientX + 12 + "px";
+    d.ghost.style.top = e.clientY + 4 + "px";
+    const hit = e.target && e.target.closest ? e.target.closest("[data-drop-group]") : null;
+    const group = hit ? hit.getAttribute("data-drop-group") : null;
+    const over = group !== null && group !== d.group ? group : null;
+    if (over !== d.over) {
+      d.over = over;
+      this._paintDrag();
+    }
+    // Near the list's top or bottom edge, scroll it, so a drag reaches a group off screen.
+    if (this.mainEl && this.mainEl.getBoundingClientRect) {
+      const r = this.mainEl.getBoundingClientRect();
+      if (r.height && e.clientY < r.top + DRAG_SCROLL_EDGE) this.mainEl.scrollTop -= DRAG_SCROLL_STEP;
+      else if (r.height && e.clientY > r.bottom - DRAG_SCROLL_EDGE) this.mainEl.scrollTop += DRAG_SCROLL_STEP;
+    }
+  }
+
+  /** End the press or drag; `drop` reports the move when the pointer is over a target. */
+  _dragEnd(drop) {
+    const d = this._drag;
+    this._dragPress = null;
+    if (!d) return;
+    this._drag = null;
+    d.ghost.remove();
+    this._paintDrag();
+    // The release that ends a drag must not also select the row it lands on.
+    this._swallowClick = true;
+    setTimeout(() => (this._swallowClick = false), 0);
+    if (drop && d.over !== null) this.cb.onMoveTab(d.id, d.over);
+  }
+
+  /** Bring the list's drag decoration in line with `_drag`: the lifted row, the lit target, and the
+   *  `dropSections` zones. Run after every paint, so a repaint mid-drag keeps it. */
+  _paintDrag() {
+    if (!this.mainEl) return;
+    const d = this._drag;
+    for (const z of this.mainEl.querySelectorAll(".cc-drop-zone")) z.remove();
+    for (const n of this.mainEl.querySelectorAll(".cc-drop-over")) n.classList.remove("cc-drop-over");
+    for (const n of this.mainEl.querySelectorAll(".cc-drag-source")) n.classList.remove("cc-drag-source");
+    if (!d) {
+      if (this.list.classList.contains("cc-dragging")) this.list.classList.remove("cc-dragging");
+      return;
+    }
+    this.list.classList.add("cc-dragging");
+    const painted = new Set([...this.mainEl.querySelectorAll("[data-drop-group]")].map((n) => n.getAttribute("data-drop-group")));
+    const zones = this.dropSections.filter((s) => !painted.has(s.group));
+    for (const s of zones.reverse()) {
+      const zone = el("div", { class: "cc-drop-zone", "data-drop-group": s.group }, s.label);
+      this.mainEl.insertBefore(zone, this.mainEl.firstChild);
+    }
+    for (const n of this.mainEl.querySelectorAll(".cc-tab")) {
+      if (n.dataset.id === d.id) n.classList.add("cc-drag-source");
+    }
+    if (d.over === null) return;
+    for (const n of this.mainEl.querySelectorAll("[data-drop-group]")) {
+      if (n.getAttribute("data-drop-group") === d.over) n.classList.add("cc-drop-over");
+    }
   }
 
   // ── the pinned mirror sections (opt-in per section: `openSection` / `backgroundSection`) ──
@@ -1249,6 +1368,7 @@ class Sidebar {
     // callback: this IS the raise affordance.
     // A click is the search's other exit (Enter being the first), so it clears the field too.
     row.addEventListener("click", () => {
+      if (this._swallowClick) return; // the release that ended a drag
       if (this.query) this._clearSearch();
       this.select(t.id);
     });
@@ -1993,6 +2113,9 @@ class Sidebar {
       clearInterval(this._updateTimer);
       this._updateTimer = null;
     }
+    window.removeEventListener("mousemove", this._onDragMove);
+    window.removeEventListener("mouseup", this._onDragEnd);
+    window.removeEventListener("keydown", this._onDragKey);
   }
 
   // ── collapse ──
