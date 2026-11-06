@@ -1393,17 +1393,24 @@
  * --cc-rail-w. */
 [data-rail="handle"] { --cc-rail-w: 14px; }
 [data-rail="map"] { --cc-rail-w: 14px; }
-[data-rail="handle"] .cc-root.cc-collapsed:not(.cc-peek) #cc-rail { background: var(--cc-window); }
+/* The strip's own paint: the window colour at the titlebar's 0.72 opacity over the sidebar tint. */
+[data-rail="handle"] .cc-root.cc-collapsed:not(.cc-peek) #cc-rail {
+  background:
+    linear-gradient(color-mix(in srgb, var(--cc-window) 72%, transparent), color-mix(in srgb, var(--cc-window) 72%, transparent)),
+    var(--cc-tint);
+}
+/* The path sits a half-unit right of the box's centre: a chevron's mass is at its point. */
 [data-rail="handle"] #cc-rail::after {
   content: "";
   position: absolute;
-  top: 10px;
-  left: 3px;
-  width: 5px;
-  height: 5px;
-  border-top: 2px solid rgba(255, 255, 255, 0.85);
-  border-right: 2px solid rgba(255, 255, 255, 0.85);
-  transform: rotate(45deg);
+  top: 9px;
+  left: 50%;
+  width: 8px;
+  height: 10px;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.8);
+  -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 10"><path d="M2.75 1.5 6 5 2.75 8.5" fill="none" stroke="black" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>') center / contain no-repeat;
+  mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 10"><path d="M2.75 1.5 6 5 2.75 8.5" fill="none" stroke="black" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>') center / contain no-repeat;
 }
 [data-rail="map"] .cc-root.cc-collapsed:not(.cc-peek) #cc-rail {
   box-sizing: border-box;

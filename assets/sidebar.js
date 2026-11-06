@@ -804,9 +804,11 @@ class Sidebar {
     if (this.holeEl && dto.title !== this._collapseTitle) this._restoreCollapse(dto.title);
     this.banner.style.background = this.windowColour;
     if (this.titlebarEl) this.titlebarEl.style.background = this.windowColour;
-    this.root.style.setProperty("--cc-window", this.windowColour); // a `handle` rail continues the strip
+    // A `handle` rail paints itself as the strip does, so it reads both.
+    this.root.style.setProperty("--cc-window", this.windowColour);
     const tint = tintOverBase(this.windowColour, 0.12);
     this.root.style.background = tint;
+    this.root.style.setProperty("--cc-tint", tint);
     // Active-row highlight — the ONE place it is computed. `_paint` only toggles the `.active`
     // class; the CSS reads these two vars, so the ratios live here and nowhere else.
     this.root.style.setProperty(
