@@ -181,7 +181,7 @@ tab. `onPopIn` is a **separate opt-in
 callback**: the pop-in overlay renders only when the app supplied it (a docked tab needs only `onPopOut`;
 a detached tab's pop-in needs `onPopIn`). Both fire immediately on click (`e.stopPropagation()`); what
 each means is the app's business (warden: pop out = own window / pop in = close that window → redock).
-Kill-confirm's row-overlay hides the tile overlay too (`.cc-tab.confirming .cc-icon-pop`).
+Kill-confirm's row-overlay hides the tile overlay too (`.cc-ctl-row.confirming .cc-icon-pop`).
 
 **`detached: true` on a `TabDTO` row means that tab is already popped out into its own window** —
 opt-in, like `onPopOut` itself: absent/falsy on every row until an app's DTO sets it. It changes a row

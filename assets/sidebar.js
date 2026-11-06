@@ -628,11 +628,13 @@ class RowControls {
   /** One confirm action (⏻ or ☠). The click contract lives here once: swallow the row click,
    *  ignore a re-click mid-animation, fire against the row actually armed, then press + pulse
    *  (~180ms) and disarm. A disabled control stays on screen, muted and titled with why, but
-   *  swallows the click inertly. */
+   *  swallows the click inertly. ⏻ takes the presence dot's place when the row arms, so the
+   *  second click of a double-click on the dot (`detail` > 1) lands on it and is ignored. */
   _control(row, cls, glyph, fire) {
     const ctl = el("span", { class: cls }, glyph);
     ctl.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (e.detail > 1) return;
       if (ctl.classList.contains("cc-disabled") || row.classList.contains("killing")) return;
       const armed = this._armed;
       if (!armed) return this.disarm();
@@ -676,7 +678,7 @@ class RowControls {
         : t.suspendReason
           ? t.suspendReason
           : ghost
-            ? "Suspend — nothing running; already restorable"
+            ? (L.suspend || "Suspend") + " — nothing running; already restorable"
             : L.suspend || "Suspend session + close (restorable)",
     );
   }

@@ -1824,3 +1824,22 @@ test("RowControls: attention is a dot, or a count pill for a number", () => {
   assert.ok(pill.classList.contains("cc-count"));
   assert.equal(pill.textContent, "3");
 });
+
+test("RowControls: the second click of a double-click on the dot doesn't fire the glyph under it", () => {
+  const { rc, rows, fired } = controlsFixture([{ id: "a", presence: "on", killable: true, suspendable: true }]);
+  const [r1] = rows.get("a");
+  fire(r1.querySelector(".cc-presence"), "click", { detail: 1 });
+  fire(r1.querySelector(".cc-confirm-suspend"), "click", { detail: 2 });
+  assert.deepEqual(fired, []);
+  assert.equal(rc.armed, "a");
+  fire(r1.querySelector(".cc-confirm-suspend"), "click", { detail: 1 });
+  assert.deepEqual(fired, [["suspend", "a"]]);
+});
+
+test("RowControls: a ghost's disabled ⏻ keeps the host's suspend label", () => {
+  const t = { id: "a", presence: "ghost", killable: true, suspendable: true, labels: { suspend: "Sleep" } };
+  const { rc, rows } = controlsFixture([t]);
+  const [r1] = rows.get("a");
+  rc.arm("a", r1);
+  assert.equal(r1.querySelector(".cc-confirm-suspend").title, "Sleep — nothing running; already restorable");
+});

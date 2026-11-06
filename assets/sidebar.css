@@ -1310,13 +1310,13 @@
   position: relative;
   top: 0.09em;
 }
-.cc-root:not(.cc-away) .cc-confirm-destroy:not(.cc-disabled):hover,
-.cc-root:not(.cc-away) .cc-confirm-suspend:not(.cc-disabled):hover {
+:is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-confirm-destroy:not(.cc-disabled):hover,
+:is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-confirm-suspend:not(.cc-disabled):hover {
   background: rgba(255, 91, 82, 0.2);
   border-radius: 4px;
   color: #ff7b73;
 }
-.cc-root:not(.cc-away) .cc-confirm-cancel:hover {
+:is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-confirm-cancel:hover {
   background: rgba(255, 255, 255, 0.14);
   border-radius: 4px;
   color: rgba(255, 255, 255, 0.95);
