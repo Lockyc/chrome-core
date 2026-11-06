@@ -207,9 +207,9 @@ function armable(t) {
 }
 
 /** Can ⏻ suspend run on `t` right now? Not on a ghost: it is already restorable, with nothing
- *  running to suspend. */
+ *  running to suspend. Nor while the host says why it can't (`suspendReason`). */
 function canSuspend(t) {
-  return !!t.suspendable && t.presence !== "ghost";
+  return !!t.suspendable && t.presence !== "ghost" && !t.suspendReason;
 }
 
 /** Can either ending action run on `t` right now — i.e. may its confirm row arm? ☠ on a ghost
@@ -240,12 +240,13 @@ function endIntent(t, how, armedId) {
  *  offered for BOTH non-`on` states, and only when `startable` AND the tab is `live` — a cold tab
  *  has no shell to type into, and is started by activating the row instead. A ghost without start
  *  takes the kill affordance when `killable` (☠ discards it); a live ghost keeps the click for
- *  start, and reaches ☠ through `requestEnd`. */
+ *  start, and reaches ☠ through `requestEnd`. `busy` pulses an `on` dot (the session is working). */
 function presenceClass(state, caps, live) {
   const on = state === "on";
   const ghost = state === "ghost";
   const t = { ...caps, presence: state };
   let cls = "cc-presence " + (on ? "on" : ghost ? "ghost" : "off");
+  if (on && t.busy) cls += " busy";
   const start = !on && !!t.startable && live;
   if (start) cls += " start";
   else if ((on || ghost) && canEnd(t)) cls += " kill";
@@ -498,6 +499,189 @@ const NAV_BUTTONS = [
 const DOWNLOADS_ICON = svgIcon('<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>');
 const SIDEBAR_ICON = svgIcon('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>');
 
+/** A row's dot slots and its end-session confirm (☠ / ⏻ / ↩), for any list of records: `Sidebar`
+ *  uses one for its tab rows, and an app list outside the sidebar (warden's agent tabs) uses its
+ *  own, so the two draw the same marks with the same meanings. It owns which row is armed; the
+ *  host owns the rows (`rowsFor(id)` → every row element for a record, `tabOf(id)` → the record
+ *  as it is now) and what each action means (`onDestroy`, `onSuspend`, `onStart`; `onDisarm` runs
+ *  on every disarm). A list outside `.cc-root` puts `.cc-ctl-host` on its container for the hovers. */
+class RowControls {
+  constructor({ rowsFor, tabOf, onDestroy, onSuspend, onStart, onDisarm } = {}) {
+    this.rowsFor = rowsFor || (() => []);
+    this.tabOf = tabOf || (() => undefined);
+    this.cb = { onDestroy, onSuspend, onStart, onDisarm };
+    this._armed = null;
+    // A painted dot's capabilities, so a repaint needs only the new state (`repaintPresence`).
+    this._caps = new WeakMap();
+  }
+
+  /** The id whose confirm row is armed, or null. */
+  get armed() {
+    return this._armed;
+  }
+
+  /** The attention slot: an amber dot, or a count pill when `val` is a number. */
+  attention(val) {
+    const a = el("span", { class: "cc-attention" });
+    if (typeof val === "number") {
+      a.classList.add("cc-count");
+      a.textContent = String(val);
+    }
+    return a;
+  }
+
+  /** The presence slot for record `t`, painted from `t.presence`. The dot is a session toggle:
+   *  click a present session to arm the confirm row, or an absent-but-startable one to start it
+   *  (single click — non-destructive). Both are gated by the painted classes (`.kill` / `.start`),
+   *  so a click that matches neither is inert. */
+  presence(t, live) {
+    const s = el("span");
+    this.repaintPresence(s, t.presence, live, t);
+    if (armable(t) || t.startable) {
+      s.addEventListener("click", (e) => {
+        if (s.classList.contains("kill")) {
+          e.stopPropagation();
+          this.arm(t.id, s.closest(".cc-ctl-row") || s.parentNode);
+        } else if (s.classList.contains("start")) {
+          e.stopPropagation();
+          if (this.cb.onStart) this.cb.onStart(t.id);
+        }
+      });
+    }
+    return s;
+  }
+
+  /** Repaint dot `span` for a new `state` / liveness. `caps` (the record's capabilities, `busy`
+   *  and `labels`) defaults to those it was last painted with. */
+  repaintPresence(span, state, live, caps) {
+    if (caps) this._caps.set(span, caps);
+    const c = this._caps.get(span) || {};
+    span.className = presenceClass(state, c, live);
+    const L = c.labels || {};
+    const ghost = span.classList.contains("ghost");
+    const kill = span.classList.contains("kill");
+    const start = span.classList.contains("start");
+    span.title = kill
+      ? L.end || (ghost ? "Restorable session — discard…" : "End session…")
+      : start
+        ? L.start || (ghost ? "Restorable session — start to restore it" : "Start session")
+        : ghost
+          ? "Restorable session"
+          : "";
+  }
+
+  /** Give `row` (record `t`) its confirm controls — ☠ and ⏻, both always rendered with the one
+   *  that can't run disabled in place, and ↩ — hidden until the row is `.confirming`. A row built
+   *  while its record is armed (a repaint) comes back armed. */
+  confirm(row, t) {
+    if (!armable(t)) return;
+    row.classList.add("cc-ctl-row");
+    row.append(
+      this._control(row, "cc-confirm-destroy", "☠", (id) => this.cb.onDestroy && this.cb.onDestroy(id)),
+      this._control(row, "cc-confirm-suspend", "⏻", (id) => this.cb.onSuspend && this.cb.onSuspend(id)),
+    );
+    this._paintControls(row, t);
+    const cancel = el("span", { class: "cc-confirm-cancel", title: "cancel" }, "↩︎");
+    cancel.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.disarm();
+    });
+    row.append(cancel);
+    // Only when no row for it is still armed on screen: arming paints the one row clicked, so a
+    // repainted mirror beside a standing armed row stays plain.
+    const standing = this.rowsFor(t.id).some((r) => r.classList.contains("confirming"));
+    if (this._armed === t.id && !standing) row.classList.add("confirming");
+  }
+
+  /** Arm `row`, record `id`'s: it reddens and shows its confirm. Escape, or a click outside every
+   *  row for the id, disarms. */
+  arm(id, row) {
+    if (!row || this._armed === id) return;
+    this.disarm();
+    this._armed = id;
+    const t = this.tabOf(id);
+    if (t) this._paintControls(row, t);
+    row.classList.add("confirming");
+    this._onKey = (e) => {
+      if (e.key === "Escape") this.disarm();
+    };
+    this._onOutside = (e) => {
+      if (!this._armed) return;
+      // Inside an armed row → its ⏻/↩ handle it.
+      if (this.rowsFor(this._armed).some((r) => r.contains(e.target))) return;
+      this.disarm();
+    };
+    document.addEventListener("keydown", this._onKey);
+    document.addEventListener("click", this._onOutside, true);
+  }
+
+  disarm() {
+    const prev = this._armed;
+    this._armed = null;
+    if (this._onKey) document.removeEventListener("keydown", this._onKey);
+    if (this._onOutside) document.removeEventListener("click", this._onOutside, true);
+    this._onKey = this._onOutside = null;
+    if (prev) for (const r of this.rowsFor(prev)) r.classList.remove("confirming");
+    if (this.cb.onDisarm) this.cb.onDisarm();
+  }
+
+  /** One confirm action (⏻ or ☠). The click contract lives here once: swallow the row click,
+   *  ignore a re-click mid-animation, fire against the row actually armed, then press + pulse
+   *  (~180ms) and disarm. A disabled control stays on screen, muted and titled with why, but
+   *  swallows the click inertly. */
+  _control(row, cls, glyph, fire) {
+    const ctl = el("span", { class: cls }, glyph);
+    ctl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (ctl.classList.contains("cc-disabled") || row.classList.contains("killing")) return;
+      const armed = this._armed;
+      if (!armed) return this.disarm();
+      fire(armed);
+      row.classList.add("killing");
+      ctl.classList.add("cc-pressed");
+      const finish = () => {
+        row.removeEventListener("animationend", finish);
+        row.classList.remove("killing");
+        ctl.classList.remove("cc-pressed");
+        if (this._armed === armed) this.disarm();
+      };
+      row.addEventListener("animationend", finish);
+      setTimeout(finish, 250); // fallback if animationend doesn't fire
+    });
+    return ctl;
+  }
+
+  /** Enable and title ☠ and ⏻ for `t` as it is NOW: suspend depends on presence (a ghost has
+   *  nothing running to suspend) and on `suspendReason`, so `arm` repaints these first. */
+  _paintControls(row, t) {
+    const ghost = t.presence === "ghost";
+    const L = t.labels || {};
+    const paint = (ctl, ok, title) => {
+      if (!ctl) return;
+      ctl.classList.toggle("cc-disabled", !ok);
+      ctl.title = title;
+    };
+    paint(
+      row.querySelector(".cc-confirm-destroy"),
+      !!t.killable,
+      !t.killable
+        ? "Destroy — not configured for this tab"
+        : L.destroy || (ghost ? "Discard the restorable session" : "Destroy session + close"),
+    );
+    paint(
+      row.querySelector(".cc-confirm-suspend"),
+      canSuspend(t),
+      !t.suspendable
+        ? "Suspend — not configured for this tab"
+        : t.suspendReason
+          ? t.suspendReason
+          : ghost
+            ? "Suspend — nothing running; already restorable"
+            : L.suspend || "Suspend session + close (restorable)",
+    );
+  }
+}
+
 class Sidebar {
   constructor(container, callbacks, config) {
     this.root = container;
@@ -520,7 +704,18 @@ class Sidebar {
     this._leaveTimer = null;
     this._collapseTitle = null;
     this.active = null;
-    this.armedKill = null;
+    // The rows' dot slots and the end-session confirm; `controls.armed` is the armed tab.
+    this.controls = new RowControls({
+      rowsFor: (id) => this._rowsById(id),
+      tabOf: (id) => this.tabs.find((x) => x.id === id),
+      onDestroy: (id) => this.cb.onDestroy && this.cb.onDestroy(id),
+      onSuspend: (id) => this.cb.onSuspend && this.cb.onSuspend(id),
+      onStart: (id) => this.cb.onStart && this.cb.onStart(id),
+      onDisarm: () => {
+        clearTimeout(this._armTimer);
+        this._armTimer = null;
+      },
+    });
     this.armedRemove = null;
     this.windowColour = NEUTRAL_COLOUR;
     this.tabs = [];
@@ -789,7 +984,7 @@ class Sidebar {
 
   /** Full render from a window DTO. The one render path (init + hot-reload). */
   update(dto) {
-    this._disarmKill();
+    this.controls.disarm();
     const prevActive = this.active;
     this.windowColour = dto.colour || NEUTRAL_COLOUR;
     this.tabs = dto.tabs || [];
@@ -885,7 +1080,7 @@ class Sidebar {
   /** Rebuild both sections from `_shown()` — `update()`'s list half, and the search field's repaint.
    *  Selection is untouched: a filtered-out active tab stays active, it just has no row. */
   _paintList() {
-    this._disarmKill();
+    this.controls.disarm();
     const tint = this.tint;
     const drag = this.drag;
     const tabs = this._shown();
@@ -1058,9 +1253,9 @@ class Sidebar {
    *  list only then, never under a lone collapsed header. */
   _paintMirrorSections() {
     if (!this.openEl) return;
-    // Wiping an armed mirror row would leave armedKill set with no confirm UI, so the next dot
+    // Wiping an armed mirror row would leave the tab armed with no confirm UI, so the next dot
     // click does nothing and requestEnd destroys unconfirmed. An armed main-list row is untouched.
-    if (this.openEl.querySelector(".cc-tab.confirming")) this._disarmKill();
+    if (this.openEl.querySelector(".cc-tab.confirming")) this.controls.disarm();
     this.openEl.innerHTML = "";
     let anyRows = false;
     const searching = !!this.query.trim();
@@ -1428,10 +1623,10 @@ class Sidebar {
     row.appendChild(title);
 
     // Attention slot (amber; count pill when a number). Absent when null.
-    if (t.attention != null) row.appendChild(this._makeAttention(t.attention));
+    if (t.attention != null) row.appendChild(this.controls.attention(t.attention));
 
     // Presence slot (cyan; warden probe). Absent when null. Clickable when armable + on.
-    if (t.presence != null) row.appendChild(this._makePresence(t, t.presence));
+    if (t.presence != null) row.appendChild(this.controls.presence(t, !!t.live));
 
     // Remove slot — opt-in per app (rendered only when the consumer supplies `onRemove`): take the
     // tab out of the sidebar. Always on screen, muted until hovered; fires at once, unless the row
@@ -1467,76 +1662,17 @@ class Sidebar {
     row.appendChild(dot);
 
     // Kill-confirm controls (only for armable rows; hidden until `.confirming`).
-    if (armable(t)) this._appendConfirmControls(row, t);
+    this.controls.confirm(row, t);
     if (this.armedRemove === t.id) this._openRemoveConfirm(row, t);
     return row;
   }
 
-  _makeAttention(val) {
-    const a = el("span", { class: "cc-attention" });
-    if (typeof val === "number") {
-      a.classList.add("cc-count");
-      a.textContent = String(val);
-    }
-    return a;
-  }
-
-  _makePresence(t, state) {
-    const s = el("span");
-    this._paintPresence(s, state, t, !!t.live);
-    // The dot is a session toggle: click a present session to kill (2-step confirm), or click an
-    // absent-but-startable one to restart (single click — non-destructive). Both are gated by the
-    // painted classes (`.kill` / `.start`), so a click that matches neither is inert.
-    if (armable(t) || t.startable) {
-      s.addEventListener("click", (e) => {
-        if (s.classList.contains("kill")) {
-          e.stopPropagation();
-          this._armKill(t.id, s.closest(".cc-tab"));
-        } else if (s.classList.contains("start")) {
-          e.stopPropagation();
-          if (this.cb.onStart) this.cb.onStart(t.id);
-        }
-      });
-    }
-    return s;
-  }
-
-  /** Paint a dot from its state + the tab's capabilities, which ride on the span (`data-kill`,
-   *  `data-suspend`, `data-start`) so a later repaint needs only the new state (`_capsOf`). */
-  _paintPresence(span, state, caps, live) {
-    span.className = presenceClass(state, caps, live);
-    span.dataset.kill = caps.killable ? "1" : "";
-    span.dataset.suspend = caps.suspendable ? "1" : "";
-    span.dataset.start = caps.startable ? "1" : "";
-    const ghost = span.classList.contains("ghost");
-    span.title = span.classList.contains("kill")
-      ? ghost
-        ? "Restorable session — discard…"
-        : "End session…"
-      : ghost
-        ? span.classList.contains("start")
-          ? "Restorable session — start to restore it"
-          : "Restorable session"
-        : span.classList.contains("start")
-          ? "Start session"
-          : "";
-  }
-
-  _capsOf(span) {
-    return {
-      killable: span.dataset.kill === "1",
-      suspendable: span.dataset.suspend === "1",
-      startable: span.dataset.start === "1",
-    };
-  }
-
   /** Re-evaluate a row's presence dot after a live-state change — the `start` affordance is gated on
-   *  the tab being live, so unloading/loading must repaint it (kill/start classes read from dataset). */
+   *  the tab being live, so unloading/loading must repaint it. */
   _refreshPresenceLive(row, live) {
     const s = row.querySelector(".cc-presence");
     if (!s) return;
-    const state = derivePresenceState(Array.from(s.classList));
-    this._paintPresence(s, state, this._capsOf(s), live);
+    this.controls.repaintPresence(s, derivePresenceState(Array.from(s.classList)), live);
   }
 
   _makeDot(live) {
@@ -1548,94 +1684,6 @@ class Sidebar {
   _paintDot(dot, live) {
     dot.className = "cc-dot " + (live ? "live" : "cold");
     dot.title = live ? "Unload" : "";
-  }
-
-  /** One armed-row confirm action (⏻ or ☠). They differ only in glyph + which callback fires, so
-   *  the click contract lives here once: swallow the row click, ignore a re-click mid-animation,
-   *  fire against the row that is actually armed, then press + pulse (~180ms) and disarm. A
-   *  disabled control (`.cc-disabled`, painted by `_paintConfirmControls`) stays on screen, muted
-   *  and titled with why, but swallows the click inertly. */
-  _makeConfirmControl(row, { cls, glyph, fire }) {
-    const ctl = el("span", { class: cls }, glyph);
-    ctl.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (ctl.classList.contains("cc-disabled") || row.classList.contains("killing")) return;
-      const armed = this.armedKill;
-      if (!armed) {
-        this._disarmKill();
-        return;
-      }
-      fire(armed);
-      row.classList.add("killing");
-      ctl.classList.add("cc-pressed");
-      const finish = () => {
-        row.removeEventListener("animationend", finish);
-        row.classList.remove("killing");
-        ctl.classList.remove("cc-pressed");
-        if (this.armedKill === armed) this._disarmKill();
-      };
-      row.addEventListener("animationend", finish);
-      setTimeout(finish, 250); // fallback if animationend doesn't fire
-    });
-    return ctl;
-  }
-
-  _appendConfirmControls(row, t) {
-    // Two ways to end a session off the SAME armed row — one arming path, one state machine. Both
-    // are always rendered; the one the tab can't do is disabled in place, never dropped. What each
-    // means is the app's business (warden: run the tab's `kill`/`suspend` command, then unload).
-    row.append(
-      this._makeConfirmControl(row, {
-        cls: "cc-confirm-destroy",
-        glyph: "☠",
-        fire: (armed) => {
-          if (this.cb.onDestroy) this.cb.onDestroy(armed);
-        },
-      }),
-      this._makeConfirmControl(row, {
-        cls: "cc-confirm-suspend",
-        glyph: "⏻",
-        fire: (armed) => {
-          if (this.cb.onSuspend) this.cb.onSuspend(armed);
-        },
-      }),
-    );
-    this._paintConfirmControls(row, t);
-    const cancel = el("span", { class: "cc-confirm-cancel", title: "cancel" }, "↩︎");
-    cancel.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this._disarmKill();
-    });
-    row.append(cancel);
-  }
-
-  /** Enable/title the armed row's ☠ and ⏻ for `t` as it is NOW: suspend depends on presence (a
-   *  ghost has nothing running to suspend), so `_armKill` repaints these before showing them. */
-  _paintConfirmControls(row, t) {
-    const ghost = t.presence === "ghost";
-    const paint = (ctl, ok, title) => {
-      if (!ctl) return;
-      ctl.classList.toggle("cc-disabled", !ok);
-      ctl.title = title;
-    };
-    paint(
-      row.querySelector(".cc-confirm-destroy"),
-      !!t.killable,
-      !t.killable
-        ? "Destroy — not configured for this tab"
-        : ghost
-          ? "Discard the restorable session"
-          : "Destroy session + close",
-    );
-    paint(
-      row.querySelector(".cc-confirm-suspend"),
-      canSuspend(t),
-      !t.suspendable
-        ? "Suspend — not configured for this tab"
-        : ghost
-          ? "Suspend — nothing running; already restorable"
-          : "Suspend session + close (restorable)",
-    );
   }
 
   /** EVERY row for `id` — plural because a pinned mirror section mirrors a tab's row, so one
@@ -1735,7 +1783,7 @@ class Sidebar {
    *  `wasActive` lets curator snap an already-active tab home. Used by clicks, keyboard nav, and the
    *  notification focus path. */
   select(id) {
-    this._disarmKill();
+    this.controls.disarm();
     // A detached tab lives in its OWN window — selecting it means "raise that window" (the app's
     // onSelect), never "make it the shown tab in this window". So fire onSelect but do NOT move the
     // highlight: it stays on whatever this window is really showing.
@@ -1753,7 +1801,7 @@ class Sidebar {
   /** Move the highlight to `id` WITHOUT firing onSelect — for reflecting app-side state the app
    *  already actioned (e.g. the neighbour it activated after an unload). */
   setActive(id) {
-    this._disarmKill(); // a non-DOM path (⌘W) can land here with a background row still armed
+    this.controls.disarm(); // a non-DOM path (⌘W) can land here with a background row still armed
     this.active = id;
     this._paint();
   }
@@ -1810,10 +1858,10 @@ class Sidebar {
         continue;
       }
       if (!a) {
-        a = this._makeAttention(val);
+        a = this.controls.attention(val);
         insertSlot(row, a, ".cc-attention");
       } else {
-        const fresh = this._makeAttention(val);
+        const fresh = this.controls.attention(val);
         a.className = fresh.className;
         a.textContent = fresh.textContent;
       }
@@ -1841,18 +1889,17 @@ class Sidebar {
       const live = !!row.querySelector(".cc-dot.live");
       if (!s) {
         const t = this.tabs.find((x) => x.id === id) || {};
-        s = this._makePresence(t, state);
         // Painted from the row's live dot, not the record: the active tab paints live while its
         // record can say cold, and a cold paint would drop the dot's `start` affordance.
-        this._paintPresence(s, state, t, live);
+        s = this.controls.presence({ ...t, presence: state }, live);
         insertSlot(row, s, ".cc-presence");
       } else {
-        this._paintPresence(s, state, this._capsOf(s), live);
+        this.controls.repaintPresence(s, state, live);
       }
     }
     // The session the confirm row was armed against changed (ended, crashed, discarded) → the
     // armed actions no longer describe it, on either row.
-    if (state !== prev && this.armedKill === id) this._disarmKill();
+    if (state !== prev && this.controls.armed === id) this.controls.disarm();
   }
 
   // ── kill-confirm state machine ──
@@ -1863,19 +1910,19 @@ class Sidebar {
    *  `KEY_ARM_TIMEOUT_MS`, since a native host view (warden's terminal) keeps both from the page. */
   requestEnd(id, how) {
     const t = this.tabs.find((x) => x.id === id);
-    const intent = endIntent(t, how, this.armedKill);
+    const intent = endIntent(t, how, this.controls.armed);
     if (intent === "suspend") {
-      this._disarmKill();
+      this.controls.disarm();
       if (this.cb.onSuspend) this.cb.onSuspend(id);
     } else if (intent === "destroy") {
-      this._disarmKill();
+      this.controls.disarm();
       if (this.cb.onDestroy) this.cb.onDestroy(id);
     } else if (intent === "arm") {
-      this._armKill(id, this.revealRow(id));
-      if (this.armedKill === id) {
+      this.controls.arm(id, this.revealRow(id));
+      if (this.controls.armed === id) {
         clearTimeout(this._armTimer); // a re-arm restarts the lapse; the old timer would cut it short
         this._armTimer = setTimeout(() => {
-          if (this.armedKill === id) this._disarmKill();
+          if (this.controls.armed === id) this.controls.disarm();
         }, KEY_ARM_TIMEOUT_MS);
       }
     }
@@ -1908,39 +1955,6 @@ class Sidebar {
     return pick();
   }
 
-  _armKill(id, rowEl) {
-    if (!rowEl || this.armedKill === id) return;
-    this._disarmKill();
-    this.armedKill = id;
-    const t = this.tabs.find((x) => x.id === id);
-    if (t) this._paintConfirmControls(rowEl, t);
-    rowEl.classList.add("confirming");
-    this._onArmKey = (e) => {
-      if (e.key === "Escape") this._disarmKill();
-    };
-    this._onArmOutside = (e) => {
-      if (!this.armedKill) return;
-      // Inside the armed row → its ⏻/↩ handle it. Only ONE of an id's rows is ever armed (the one
-      // clicked), but checking them all is the same answer and needs no record of which.
-      if (this._rowsById(this.armedKill).some((row) => row.contains(e.target))) return;
-      this._disarmKill();
-    };
-    document.addEventListener("keydown", this._onArmKey);
-    document.addEventListener("click", this._onArmOutside, true);
-  }
-
-  _disarmKill() {
-    const prev = this.armedKill;
-    this.armedKill = null;
-    if (this._onArmKey) document.removeEventListener("keydown", this._onArmKey);
-    if (this._onArmOutside) document.removeEventListener("click", this._onArmOutside, true);
-    this._onArmKey = this._onArmOutside = null;
-    clearTimeout(this._armTimer);
-    this._armTimer = null;
-    if (prev) {
-      for (const row of this._rowsById(prev)) row.classList.remove("confirming");
-    }
-  }
 
   // ── remove-confirm ──
 
@@ -2376,8 +2390,9 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, Sidebar, collapseKey, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, canSuspend, canEnd, endIntent, derivePresenceState, buildTree, patchTab, openTabs, backgroundTabs, mirrorContext, filterTabs, treeRows, rescanSummary };
+  module.exports = { ChromeSidebar, Sidebar, collapseKey, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, canSuspend, canEnd, endIntent, derivePresenceState, buildTree, patchTab, openTabs, backgroundTabs, mirrorContext, filterTabs, treeRows, rescanSummary, RowControls };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;
+  window.ChromeRowControls = RowControls;
 }

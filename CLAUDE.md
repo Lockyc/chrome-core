@@ -123,7 +123,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
   windowDrag?: bool, openSection?: bool, backgroundSection?: bool, rail?: 'handle'|'edge'|'map', toggleCount?: bool, active?: id, trees?: string[], collapsed?: string[], incoming?: IncomingDTO[], dropSections?: { group, label }[], tabs: TabDTO[] }` where `IncomingDTO = { id, title, icon?, problem?, actions: { id, label, disabled? }[] }` (`disabled` is the reason: the button is disabled and its `title` is that text), and `TabDTO = { id, title, group: string|null,
   live: bool, attention: null|true|number, presence: null|'on'|'ghost'|'off', killable: bool, suspendable: bool, startable: bool,
-  warn: bool, tree?: bool, treePath?: string[], detached?: bool, accent?: string, icon?: string, head?: bool, groupName?: string, confirmRemove?: string, movable?: bool }`.
+  busy?: bool, suspendReason?: string, labels?: { end?, destroy?, suspend?, start? }, warn: bool, tree?: bool, treePath?: string[], detached?: bool, accent?: string, icon?: string, head?: bool, groupName?: string, confirmRemove?: string, movable?: bool }`.
   **`movable`** (with `onMoveTab`): the row can be dragged to another section; a head row never is. **`dropSections`**: sections that take a drop while they have no rows, shown as `.cc-drop-zone`s labelled `label` atop the main list only during a drag.
   **`icon`** is opt-in (an image URL the page can load): the tile shows it (`.cc-icon-image`) in place of the initial and colour.
   **`head`**: in a flat run of same-`group` rows, that row renders in place of the text header — a full tab row (`.cc-head`) led by a disclosure arrow (an arrow-wide blank when it has no members); the rest are its `.cc-member`s.
@@ -231,9 +231,16 @@ neither. The presence dot is a **session toggle**:
 
 The armed row always renders **both** ending actions, `☠` then `⏻` — an action the tab lacks
 (`killable`/`suspendable` false) stays in place, **disabled** (`.cc-disabled`, muted, titled with why),
-never dropped. Both read the same `armedKill`, share `_makeConfirmControl`, and disarm identically —
-one arming path, one state machine. What each means is the app's business (warden: run the tab's
-`kill` or `suspend` command, then unload the terminal); the component only reports the click.
+never dropped; `suspendReason` disables ⏻ with that text as its title. What each means is the
+app's business (warden: run the tab's `kill` or `suspend` command, then unload the terminal); the
+component only reports the click. `busy` pulses an `on` dot, and `labels` (`{ end, destroy, suspend,
+start }`) replace the dot's and the glyphs' default titles.
+
+**`RowControls` is the one owner of the attention and presence slots and the confirm row** — their
+painting, the armed id, Escape/outside-click disarm. `Sidebar` holds one (`sb.controls`), and an app
+list outside the sidebar uses its own (warden's agent tabs; `window.ChromeRowControls`), handing it
+`rowsFor(id)`, `tabOf(id)` and the callbacks, with `.cc-ctl-host` on its container for the hover
+cues. A row it builds while its record is armed comes back armed unless another row for it already is.
 
 **The active-row highlight is derived from a lightness-LIFTED window colour, never the raw one**
 (`liftColour`), and `update()` publishes it as `--cc-active-bg` (fill) + `--cc-active-bar` (the 3px

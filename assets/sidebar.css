@@ -1035,7 +1035,7 @@
 .cc-presence.ghost.start {
   cursor: pointer;
 }
-.cc-root:not(.cc-away) .cc-presence.ghost.start:hover::before {
+:is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-presence.ghost.start:hover::before {
   background: #56b4e9; /* brighten — foreshadows the restore picker coming up */
 }
 .cc-presence.on.kill,
@@ -1044,16 +1044,23 @@
 }
 /* The ghost's mask clips everything outside the silhouette — a box-shadow or drop-shadow halo
  * included — so its hovers recolour the fill itself. */
-.cc-root:not(.cc-away) .cc-presence.ghost.kill:hover::before {
+:is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-presence.ghost.kill:hover::before {
   background: #ff5b52; /* the kill red — foreshadows ☠ discard */
 }
-.cc-root:not(.cc-away) .cc-presence.on.kill:hover::before {
+:is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-presence.on.kill:hover::before {
   box-shadow: 0 0 0 3px rgba(255, 91, 82, 0.22);
+}
+/* `busy`: the session is working — the dot breathes. */
+.cc-presence.busy::before {
+  animation: cc-busy 1s infinite alternate;
+}
+@keyframes cc-busy {
+  to { opacity: 0.35; }
 }
 .cc-presence.off.start {
   cursor: pointer;
 }
-.cc-root:not(.cc-away) .cc-presence.off.start:hover::before {
+:is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-presence.off.start:hover::before {
   background: #56b4e9; /* fill the hollow ring — foreshadows the session coming up */
   box-shadow: 0 0 0 3px rgba(86, 180, 233, 0.22);
 }
@@ -1230,18 +1237,18 @@
  * whole row, hides the three dots, and shows ☠ (destroy) / ⏻ (suspend) / ↩ (cancel). `!important` beats
  * `.cc-tab.active`'s fill, so an armed active row still reads red — and the active accent bar is
  * dropped below for the same reason the dots are: the armed row must read as one unbroken red. */
-.cc-tab.confirming,
-.cc-root:not(.cc-away) .cc-tab.confirming:hover {
+.cc-ctl-row.confirming,
+:is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-ctl-row.confirming:hover {
   background: #5a1f1f !important;
   color: #fff;
 }
 .cc-tab.confirming::before,
-.cc-tab.confirming .cc-attention,
-.cc-tab.confirming .cc-presence,
-.cc-tab.confirming .cc-dot,
-.cc-tab.confirming .cc-remove,
-.cc-tab.confirming .cc-unload-group,
-.cc-tab.confirming .cc-icon-pop {
+.cc-ctl-row.confirming .cc-attention,
+.cc-ctl-row.confirming .cc-presence,
+.cc-ctl-row.confirming .cc-dot,
+.cc-ctl-row.confirming .cc-remove,
+.cc-ctl-row.confirming .cc-unload-group,
+.cc-ctl-row.confirming .cc-icon-pop {
   display: none;
 }
 .cc-confirm-destroy,
@@ -1258,9 +1265,9 @@
   font-size: var(--cc-glyph-confirm);
   font-weight: 700;
 }
-.cc-tab.confirming .cc-confirm-destroy,
-.cc-tab.confirming .cc-confirm-suspend,
-.cc-tab.confirming .cc-confirm-cancel {
+.cc-ctl-row.confirming .cc-confirm-destroy,
+.cc-ctl-row.confirming .cc-confirm-suspend,
+.cc-ctl-row.confirming .cc-confirm-cancel {
   display: inline-flex;
 }
 /* Destructive reads destructive: ☠/⏻ bright red, ↩ muted grey. */
@@ -1284,7 +1291,7 @@
  * three — only the ink is off, so the correction belongs on the glyph, not the layout. ⏻ is the
  * reference: scale ☠ to its ink height (1.41× measures 11.12px — an exact match) and nudge both
  * strays onto its centre. Ratio + em so it holds at both density tokens rather than being pinned
- * to one. Nudge with `top`, NOT `transform` — `.cc-tab.killing .cc-pressed` animates transform
+ * to one. Nudge with `top`, NOT `transform` — `.cc-ctl-row.killing .cc-pressed` animates transform
  * and would drop the offset for the length of each press.
  *
  * MEASURE UNDER `system-ui`, NOT A BARE PAGE. These constants are properties of the resolved
@@ -1317,10 +1324,10 @@
 /* Confirm feedback: ⏻ presses and the row pulses once (~180ms), added as `.killing` on confirm.
  * The pulse is a layered box-shadow (not background — `.confirming`'s !important background would
  * beat an animated one); box-shadow renders above the background but below content. */
-.cc-tab.killing {
+.cc-ctl-row.killing {
   animation: cc-confirm-pulse 180ms ease-out;
 }
-.cc-tab.killing .cc-pressed {
+.cc-ctl-row.killing .cc-pressed {
   animation: cc-confirm-press 180ms ease-out;
 }
 @keyframes cc-confirm-pulse {

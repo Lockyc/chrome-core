@@ -26,6 +26,7 @@ const {
   filterTabs,
   treeRows,
   rescanSummary,
+  RowControls,
 } = require("../assets/sidebar.js");
 
 test("tileInitial: first alphanumeric, uppercased; bullet fallback", () => {
@@ -407,7 +408,7 @@ function stubSidebar(active) {
     titlebarEl: null,
     painted: [],
     _rescans: new Map(),
-    _disarmKill() {},
+    controls: { disarm() {} },
     _setDrag() {},
     _paintList() {
       this.painted.push(this.active);
@@ -939,21 +940,21 @@ test("an armed Open mirror survives probe sweeps that move no tab between sectio
   ];
   const arm = (sb) => {
     fire(sb.openEl.querySelector('.cc-tab[data-id="x"]').querySelector(".cc-presence"), "click");
-    assert.equal(sb.armedKill, "x");
+    assert.equal(sb.controls.armed, "x");
   };
   const sb = mountSections({ openSection: true, tabs: tabs() }, storage);
   arm(sb);
   sb.setPresence("x", "on");
   sb.setPresence("y", "off");
-  assert.equal(sb.armedKill, "x", "a sweep that changes no section keeps the confirm row");
+  assert.equal(sb.controls.armed, "x", "a sweep that changes no section keeps the confirm row");
   sb.setPresence("y", "ghost");
-  assert.equal(sb.armedKill, null, "a section repaint wipes the armed mirror, so it disarms");
+  assert.equal(sb.controls.armed, null, "a section repaint wipes the armed mirror, so it disarms");
 
   // With Background off, a tab turning ghost changes nothing visible — no repaint, still armed.
   const off = mountSections({ openSection: true, backgroundSection: false, tabs: tabs() }, storage);
   arm(off);
   off.setPresence("y", "ghost");
-  assert.equal(off.armedKill, "x");
+  assert.equal(off.controls.armed, "x");
 });
 
 test("search narrows mirrors; a collapsed section stays collapsed under it", () => {
@@ -1065,7 +1066,7 @@ test("a cold killable ghost: its dot arms the confirm row — ☠ discards, ⏻ 
   const dot = r.querySelector(".cc-presence");
   assert.ok(dot.classList.contains("kill"), "a ghost that went cold keeps a kill affordance");
   fire(dot, "click");
-  assert.equal(sb.armedKill, "g");
+  assert.equal(sb.controls.armed, "g");
   const suspend = r.querySelector(".cc-confirm-suspend");
   const destroy = r.querySelector(".cc-confirm-destroy");
   assert.ok(suspend.classList.contains("cc-disabled"));
@@ -1085,9 +1086,9 @@ test("an armed row disarms when its session changes state, not on a repeat repor
   sb.update({ title: "w", colour: null, density: "comfortable", tabs: [tab] });
   fire(rowOf(sb, "g").querySelector(".cc-presence"), "click");
   sb.setPresence("g", "ghost");
-  assert.equal(sb.armedKill, "g", "a probe re-reporting the same state leaves it armed");
+  assert.equal(sb.controls.armed, "g", "a probe re-reporting the same state leaves it armed");
   sb.setPresence("g", "off");
-  assert.equal(sb.armedKill, null);
+  assert.equal(sb.controls.armed, null);
 });
 
 // ── the standard header: title-row nav, the URL toolbar, the downloads button ──
@@ -1694,4 +1695,132 @@ test("a_drag_released_outside_the_page_is_cancelled", () => {
   fire(window, "mouseup", {});
   assert.deepEqual(moved, []);
   assert.ok(!sb.list.classList.contains("cc-dragging"));
+});
+
+// ── RowControls: the dot slots and confirm row outside `Sidebar` ──
+
+test("presenceClass: busy pulses only an on dot", () => {
+  assert.equal(presenceClass("on", { busy: true }, true), "cc-presence on busy");
+  assert.equal(presenceClass("on", { busy: true, killable: true }, true), "cc-presence on busy kill");
+  assert.equal(presenceClass("ghost", { busy: true, killable: true }, false), "cc-presence ghost kill");
+});
+
+test("canSuspend/endIntent: suspendReason disables ⏻ but the row still arms", () => {
+  const t = { id: "a", killable: true, suspendable: true, presence: "on", suspendReason: "x" };
+  assert.equal(canSuspend({ suspendable: true, presence: "on", suspendReason: "x" }), false);
+  assert.equal(endIntent(t, "suspend", null), "arm");
+  assert.equal(canEnd(t), true);
+});
+
+/** A RowControls over two rows for each record (a list and its mirror), with `document`'s
+ *  listeners on a node a test can fire at. */
+function controlsFixture(records, extra = {}) {
+  installDom();
+  const doc = new FakeNode("document");
+  document.addEventListener = (type, fn) => doc.addEventListener(type, fn);
+  document.removeEventListener = (type, fn) => doc.removeEventListener(type, fn);
+  const fired = [];
+  const rows = new Map();
+  const rc = new RowControls({
+    rowsFor: (id) => rows.get(id) || [],
+    tabOf: (id) => records.find((r) => r.id === id),
+    onDestroy: (id) => fired.push(["destroy", id]),
+    onSuspend: (id) => fired.push(["suspend", id]),
+    onStart: (id) => fired.push(["start", id]),
+    ...extra,
+  });
+  const build = (t) => {
+    const row = new FakeNode("div");
+    row.append(rc.presence(t, true));
+    rc.confirm(row, t);
+    return row;
+  };
+  for (const t of records) rows.set(t.id, [build(t), build(t)]);
+  return { rc, rows, fired, doc, build };
+}
+
+test("RowControls: clicking an on+killable dot arms every row for the id; Escape disarms", () => {
+  const { rc, rows, doc } = controlsFixture([{ id: "a", presence: "on", killable: true }]);
+  const [r1, r2] = rows.get("a");
+  fire(r1.querySelector(".cc-presence"), "click");
+  assert.equal(rc.armed, "a");
+  assert.ok(r1.classList.contains("confirming") && r1.classList.contains("cc-ctl-row"));
+  // Arming paints the one row clicked; the mirror is armed by id, and `confirm` honours it on repaint.
+  fire(doc, "keydown", { key: "Escape" });
+  assert.equal(rc.armed, null);
+  assert.ok(!r1.classList.contains("confirming") && !r2.classList.contains("confirming"));
+});
+
+test("RowControls: ☠ fires onDestroy with the armed id, then disarms", () => {
+  let disarms = 0;
+  const { rc, rows, fired } = controlsFixture([{ id: "a", presence: "on", killable: true }], {
+    onDisarm: () => disarms++,
+  });
+  const [r1] = rows.get("a");
+  rc.arm("a", r1);
+  fire(r1.querySelector(".cc-confirm-destroy"), "click");
+  assert.deepEqual(fired, [["destroy", "a"]]);
+  fire(r1, "animationend");
+  assert.equal(rc.armed, null);
+  assert.ok(disarms >= 1);
+});
+
+test("RowControls: ⏻ with suspendReason is .cc-disabled, titled with the reason, and fires nothing", () => {
+  const t = { id: "a", presence: "on", killable: true, suspendable: true, suspendReason: "no resume command" };
+  const { rc, rows, fired } = controlsFixture([t]);
+  const [r1] = rows.get("a");
+  rc.arm("a", r1);
+  const sus = r1.querySelector(".cc-confirm-suspend");
+  assert.ok(sus.classList.contains("cc-disabled"));
+  assert.equal(sus.title, "no resume command");
+  fire(sus, "click");
+  assert.deepEqual(fired, []);
+  assert.equal(rc.armed, "a");
+});
+
+test("RowControls: a ghost+startable dot on a live row fires onStart, not arm", () => {
+  const { rc, rows, fired } = controlsFixture([{ id: "a", presence: "ghost", killable: true, startable: true }]);
+  fire(rows.get("a")[0].querySelector(".cc-presence"), "click");
+  assert.deepEqual(fired, [["start", "a"]]);
+  assert.equal(rc.armed, null);
+});
+
+test("RowControls: confirm re-applies confirming to a fresh row while armed", () => {
+  const t = { id: "a", presence: "on", killable: true };
+  const { rc, rows, build } = controlsFixture([t]);
+  rc.arm("a", rows.get("a")[0]);
+  rows.set("a", []); // the repaint cleared the list
+  const fresh = build(t);
+  assert.ok(fresh.classList.contains("confirming"));
+  assert.ok(fresh.classList.contains("cc-ctl-row"));
+  rc.disarm();
+  assert.ok(!build(t).classList.contains("confirming"));
+});
+
+test("RowControls: a fresh mirror beside a standing armed row stays plain", () => {
+  const t = { id: "a", presence: "on", killable: true };
+  const { rc, rows, build } = controlsFixture([t]);
+  rc.arm("a", rows.get("a")[0]);
+  assert.ok(!build(t).classList.contains("confirming"));
+  assert.equal(rc.armed, "a");
+});
+
+test("RowControls: labels override the titles", () => {
+  const t = {
+    id: "a", presence: "on", killable: true, suspendable: true,
+    labels: { end: "Close or sleep…", destroy: "Close", suspend: "Sleep" },
+  };
+  const { rows } = controlsFixture([t]);
+  const [r1] = rows.get("a");
+  assert.equal(r1.querySelector(".cc-presence").title, "Close or sleep…");
+  assert.equal(r1.querySelector(".cc-confirm-destroy").title, "Close");
+  assert.equal(r1.querySelector(".cc-confirm-suspend").title, "Sleep");
+});
+
+test("RowControls: attention is a dot, or a count pill for a number", () => {
+  const { rc } = controlsFixture([]);
+  assert.equal(rc.attention(true).className, "cc-attention");
+  const pill = rc.attention(3);
+  assert.ok(pill.classList.contains("cc-count"));
+  assert.equal(pill.textContent, "3");
 });
