@@ -469,8 +469,8 @@ const PEEK_DELAY_MS = 150;
 // A peek survives the pointer leaving the sidebar for this long, so a wobble past its edge onto
 // the chrome page doesn't close it. (Onto the content is `pointerAway`, which closes at once.)
 const PEEK_LEAVE_MS = 200;
-// The collapsed rail's looks (DTO `rail`), the first the default: a grip on an accent edge;
-// the bare edge; a column of marks, one per tab.
+// The collapsed rail's looks (DTO `rail`), the first the default: the titlebar strip's colour
+// carried down the edge, with a chevron; the bare edge; a column of marks, one per tab.
 const RAIL_STYLES = ["handle", "edge", "map"];
 // A pressed row lifts into a drag once the pointer has moved this far, so a click stays a click.
 const DRAG_START_PX = 5;
@@ -804,6 +804,7 @@ class Sidebar {
     if (this.holeEl && dto.title !== this._collapseTitle) this._restoreCollapse(dto.title);
     this.banner.style.background = this.windowColour;
     if (this.titlebarEl) this.titlebarEl.style.background = this.windowColour;
+    this.root.style.setProperty("--cc-window", this.windowColour); // a `handle` rail continues the strip
     const tint = tintOverBase(this.windowColour, 0.12);
     this.root.style.background = tint;
     // Active-row highlight — the ONE place it is computed. `_paint` only toggles the `.active`

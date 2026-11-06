@@ -1387,26 +1387,27 @@
   background: inherit;
 }
 .cc-root.cc-collapsed:not(.cc-away) #cc-rail:hover { box-shadow: inset 0 0 0 99px rgba(255, 255, 255, 0.14); }
-/* DTO `rail`, on <html> as data-rail. `handle` (the default) and `map` edge the rail in the window's
- * accent; `handle` adds a grip, `map` a mark per tab (sidebar.js `_paintRail`). `edge` is the bare
- * strip, at the base --cc-rail-w. */
-[data-rail="handle"] { --cc-rail-w: 10px; }
+/* DTO `rail`, on <html> as data-rail. `handle` (the default) is the titlebar strip carried down the
+ * left edge in the window colour, an expand chevron at its head. `map` is the sidebar's tint edged
+ * in the accent, a mark per tab (sidebar.js `_paintRail`). `edge` is the bare strip, at the base
+ * --cc-rail-w. */
+[data-rail="handle"] { --cc-rail-w: 14px; }
 [data-rail="map"] { --cc-rail-w: 14px; }
-[data-rail="handle"] .cc-root.cc-collapsed:not(.cc-peek) #cc-rail,
-[data-rail="map"] .cc-root.cc-collapsed:not(.cc-peek) #cc-rail {
-  box-sizing: border-box;
-  border-right: 1px solid var(--cc-active-bar);
-}
+[data-rail="handle"] .cc-root.cc-collapsed:not(.cc-peek) #cc-rail { background: var(--cc-window); }
 [data-rail="handle"] #cc-rail::after {
   content: "";
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 4px;
-  height: 40px;
-  border-radius: 2px;
-  transform: translate(calc(-50% - 0.5px), -50%);
-  background: rgba(255, 255, 255, 0.55);
+  top: 10px;
+  left: 3px;
+  width: 5px;
+  height: 5px;
+  border-top: 2px solid rgba(255, 255, 255, 0.85);
+  border-right: 2px solid rgba(255, 255, 255, 0.85);
+  transform: rotate(45deg);
+}
+[data-rail="map"] .cc-root.cc-collapsed:not(.cc-peek) #cc-rail {
+  box-sizing: border-box;
+  border-right: 1px solid var(--cc-active-bar);
 }
 [data-rail="map"] .cc-root.cc-collapsed:not(.cc-peek) #cc-rail {
   display: flex;

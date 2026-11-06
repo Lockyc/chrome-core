@@ -104,8 +104,8 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   collapsed, a `.cc-notice` dot on the toggle stands in for the hidden error bar, update bar and
   Incoming. The state persists per window under `collapseKey(storageKey, title)` and follows a
   rename. The stored width is never touched. The DTO's **`rail`** picks the rail's look
-  (`RAIL_STYLES`, the first the default; anything else falls back to it): `handle`, a grip on an
-  accent edge; `edge`, the bare strip; `map`, a mark per tab (`_paintRail`: active, live,
+  (`RAIL_STYLES`, the first the default; anything else falls back to it): `handle`, the strip's
+  window colour carried down the edge with an expand chevron; `edge`, the bare strip; `map`, a mark per tab (`_paintRail`: active, live,
   attention). **`toggleCount`** (default off) puts the tab count on a collapsed sidebar's toggle.
   **`autoUpdate`** (bool, default false) is the app's config gate for self-update: when true *and* the
   Tauri runtime is present, the component runs a launch check + the recurring re-check; the menu path
