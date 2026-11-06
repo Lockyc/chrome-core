@@ -34,7 +34,8 @@
        ?q=<text>          type <text> into the search field, rendering the filtered list.
        ?hole=1            lay the sidebar out beside a content hole (a grid stands in for the page)
                           and mount with `hole`: the titlebar's toggle collapses it; hover the left
-                          edge to peek. Add &collapsed=1 to start collapsed, &peek=1 to start peeking.
+                          edge to peek. Add &collapsed=1 to start collapsed, &peek=1 to start peeking,
+                          &rail=edge|map for the other rail looks, &count=1 for the toggle's tab count.
                           The shot needs a wider window: `--window-size=1100,700`.
 
      Raw headless invocation (what `just shot` wraps):
@@ -123,6 +124,8 @@
         openSection,
         backgroundSection,
         incoming,
+        rail: params.get("rail") || undefined,
+        toggleCount: params.get("count") === "1",
         // Headed groups whose members are hidden — app-owned; onToggleGroup below answers with a
         // fresh update, as a real app does.
         collapsed: ["/f/ops"],

@@ -1519,6 +1519,63 @@ test("peek takes the sidebar's laid-out width", () => {
   assert.equal(document.documentElement.style._props["--cc-peek-w"], "360px");
 });
 
+// ── the collapsed rail's look (DTO `rail`, `toggleCount`) ──
+
+const railStyle = () => document.documentElement.getAttribute("data-rail");
+
+test("the rail is a handle unless the DTO picks another style", () => {
+  const m = mountCollapsible();
+  assert.equal(railStyle(), "handle");
+  for (const style of ["edge", "map"]) {
+    m.sb.update({ title: "Rotary", tabs: [], rail: style });
+    assert.equal(railStyle(), style);
+  }
+  m.sb.update({ title: "Rotary", tabs: [], rail: "bogus" });
+  assert.equal(railStyle(), "handle");
+});
+
+test("a map rail holds a mark per tab: active, live and wanting attention", () => {
+  const tabs = [
+    { id: "a", title: "a", live: true },
+    { id: "b", title: "b", live: false },
+    { id: "c", title: "c", live: false, attention: true },
+  ];
+  const m = mountCollapsible({ tabs, active: "a" });
+  assert.equal(rail(m.root).querySelectorAll(".cc-rail-mark").length, 0, "only a map rail draws marks");
+  m.sb.update({ title: "Rotary", tabs, active: "a", rail: "map" });
+  const marks = () => rail(m.root).querySelectorAll(".cc-rail-mark");
+  const has = (cls) => marks().filter((n) => n.classList.contains(cls)).map((n) => n.dataset.id);
+  assert.deepEqual(marks().map((n) => n.dataset.id), ["a", "b", "c"]);
+  assert.deepEqual(has("active"), ["a"]);
+  assert.deepEqual(has("live"), ["a"]);
+  assert.deepEqual(has("attention"), ["c"]);
+  m.sb.setActive("b");
+  assert.deepEqual(has("active"), ["b"]);
+  assert.deepEqual(has("live"), ["a", "b"], "the active tab is live");
+  m.sb.setAttention("c", null);
+  m.sb.setAttention("a", 3);
+  assert.deepEqual(has("attention"), ["a"]);
+  m.sb.setLive("c", true);
+  assert.deepEqual(has("live"), ["a", "b", "c"]);
+});
+
+test("toggleCount puts the tab count on a collapsed sidebar's toggle", () => {
+  const tabs = [{ id: "a", title: "a" }, { id: "b", title: "b" }];
+  const m = mountCollapsible({ tabs });
+  const toggle = () => m.root.querySelector(".cc-sidebar-toggle");
+  const count = () => {
+    const c = toggle().querySelector(".cc-toggle-count");
+    return c ? c.textContent : null;
+  };
+  m.sb.setSidebarCollapsed(true);
+  assert.equal(count(), null, "off unless asked for");
+  m.sb.update({ title: "Rotary", tabs, toggleCount: true });
+  assert.equal(count(), "2");
+  assert.match(toggle().title, /2 tabs/);
+  m.sb.setSidebarCollapsed(false);
+  assert.equal(count(), null, "expanded, the list itself shows");
+});
+
 // ── drag to move (opt-in: `onMoveTab`, rows marked `movable`) ──
 
 // flotilla's shape again, with an app-keyed headless run ("unsorted") and its members movable.

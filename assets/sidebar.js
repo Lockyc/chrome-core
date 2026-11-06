@@ -469,6 +469,9 @@ const PEEK_DELAY_MS = 150;
 // A peek survives the pointer leaving the sidebar for this long, so a wobble past its edge onto
 // the chrome page doesn't close it. (Onto the content is `pointerAway`, which closes at once.)
 const PEEK_LEAVE_MS = 200;
+// The collapsed rail's looks (DTO `rail`), the first the default: a grip on an accent edge;
+// the bare edge; a column of marks, one per tab.
+const RAIL_STYLES = ["handle", "edge", "map"];
 // A pressed row lifts into a drag once the pointer has moved this far, so a click stays a click.
 const DRAG_START_PX = 5;
 // While dragging, the list scrolls this far per move with the pointer this close to its top or bottom.
@@ -791,6 +794,10 @@ class Sidebar {
     this.windowColour = dto.colour || NEUTRAL_COLOUR;
     this.tabs = dto.tabs || [];
     document.documentElement.setAttribute("data-density", dto.density || "comfortable");
+    // On the root element, like density: the hole beside the sidebar reads the rail's width too.
+    this.railStyle = RAIL_STYLES.includes(dto.rail) ? dto.rail : RAIL_STYLES[0];
+    if (this.holeEl) document.documentElement.setAttribute("data-rail", this.railStyle);
+    this.toggleCount = dto.toggleCount === true;
     if (this.emptyEl) this.emptyEl.classList.toggle("cc-shown", !dto.active);
 
     this.nameEl.textContent = dto.title || "";
@@ -1659,6 +1666,7 @@ class Sidebar {
       btn.toggleAttribute("disabled", !loaded);
       btn.title = loaded ? "Unload group" : "Unload group — nothing loaded";
     }
+    this._paintRail();
   }
 
   // ── search ──
@@ -1807,6 +1815,7 @@ class Sidebar {
         a.textContent = fresh.textContent;
       }
     }
+    this._paintRail();
   }
 
   setPresence(id, state) {
@@ -2183,7 +2192,19 @@ class Sidebar {
     if ((this.incoming || []).length) waiting.push("incoming links");
     const flag = this.sidebarCollapsed && waiting.length > 0;
     this.sidebarToggle.classList.toggle("cc-notice", flag);
-    const label = `${this.sidebarCollapsed ? "Show" : "Hide"} Sidebar (⌃⌘S)${flag ? ` — ${waiting.join(", ")}` : ""}`;
+    // With `toggleCount`, a collapsed toggle also says how many tabs the sidebar holds.
+    const counted = this.sidebarCollapsed && this.toggleCount;
+    const n = this.tabs.length;
+    let countEl = this.sidebarToggle.querySelector(".cc-toggle-count");
+    if (counted && !countEl) {
+      countEl = el("span", { class: "cc-toggle-count" });
+      this.sidebarToggle.appendChild(countEl);
+    } else if (!counted && countEl) {
+      countEl.remove();
+    }
+    if (counted) countEl.textContent = String(n);
+    const count = counted ? ` — ${n} ${n === 1 ? "tab" : "tabs"}` : "";
+    const label = `${this.sidebarCollapsed ? "Show" : "Hide"} Sidebar (⌃⌘S)${count}${flag ? ` — ${waiting.join(", ")}` : ""}`;
     this.sidebarToggle.title = label;
     this.sidebarToggle.setAttribute("aria-label", label);
   }
@@ -2198,6 +2219,22 @@ class Sidebar {
 
   _layoutChanged() {
     if (this.cb.onLayout) this.cb.onLayout();
+  }
+
+  /** A `map` rail's marks: one per tab in list order, lit for the active tab, filled while live
+   *  (the active tab always is), amber while it wants attention. Any other style holds none. */
+  _paintRail() {
+    if (!this.railEl) return;
+    this.railEl.textContent = "";
+    if (this.railStyle !== "map") return;
+    for (const t of this.tabs) {
+      const mark = el("span", { class: "cc-rail-mark", "data-id": t.id });
+      const active = t.id === this.active;
+      mark.classList.toggle("active", active);
+      mark.classList.toggle("live", active || !!t.live);
+      mark.classList.toggle("attention", t.attention != null && t.attention !== false);
+      this.railEl.appendChild(mark);
+    }
   }
 
   _initCollapse() {

@@ -137,7 +137,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
+  gap: 4px;
+  min-width: 24px;
   height: 22px;
   padding: 0;
   border: 0;
@@ -146,7 +147,14 @@
   color: inherit;
   position: relative;
 }
-.cc-sidebar-toggle svg { width: 16px; height: 16px; }
+.cc-sidebar-toggle svg { flex: none; width: 16px; height: 16px; }
+/* DTO `toggleCount`: a collapsed sidebar's tab count beside the icon. */
+.cc-sidebar-toggle:has(.cc-toggle-count) { padding: 0 6px 0 4px; }
+.cc-toggle-count {
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 .cc-root:not(.cc-away) .cc-sidebar-toggle:hover { background: rgba(255, 255, 255, 0.16); }
 /* Collapsed with an error, an update or incoming links waiting in the hidden sidebar. */
 .cc-sidebar-toggle.cc-notice::after {
@@ -1379,6 +1387,45 @@
   background: inherit;
 }
 .cc-root.cc-collapsed:not(.cc-away) #cc-rail:hover { box-shadow: inset 0 0 0 99px rgba(255, 255, 255, 0.14); }
+/* DTO `rail`, on <html> as data-rail. `handle` (the default) and `map` edge the rail in the window's
+ * accent; `handle` adds a grip, `map` a mark per tab (sidebar.js `_paintRail`). `edge` is the bare
+ * strip, at the base --cc-rail-w. */
+[data-rail="handle"] { --cc-rail-w: 10px; }
+[data-rail="map"] { --cc-rail-w: 14px; }
+[data-rail="handle"] .cc-root.cc-collapsed:not(.cc-peek) #cc-rail,
+[data-rail="map"] .cc-root.cc-collapsed:not(.cc-peek) #cc-rail {
+  box-sizing: border-box;
+  border-right: 1px solid var(--cc-active-bar);
+}
+[data-rail="handle"] #cc-rail::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 40px;
+  border-radius: 2px;
+  transform: translate(calc(-50% - 0.5px), -50%);
+  background: rgba(255, 255, 255, 0.55);
+}
+[data-rail="map"] .cc-root.cc-collapsed:not(.cc-peek) #cc-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 1px 0 0;
+  overflow: hidden;
+}
+.cc-rail-mark {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.2);
+}
+.cc-rail-mark.live { background: rgba(255, 255, 255, 0.6); }
+.cc-rail-mark.attention { background: #f0883e; }
+.cc-rail-mark.active { height: 14px; background: var(--cc-active-bar); }
 .cc-hole.cc-hole-collapsed {
   margin-top: var(--cc-titlebar-h);
   margin-left: var(--cc-rail-w);
