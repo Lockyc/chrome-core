@@ -1015,14 +1015,15 @@
 }
 /* ── Ghost ── a recoverable crashed session: no live session, but the host says one can be
  * restored (warden: a crashed amux session a plain launch would offer to restore). Reads as
- * "something's still here" without reading as an error — same cyan family as the live dot,
- * dimmed, so it sits between the filled dot (live) and the hollow ring (nothing). The silhouette
- * is a mask so it inherits the accent rather than hard-coding a fill twice. */
+ * "something's still here" without reading as an error — a pale near-white, not the live dot's
+ * cyan, so shape and hue both tell it apart from the filled dot at a glance; the start hover
+ * turns it cyan, foreshadowing the live session. The silhouette is a mask so the fill is a
+ * plain background its hovers can recolour. */
 .cc-presence.ghost::before {
-  width: calc(var(--cc-dot-size) + 2px);
-  height: calc(var(--cc-dot-size) + 2px);
+  width: calc(var(--cc-dot-size) + 5px);
+  height: calc(var(--cc-dot-size) + 5px);
   border-radius: 0;
-  background: rgba(86, 180, 233, 0.75);
+  background: rgba(225, 230, 240, 0.8);
   -webkit-mask-image: var(--cc-ghost-mask);
   mask-image: var(--cc-ghost-mask);
   -webkit-mask-size: contain;
