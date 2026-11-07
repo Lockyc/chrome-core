@@ -66,7 +66,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   **`onContextMenu(id, {x, y})`** (optional): a right-click on any row, the webview's own menu suppressed (absent → no listener).
   **`onBannerMenu({x, y})`** (optional): a right-click on the banner (window title row), the webview's own menu suppressed (absent → no listener).
   **`onIncomingAction(itemId, actionId, {x, y})`** (optional): an Incoming item's button was clicked; `x, y` is the button's bottom-left (absent → no listener).
-  **`onMoveTab(id, group)`** (optional): a `movable` row was dragged onto another section of the main list and released; `group` is that section's DTO `group`. The component moves nothing; the app answers with `update(dto)`. Absent, or under a search, nothing lifts. Mechanics: the "drag to move" docblock in `assets/sidebar.js`.
+  **`onMoveTab(id, group)`** (optional): a `movable` row was dragged onto another section (in the main list or a pinned mirror section) and released; `group` is that section's DTO `group`. The component moves nothing; the app answers with `update(dto)`. Absent, or under a search, nothing lifts. Mechanics: the "drag to move" docblock in `assets/sidebar.js`.
   **`onLayout()`** (with `hole`): the hole moved or resized by collapse or peek. Re-measure and report it, because a peek's `transform` never reaches a `ResizeObserver`.
   **`onNav(action)`**, **`onUrlSubmit(value) → Promise`** (Enter; resolve clears the field, reject → `setError`), **`onDownloads({x, y, width, height})`** (the button's rect): the header's controls (below).
   (The update bar is wired **internally** —
