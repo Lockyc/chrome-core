@@ -741,6 +741,24 @@ test("dto_without_head_renders_unchanged", () => {
   assert.ok(sb.list.querySelectorAll(".cc-tab").every((r) => !(r.listeners.contextmenu || []).length));
 });
 
+test("a warn reason shows on hover over the marked title", () => {
+  const root = installDom();
+  const sb = new Sidebar(root, { onSelect() {} }, {});
+  sb.update({
+    title: "w", colour: "#1a9e8f", density: "compact",
+    tabs: [
+      row("a", "api", null, { warn: "directory not found: /x" }),
+      row("b", "web", null, { warn: true }),
+    ],
+  });
+  const a = rowOf(sb, "a").querySelector(".cc-title");
+  assert.equal(a.textContent, "api  ⚠");
+  assert.equal(a.getAttribute("title"), "directory not found: /x");
+  const b = rowOf(sb, "b").querySelector(".cc-title");
+  assert.equal(b.textContent, "web  ⚠");
+  assert.equal(b.getAttribute("title"), null);
+});
+
 test("collapsing the active tab's group: its head stands in, and ⌃Tab steps from the head", () => {
   assert.equal(navAnchor(fleet(), ["h1"], "m2"), "h1");
   assert.equal(navAnchor(fleet(), [], "m2"), "m2");

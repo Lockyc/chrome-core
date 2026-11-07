@@ -1620,7 +1620,10 @@ class Sidebar {
     }
     row.appendChild(icon);
 
-    const title = el("span", { class: "cc-title" }, (t.title || "") + (t.warn ? "  ⚠" : ""));
+    // `warn` as a string is the reason the tab can't open, shown on hover; `true` marks it alone.
+    const titleAttrs = { class: "cc-title" };
+    if (typeof t.warn === "string" && t.warn) titleAttrs.title = t.warn;
+    const title = el("span", titleAttrs, (t.title || "") + (t.warn ? "  ⚠" : ""));
     if (context) title.appendChild(el("span", { class: "cc-context" }, context));
     row.appendChild(title);
 
