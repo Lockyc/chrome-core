@@ -1705,6 +1705,28 @@ test("drop_sections_show_as_zones_only_while_dragging_and_only_when_empty", () =
   fire(window, "mouseup", {});
 });
 
+test("the_open_section_drags_and_takes_drops_like_the_main_list", () => {
+  const moved = [];
+  const sb = mountMovers({ onMoveTab: (id, g) => moved.push([id, g]) });
+  installStorage(); // the Open section reads its persisted collapse state
+  const tabs = movers().map((t) => (["u1", "h2", "m1"].includes(t.id) ? { ...t, live: true } : t));
+  sb.update({ title: "w", colour: null, density: "comfortable", active: "h1", openSection: true, tabs });
+  const mirror = (id) => sb.openEl.querySelector('.cc-tab[data-id="' + id + '"]');
+  // A mirror row lifts, and the source and target light in both sections.
+  dragRow(sb, mirror("u1"), mirror("h2"), false);
+  assert.ok(sb.list.classList.contains("cc-dragging"));
+  assert.ok(mirror("u1").classList.contains("cc-drag-source"));
+  assert.ok(rowOf(sb, "u1").classList.contains("cc-drag-source"));
+  assert.ok(mirror("h2").classList.contains("cc-drop-over"));
+  assert.ok(rowOf(sb, "h2").classList.contains("cc-drop-over"));
+  fire(window, "mouseup", {});
+  // A main row onto a mirror, and a mirror member onto a main head.
+  dragRow(sb, rowOf(sb, "m1"), mirror("u1"));
+  dragRow(sb, mirror("m1"), rowOf(sb, "h2"));
+  assert.deepEqual(moved, [["u1", "h2"], ["m1", "unsorted"], ["m1", "h2"]]);
+  assert.ok(!sb.list.querySelector(".cc-drop-over, .cc-drag-source"));
+});
+
 test("a_drag_released_outside_the_page_is_cancelled", () => {
   const moved = [];
   const sb = mountMovers({ onMoveTab: (id, g) => moved.push([id, g]) });

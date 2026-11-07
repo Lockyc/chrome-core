@@ -1108,17 +1108,13 @@ class Sidebar {
 
     // A search shows only what matches, so an empty declared tree is not painted under one.
     const searching = !!this.query.trim();
-    // Drag to move (opt-in by `onMoveTab`): off under a search, which shows only part of each group.
-    const moving = !!this.cb.onMoveTab && !searching;
+    const moving = this._moving();
     for (const sec of listSections(tabs, searching ? [] : this.trees)) {
       if (sec.tree) {
         this._renderTreeSection(sec.group, sec.rows, tint, drag);
         continue;
       }
-      const target = (node) => {
-        if (moving && sec.group !== null) node.setAttribute("data-drop-group", sec.group);
-        return node;
-      };
+      const target = (node) => this._dropTarget(node, sec.group);
       if (sec.head) {
         // A search shows every match, so it opens a collapsed group without touching `collapsed`.
         const collapsed = !searching && this.collapsed.includes(sec.group);
@@ -1152,9 +1148,22 @@ class Sidebar {
   // itself, the app answers with `update(dto)`. The section the row is in is never a target, and
   // Escape, a release anywhere else, or a release outside the page (seen as a move with no button
   // down) cancels. `dropSections` (`{ group, label }`) are targets that have no rows to show yet,
-  // painted as drop zones at the top of the list only while a row is lifted. Mouse events rather
-  // than HTML5 drag and drop: WebKit hands those to the host's file-drop handling, and a click
-  // must still select.
+  // painted as drop zones at the top of the main list only while a row is lifted. The pinned mirror
+  // sections drag and take drops exactly like the main list: a mirror row carries its own group, so
+  // a lifted row lights its target in both places. Mouse events rather than HTML5 drag and drop:
+  // WebKit hands those to the host's file-drop handling, and a click must still select.
+
+  /** Whether rows drag to move: opt-in by `onMoveTab`, and off under a search, which shows only
+   *  part of each group. */
+  _moving() {
+    return !!this.cb.onMoveTab && !this.query.trim();
+  }
+
+  /** Mark `node` as a drop onto section `group` while rows drag to move; returns `node`. */
+  _dropTarget(node, group) {
+    if (group != null && this._moving()) node.setAttribute("data-drop-group", group);
+    return node;
+  }
 
   /** Make `row` (tab `t`, in section `group`) pressable to drag. */
   _armMove(row, t, group) {
@@ -1213,8 +1222,8 @@ class Sidebar {
     if (!this.mainEl) return;
     const d = this._drag;
     for (const z of this.mainEl.querySelectorAll(".cc-drop-zone")) z.remove();
-    for (const n of this.mainEl.querySelectorAll(".cc-drop-over")) n.classList.remove("cc-drop-over");
-    for (const n of this.mainEl.querySelectorAll(".cc-drag-source")) n.classList.remove("cc-drag-source");
+    for (const n of this.list.querySelectorAll(".cc-drop-over")) n.classList.remove("cc-drop-over");
+    for (const n of this.list.querySelectorAll(".cc-drag-source")) n.classList.remove("cc-drag-source");
     if (!d) {
       if (this.list.classList.contains("cc-dragging")) this.list.classList.remove("cc-dragging");
       return;
@@ -1226,11 +1235,11 @@ class Sidebar {
       const zone = el("div", { class: "cc-drop-zone", "data-drop-group": s.group }, s.label);
       this.mainEl.insertBefore(zone, this.mainEl.firstChild);
     }
-    for (const n of this.mainEl.querySelectorAll(".cc-tab")) {
+    for (const n of this.list.querySelectorAll(".cc-tab")) {
       if (n.dataset.id === d.id) n.classList.add("cc-drag-source");
     }
     if (d.over === null) return;
-    for (const n of this.mainEl.querySelectorAll("[data-drop-group]")) {
+    for (const n of this.list.querySelectorAll("[data-drop-group]")) {
       if (n.getAttribute("data-drop-group") === d.over) n.classList.add("cc-drop-over");
     }
   }
@@ -1261,8 +1270,10 @@ class Sidebar {
     this.openEl.innerHTML = "";
     let anyRows = false;
     const searching = !!this.query.trim();
-    const add = (row) => {
+    const add = (row, t, group) => {
       row.dataset.mirror = "1";
+      this._dropTarget(row, group);
+      if (this._moving() && t.movable && !t.head) this._armMove(row, t, group);
       this.openEl.appendChild(row);
     };
     for (const spec of MIRROR_SECTIONS) {
@@ -1275,21 +1286,22 @@ class Sidebar {
       anyRows = true;
       for (const e of mirrorEntries(rows, this.tabs)) {
         if (!e.head) {
-          add(this._renderRow(e.rows[0], mirrorContext(e.rows[0])));
+          add(this._renderRow(e.rows[0], mirrorContext(e.rows[0])), e.rows[0], e.group);
           continue;
         }
         // The group's collapse state is the app's one `collapsed`, shared with the main list.
         const hidden = !searching && this.collapsed.includes(e.group);
-        add(this._renderHead(e, hidden, searching));
+        add(this._renderHead(e, hidden, searching), e.head, e.group);
         if (hidden) continue;
         for (const t of e.rows) {
           const r = this._renderRow(t);
           r.classList.add("cc-member");
-          add(r);
+          add(r, t, e.group);
         }
       }
     }
     this.openEl.toggleAttribute("data-rows", anyRows);
+    if (this._drag) this._paintDrag(); // a mid-drag repaint (`setLive`) keeps the decoration
   }
 
   /** A mirror section's sticky header: a disclosure arrow followed by its title. A click anywhere on
