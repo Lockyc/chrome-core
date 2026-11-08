@@ -388,8 +388,8 @@ test("filterTabs: case-insensitive over title, tree path and group; every term m
   assert.deepEqual(ids("api"), ["api"]);
   assert.deepEqual(ids("CLUB"), ["web"]);
   assert.deepEqual(ids("backend"), ["api"]);
-  assert.deepEqual(ids("rot web"), ["web"]);
-  assert.deepEqual(ids("rot api"), []);
+  assert.deepEqual(ids("clu web"), ["web"]);
+  assert.deepEqual(ids("clu api"), []);
   assert.deepEqual(ids("zzz"), []);
 });
 
