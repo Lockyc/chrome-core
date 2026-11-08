@@ -294,7 +294,7 @@ group/tree as well, so the main list never shuffles; the sections repaint whole
 of its section, so it carries a dimmed **where-it-lives label** after the title (`.cc-context`, from
 the pure `mirrorContext(t)`: a tree row's parent folder, else its group, none for a loose tab or a
 nested member) — the
-title alone can't tell `rotary/website` from any other `website`, or two same-titled tabs apart.
+title alone can't tell `club/website` from any other `website`, or two same-titled tabs apart.
 
 The tab list therefore has **two containers, always both present**: `.cc-open` and `.cc-main`
 (everything else), plus `.cc-incoming` before them only while `incoming` has items (below). **`#cc-tab-list` is no longer a scroller** — it is the column that lays them

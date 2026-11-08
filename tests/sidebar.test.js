@@ -378,15 +378,15 @@ test("filterTabs: empty query keeps every tab, same array", () => {
 
 test("filterTabs: case-insensitive over title, tree path and group; every term must match", () => {
   const tabs = [
-    { id: "web", title: "website", group: "Dev", tree: true, treePath: ["rotary"] },
+    { id: "web", title: "website", group: "Dev", tree: true, treePath: ["club"] },
     { id: "api", title: "API", group: "Backend" },
     { id: "loose", title: "notes" },
     // treePath is only meaningful on a tree row
-    { id: "flat", title: "flat", group: "tools", treePath: ["rotary"] },
+    { id: "flat", title: "flat", group: "tools", treePath: ["club"] },
   ];
   const ids = (q) => filterTabs(tabs, q).map((t) => t.id);
   assert.deepEqual(ids("api"), ["api"]);
-  assert.deepEqual(ids("ROTARY"), ["web"]);
+  assert.deepEqual(ids("CLUB"), ["web"]);
   assert.deepEqual(ids("backend"), ["api"]);
   assert.deepEqual(ids("rot web"), ["web"]);
   assert.deepEqual(ids("rot api"), []);
@@ -1309,7 +1309,7 @@ function manualClock() {
   };
 }
 
-function mountCollapsible({ title = "Rotary", tabs = [], active, storage, cb = {}, cfg = {} } = {}) {
+function mountCollapsible({ title = "Club", tabs = [], active, storage, cb = {}, cfg = {} } = {}) {
   const root = installDom();
   const store = storage || installStorage();
   globalThis.localStorage = store;
@@ -1328,7 +1328,7 @@ const rail = (root) => root.querySelector('[id="cc-rail"]');
 const peeking = ({ root, hole }) => root.classList.contains("cc-peek") && hole.classList.contains("cc-hole-peek");
 
 test("collapseKey: per storage key and window title", () => {
-  assert.equal(collapseKey("flotilla:sidebar-width", "Rotary"), "flotilla:sidebar-width:collapsed:Rotary");
+  assert.equal(collapseKey("flotilla:sidebar-width", "Club"), "flotilla:sidebar-width:collapsed:Club");
 });
 
 test("no hole, no collapse", () => {
@@ -1342,7 +1342,7 @@ test("no hole, no collapse", () => {
 
 test("toggle collapses and persists", () => {
   const m = mountCollapsible();
-  const key = "flotilla:sidebar-width:collapsed:Rotary";
+  const key = "flotilla:sidebar-width:collapsed:Club";
   fire(m.root.querySelector(".cc-sidebar-toggle"), "click");
   assert.equal(m.sb.sidebarCollapsed, true);
   assert.ok(m.root.classList.contains("cc-collapsed"));
@@ -1523,7 +1523,7 @@ test("a collapsed sidebar flags errors, updates and incoming on its toggle", () 
   m.sb.setUpdate({ version: "1.2.0" });
   assert.ok(flagged());
   m.sb.clearUpdate();
-  m.sb.update({ title: "Rotary", tabs: [], incoming: [{ id: "i", title: "doc", actions: [] }] });
+  m.sb.update({ title: "Club", tabs: [], incoming: [{ id: "i", title: "doc", actions: [] }] });
   assert.ok(flagged());
 });
 
@@ -1546,10 +1546,10 @@ test("the rail is a handle unless the DTO picks another style", () => {
   const m = mountCollapsible();
   assert.equal(railStyle(), "handle");
   for (const style of ["edge", "map"]) {
-    m.sb.update({ title: "Rotary", tabs: [], rail: style });
+    m.sb.update({ title: "Club", tabs: [], rail: style });
     assert.equal(railStyle(), style);
   }
-  m.sb.update({ title: "Rotary", tabs: [], rail: "bogus" });
+  m.sb.update({ title: "Club", tabs: [], rail: "bogus" });
   assert.equal(railStyle(), "handle");
 });
 
@@ -1561,7 +1561,7 @@ test("a map rail holds a mark per tab: active, live and wanting attention", () =
   ];
   const m = mountCollapsible({ tabs, active: "a" });
   assert.equal(rail(m.root).querySelectorAll(".cc-rail-mark").length, 0, "only a map rail draws marks");
-  m.sb.update({ title: "Rotary", tabs, active: "a", rail: "map" });
+  m.sb.update({ title: "Club", tabs, active: "a", rail: "map" });
   const marks = () => rail(m.root).querySelectorAll(".cc-rail-mark");
   const has = (cls) => marks().filter((n) => n.classList.contains(cls)).map((n) => n.dataset.id);
   assert.deepEqual(marks().map((n) => n.dataset.id), ["a", "b", "c"]);
@@ -1588,7 +1588,7 @@ test("toggleCount puts the tab count on a collapsed sidebar's toggle", () => {
   };
   m.sb.setSidebarCollapsed(true);
   assert.equal(count(), null, "off unless asked for");
-  m.sb.update({ title: "Rotary", tabs, toggleCount: true });
+  m.sb.update({ title: "Club", tabs, toggleCount: true });
   assert.equal(count(), "2");
   assert.match(toggle().title, /2 tabs/);
   m.sb.setSidebarCollapsed(false);

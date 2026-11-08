@@ -156,7 +156,7 @@ function mirrorEntries(members, tabs) {
  *  (the last `treePath` segment — `treePath` already excludes the project's own dir), else its
  *  group name (a curated group, or the root itself for a project directly under it); null for a
  *  loose tab. A mirror row is lifted out of its section, so without this a title alone is all it
- *  shows — `website` from `rotary/website` is indistinguishable from any other `website`, and two
+ *  shows — `website` from `club/website` is indistinguishable from any other `website`, and two
  *  tabs sharing a title render as two identical rows. */
 function mirrorContext(t) {
   const path = t.tree ? t.treePath || [] : [];
