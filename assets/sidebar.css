@@ -1055,7 +1055,7 @@
  * bright arc sweeping round, so shape and motion both set it apart from a steady idle dot at a
  * glance. The ring stays put and only the gradient's angle animates: rotating the box itself
  * wobbles, since a centred odd-sized box sits on a half pixel and each rotated frame rasterizes
- * differently. Hover stills it. */
+ * differently. */
 @property --cc-busy-a {
   syntax: "<angle>";
   inherits: false;
@@ -1064,7 +1064,8 @@
 .cc-presence.busy::before {
   width: calc(var(--cc-dot-size) + 3px);
   height: calc(var(--cc-dot-size) + 3px);
-  background: conic-gradient(from var(--cc-busy-a), rgba(86, 180, 233, 0.15), #56b4e9);
+  --cc-busy-rgb: 86 180 233;
+  background: conic-gradient(from var(--cc-busy-a), rgb(var(--cc-busy-rgb) / 0.15), rgb(var(--cc-busy-rgb)));
   -webkit-mask-image: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
   mask-image: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
   /* Period and phase come from `busyTiming` (sidebar.js), so a rebuilt dot doesn't restart. */
@@ -1073,8 +1074,12 @@
 @keyframes cc-busy {
   to { --cc-busy-a: 360deg; }
 }
+/* Hover holds the sweep where it is and turns it the kill red, as the ghost's hover does — the
+ * mask that cuts the ring would clip the plain dot's red halo. */
 :is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-presence.busy.kill:hover::before {
-  animation: none;
+  animation-play-state: paused;
+  --cc-busy-rgb: 255 91 82;
+  box-shadow: none;
 }
 .cc-presence.off.start {
   cursor: pointer;
