@@ -727,7 +727,9 @@ class Sidebar {
     this._railTimer = null;
     this._leaveTimer = null;
     this._collapseTitle = null;
-    this.active = null;
+    // `undefined` until a tab is first chosen; `null` once the app clears it (`setActive(null)`),
+    // which a component-owned `update` leaves clear rather than falling back to the first tab.
+    this.active = undefined;
     // The rows' dot slots and the end-session confirm; `controls.armed` is the armed tab.
     this.controls = new RowControls({
       rowsFor: (id) => this._rowsById(id),
@@ -1069,16 +1071,17 @@ class Sidebar {
 
     // Active selection has two ownership models. When the DTO carries `active`, the APP owns it
     // (curator: its Rust side is authoritative via get_tabs) — honour it and do NOT fire onSelect.
-    // When `active` is absent, the COMPONENT owns it (warden): preserve the current selection, fall
-    // back to the first tab if it vanished, and fire onSelect so the app activates the fallback.
+    // When `active` is absent, the COMPONENT owns it (warden): preserve the current selection (a
+    // cleared one included), fall back to the first tab if none was chosen yet or the chosen one
+    // vanished, and fire onSelect so the app activates the fallback.
     // Resolved BEFORE the list paints: `_paint` lights the active row's dot, so painting with the
     // outgoing active would re-light a tab the app just unloaded.
     if (dto.active !== undefined) {
       this.active = dto.active;
-    } else if (!this.tabs.find((t) => t.id === this.active)) {
+    } else if (this.active !== null && !this.tabs.find((t) => t.id === this.active)) {
       // Never a detached tab: the highlight stays off popped-out rows, as in select().
       const first = this.tabs.find((t) => !t.detached);
-      this.active = first ? first.id : null;
+      this.active = first ? first.id : undefined;
     }
     // `_paintList` replaces both scroll containers, so carry their offsets across — a hot-reload or
     // rescan must not jump a scrolled list back to the top. (A search repaint starts at the top.)

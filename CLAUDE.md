@@ -141,8 +141,9 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   them from its `open_tabs_section` / `background_tabs_section` config.
   **`active`** selects the ownership model: **present** ⇒ the app owns selection (curator, whose Rust
   side is authoritative) — the component honours it and does NOT fire `onSelect`; **absent** ⇒ the
-  component owns it (warden) — it preserves the current selection, falls back to the first tab, and
-  fires `onSelect` so the app activates the fallback.
+  component owns it (warden) — it preserves the current selection (one the app cleared with
+  `setActive(null)` stays clear), falls back to the first tab when none was chosen yet or it
+  vanished, and fires `onSelect` so the app activates the fallback.
 - **`select(id)`** (public): highlight + fire `onSelect` (row clicks, keyboard nav, notification
   focus resolve to this). **`setActive(id)`**: highlight only, no callback (reflect app-actioned
   state, e.g. the neighbour activated after an unload).

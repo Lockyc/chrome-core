@@ -444,6 +444,27 @@ test("update: component-owned selection falls back before painting, then fires o
   assert.deepEqual(selected, ["x"]);
 });
 
+test("update: nothing selected yet falls back to the first tab", () => {
+  const sb = stubSidebar(undefined);
+  const selected = [];
+  sb.cb.onSelect = (id) => selected.push(id);
+  sb.update({ tabs: [] });
+  sb.update({ tabs: [{ id: "x", live: false }] });
+  assert.deepEqual(selected, ["x"]);
+});
+
+test("update: a selection the app cleared stays clear", () => {
+  // The app unloaded the last live tab and blanked the selection (`setActive(null)`); the next
+  // snapshot must not open the first tab again.
+  const sb = stubSidebar("a");
+  const selected = [];
+  sb.cb.onSelect = (id) => selected.push(id);
+  sb.setActive(null);
+  sb.update({ tabs: [{ id: "a", live: false }, { id: "b", live: false }] });
+  assert.deepEqual(sb.painted, [null]);
+  assert.deepEqual(selected, []);
+});
+
 test("treeRows: one group's tree rows, id → title", () => {
   const tabs = [
     { id: "a", title: "A", group: "dev", tree: true },
