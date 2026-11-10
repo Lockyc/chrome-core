@@ -1010,8 +1010,10 @@
 .cc-presence.off::before {
   border: 1px solid rgba(86, 180, 233, 0.5);
 }
+/* A present, idle session is the common case, so it stays quiet — a muted cyan a column of them
+ * recedes into, leaving full cyan to `busy`. */
 .cc-presence.on::before {
-  background: #56b4e9;
+  background: rgba(86, 180, 233, 0.45);
 }
 /* ── Ghost ── a recoverable crashed session: no live session, but the host says one can be
  * restored (warden: a crashed amux session a plain launch would offer to restore). Reads as
@@ -1051,12 +1053,18 @@
 :is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-presence.on.kill:hover::before {
   box-shadow: 0 0 0 3px rgba(255, 91, 82, 0.22);
 }
-/* `busy`: the session is working — the dot breathes. */
+/* `busy`: the session is working — full cyan sending out a ring, the only moving mark in a row, so it
+ * reads apart from the muted idle dot at a glance. Hover stills it so the kill halo shows. */
 .cc-presence.busy::before {
-  animation: cc-busy 1s infinite alternate;
+  background: #56b4e9;
+  animation: cc-busy 1.2s ease-out infinite;
 }
 @keyframes cc-busy {
-  to { opacity: 0.35; }
+  from { box-shadow: 0 0 0 0 rgba(86, 180, 233, 0.75); }
+  to { box-shadow: 0 0 0 5px rgba(86, 180, 233, 0); }
+}
+:is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-presence.busy.kill:hover::before {
+  animation: none;
 }
 .cc-presence.off.start {
   cursor: pointer;
