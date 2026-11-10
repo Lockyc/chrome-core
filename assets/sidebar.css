@@ -1051,14 +1051,26 @@
 :is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-presence.on.kill:hover::before {
   box-shadow: 0 0 0 3px rgba(255, 91, 82, 0.22);
 }
-/* `busy`: the session is working — the filled dot becomes a spinning cyan arc of the same size, so
- * shape and motion both set it apart from a steady idle dot at a glance. Hover stills it. */
+/* `busy`: the session is working — the filled dot becomes a ring a little larger than it, with a
+ * bright arc sweeping round, so shape and motion both set it apart from a steady idle dot at a
+ * glance. The ring stays put and only the gradient's angle animates: rotating the box itself
+ * wobbles, since a centred odd-sized box sits on a half pixel and each rotated frame rasterizes
+ * differently. Hover stills it. */
+@property --cc-busy-a {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
 .cc-presence.busy::before {
-  background: transparent;
-  border: 2px solid rgba(86, 180, 233, 0.25);
-  border-top-color: #56b4e9;
-  border-right-color: #56b4e9;
-  animation: cc-spin 0.9s linear infinite;
+  width: calc(var(--cc-dot-size) + 3px);
+  height: calc(var(--cc-dot-size) + 3px);
+  background: conic-gradient(from var(--cc-busy-a), rgba(86, 180, 233, 0.15), #56b4e9);
+  -webkit-mask-image: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  mask-image: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  animation: cc-busy 0.9s linear infinite;
+}
+@keyframes cc-busy {
+  to { --cc-busy-a: 360deg; }
 }
 @media (prefers-reduced-motion: reduce) {
   .cc-presence.busy::before {
