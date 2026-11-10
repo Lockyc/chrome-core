@@ -1010,11 +1010,7 @@
 .cc-presence.off::before {
   border: 1px solid rgba(86, 180, 233, 0.5);
 }
-/* A present, idle session is the common case, so it stays quiet by size, not by fading — a smaller
- * dot in full cyan still reads as live on its own, while a column of them recedes beside `busy`. */
 .cc-presence.on::before {
-  width: calc(var(--cc-dot-size) - 3px);
-  height: calc(var(--cc-dot-size) - 3px);
   background: #56b4e9;
 }
 /* ── Ghost ── a recoverable crashed session: no live session, but the host says one can be
@@ -1055,16 +1051,19 @@
 :is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-presence.on.kill:hover::before {
   box-shadow: 0 0 0 3px rgba(255, 91, 82, 0.22);
 }
-/* `busy`: the session is working — full cyan sending out a ring, the only moving mark in a row, so it
- * reads apart from the muted idle dot at a glance. Hover stills it so the kill halo shows. */
+/* `busy`: the session is working — the filled dot becomes a spinning cyan arc of the same size, so
+ * shape and motion both set it apart from a steady idle dot at a glance. Hover stills it. */
 .cc-presence.busy::before {
-  width: var(--cc-dot-size);
-  height: var(--cc-dot-size);
-  animation: cc-busy 1.2s ease-out infinite;
+  background: transparent;
+  border: 2px solid rgba(86, 180, 233, 0.25);
+  border-top-color: #56b4e9;
+  border-right-color: #56b4e9;
+  animation: cc-spin 0.9s linear infinite;
 }
-@keyframes cc-busy {
-  from { box-shadow: 0 0 0 0 rgba(86, 180, 233, 0.75); }
-  to { box-shadow: 0 0 0 5px rgba(86, 180, 233, 0); }
+@media (prefers-reduced-motion: reduce) {
+  .cc-presence.busy::before {
+    animation-duration: 3s;
+  }
 }
 :is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-presence.busy.kill:hover::before {
   animation: none;
