@@ -9,6 +9,7 @@ const {
   clampWidth,
   resolveOffset,
   presenceClass,
+  busyTiming,
   canSuspend,
   canEnd,
   armable,
@@ -89,6 +90,14 @@ test("clampWidth: [min, min(max, fraction*window)]", () => {
   assert.equal(clampWidth(300, isolated), 300); // honoured, not collapsed to min
   assert.equal(clampWidth(9999, isolated), 520); // still bounded by hard max
   assert.equal(clampWidth(50, isolated), 160); // still bounded by min
+});
+
+test("busyTiming: phase follows the clock, so a dot rebuilt later lands where the old one was", () => {
+  assert.deepStrictEqual(busyTiming(0, false), { period: "900ms", delay: "0ms" });
+  assert.deepStrictEqual(busyTiming(2000, false), { period: "900ms", delay: "-200ms" });
+  // Two dots made a whole number of periods apart are at the same phase.
+  assert.strictEqual(busyTiming(250, false).delay, busyTiming(250 + 900 * 7, false).delay);
+  assert.deepStrictEqual(busyTiming(4000, true), { period: "3000ms", delay: "-1000ms" });
 });
 
 test("presenceClass: kill affordance when on + an ending action, start when off+startable+live", () => {

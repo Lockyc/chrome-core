@@ -1067,15 +1067,11 @@
   background: conic-gradient(from var(--cc-busy-a), rgba(86, 180, 233, 0.15), #56b4e9);
   -webkit-mask-image: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
   mask-image: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
-  animation: cc-busy 0.9s linear infinite;
+  /* Period and phase come from `busyTiming` (sidebar.js), so a rebuilt dot doesn't restart. */
+  animation: cc-busy var(--cc-busy-period) linear var(--cc-busy-delay) infinite;
 }
 @keyframes cc-busy {
   to { --cc-busy-a: 360deg; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .cc-presence.busy::before {
-    animation-duration: 3s;
-  }
 }
 :is(.cc-root:not(.cc-away), .cc-ctl-host) .cc-presence.busy.kill:hover::before {
   animation: none;

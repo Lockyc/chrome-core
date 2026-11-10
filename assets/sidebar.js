@@ -188,6 +188,20 @@ function patchTab(tabs, id, patch) {
   return true;
 }
 
+/** One sweep of the busy ring, in ms — slower under reduced motion. Read by `busyTiming`. */
+const BUSY_PERIOD_MS = 900;
+const BUSY_PERIOD_REDUCED_MS = 3000;
+
+/** The busy ring's period and start offset at time `nowMs`, as CSS values: a negative delay of
+ *  `nowMs` mod the period puts every busy dot at the clock's phase. A host that rebuilds its rows
+ *  on each update (warden's agent list does) would otherwise restart the sweep from zero on every
+ *  repaint, which reads as a stutter; phased to the clock, a rebuilt dot carries on where the old
+ *  one was, and every busy dot sweeps in step. */
+function busyTiming(nowMs, reduced) {
+  const period = reduced ? BUSY_PERIOD_REDUCED_MS : BUSY_PERIOD_MS;
+  return { period: period + "ms", delay: -(nowMs % period) + "ms" };
+}
+
 /** A row's dot slots, in their fixed order (CLAUDE.md). */
 const DOT_SLOTS = [".cc-attention", ".cc-presence", ".cc-unload-group", ".cc-remove", ".cc-dot"];
 
@@ -556,7 +570,15 @@ class RowControls {
   repaintPresence(span, state, live, caps) {
     if (caps) this._caps.set(span, caps);
     const c = this._caps.get(span) || {};
+    const wasBusy = span.classList.contains("busy");
     span.className = presenceClass(state, c, live);
+    if (span.classList.contains("busy") && !wasBusy) {
+      const mm = typeof window !== "undefined" && window.matchMedia;
+      const reduced = !!(mm && mm("(prefers-reduced-motion: reduce)").matches);
+      const b = busyTiming(performance.now(), reduced);
+      span.style.setProperty("--cc-busy-period", b.period);
+      span.style.setProperty("--cc-busy-delay", b.delay);
+    }
     const L = c.labels || {};
     const ghost = span.classList.contains("ghost");
     const kill = span.classList.contains("kill");
@@ -2407,7 +2429,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, Sidebar, collapseKey, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, armable, canSuspend, canEnd, endIntent, derivePresenceState, buildTree, patchTab, openTabs, backgroundTabs, mirrorContext, filterTabs, treeRows, rescanSummary, RowControls };
+  module.exports = { ChromeSidebar, Sidebar, collapseKey, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, busyTiming, armable, canSuspend, canEnd, endIntent, derivePresenceState, buildTree, patchTab, openTabs, backgroundTabs, mirrorContext, filterTabs, treeRows, rescanSummary, RowControls };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;
