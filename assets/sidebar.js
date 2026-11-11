@@ -304,6 +304,10 @@ const REMOVE_SVG = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" s
 // A head row's unload-group button: two stacked dots, the live dot's shape for "every tab here".
 const UNLOAD_GROUP_SVG = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="6" cy="6" r="3.25"/><circle cx="10" cy="10" r="3.25"/></svg>`;
 
+// The attention slot's `"lock"`: a padlock in the attention amber, for a row waiting on the
+// user's permission rather than wanting attention in general.
+const LOCK_SVG = `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.75"/><rect x="3" y="7" width="10" height="7.5" rx="1.5"/></svg>`;
+
 /** Whether group `group` has a tab an unload-group would close: one with a local surface (`live`,
  *  or `active`, which always has one), a popped-out tab excepted since its own window shows it. */
 function groupLoaded(tabs, group, active) {
@@ -534,12 +538,17 @@ class RowControls {
     return this._armed;
   }
 
-  /** The attention slot: an amber dot, or a count pill when `val` is a number. */
+  /** The attention slot: an amber dot, a count pill when `val` is a number, or a padlock for
+   *  `"lock"` (waiting on the user's permission). */
   attention(val) {
     const a = el("span", { class: "cc-attention" });
     if (typeof val === "number") {
       a.classList.add("cc-count");
       a.textContent = String(val);
+    } else if (val === "lock") {
+      a.classList.add("cc-lock");
+      a.innerHTML = LOCK_SVG;
+      a.title = "Waiting for your permission";
     }
     return a;
   }
@@ -1899,14 +1908,8 @@ class Sidebar {
         if (a) a.remove();
         continue;
       }
-      if (!a) {
-        a = this.controls.attention(val);
-        insertSlot(row, a, ".cc-attention");
-      } else {
-        const fresh = this.controls.attention(val);
-        a.className = fresh.className;
-        a.textContent = fresh.textContent;
-      }
+      if (a) a.remove();
+      insertSlot(row, this.controls.attention(val), ".cc-attention");
     }
     this._paintRail();
   }

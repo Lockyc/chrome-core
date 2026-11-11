@@ -122,7 +122,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   sidebar, its literal contents don't matter beyond that.
 - **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
   windowDrag?: bool, openSection?: bool, backgroundSection?: bool, rail?: 'handle'|'edge'|'map', toggleCount?: bool, active?: id, trees?: string[], collapsed?: string[], incoming?: IncomingDTO[], dropSections?: { group, label }[], tabs: TabDTO[] }` where `IncomingDTO = { id, title, icon?, problem?, actions: { id, label, disabled? }[] }` (`disabled` is the reason: the button is disabled and its `title` is that text), and `TabDTO = { id, title, group: string|null,
-  live: bool, attention: null|true|number, presence: null|'on'|'ghost'|'off', killable: bool, suspendable: bool, startable: bool,
+  live: bool, attention: null|true|number|'lock', presence: null|'on'|'ghost'|'off', killable: bool, suspendable: bool, startable: bool,
   busy?: bool, suspendReason?: string, labels?: { end?, destroy?, suspend?, start? }, warn: bool|string, tree?: bool, treePath?: string[], detached?: bool, accent?: string, icon?: string, head?: bool, groupName?: string, confirmRemove?: string, movable?: bool }`.
   **`warn`**: truthy marks the title `⚠`; a string is the reason, the title's hover text.
   **`movable`** (with `onMoveTab`): the row can be dragged to another section; a head row never is. **`dropSections`**: sections that take a drop while they have no rows, shown as `.cc-drop-zone`s labelled `label` atop the main list only during a drag.
@@ -169,7 +169,8 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
 > `patchTab`'s comment in `assets/sidebar.js`.
 
 **Dot slots (fixed order): attention · presence · unload-group (opt-in, heads only) · remove (opt-in) · live/unload — unload is always rightmost.** Attention = amber dot, rendered as a
-count pill when `attention` is a number (curator's unread count). Live/unload = green live ↔ hover-✕
+count pill when `attention` is a number (curator's unread count), or an amber padlock for `'lock'`
+(warden's agent waiting on a permission). Live/unload = green live ↔ hover-✕
 unload / hollow cold. (Pop-out is **not** a dot slot — it's a hover overlay on the icon tile, below.)
 
 **Pop-out / pop-in — a hover overlay ON the initial tile, not a trailing slot** (`.cc-icon-pop`, built

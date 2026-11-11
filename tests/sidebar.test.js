@@ -1893,6 +1893,23 @@ test("RowControls: attention is a dot, or a count pill for a number", () => {
   const pill = rc.attention(3);
   assert.ok(pill.classList.contains("cc-count"));
   assert.equal(pill.textContent, "3");
+  const lock = rc.attention("lock");
+  assert.ok(lock.classList.contains("cc-lock"));
+  assert.ok(lock._html.startsWith("<svg"), "a padlock glyph");
+  assert.equal(lock.title, "Waiting for your permission");
+});
+
+test("setAttention swaps a dot for the padlock in place, and back", () => {
+  const sb = mountFleet();
+  sb.setAttention("m1", true);
+  sb.setAttention("m1", "lock");
+  let a = rowOf(sb, "m1").querySelector(".cc-attention");
+  assert.ok(a.classList.contains("cc-lock") && a._html.startsWith("<svg"));
+  sb.setAttention("m1", true);
+  a = rowOf(sb, "m1").querySelector(".cc-attention");
+  assert.equal(a.className, "cc-attention");
+  assert.equal(a._html, "");
+  assert.ok(!a.title);
 });
 
 test("RowControls: the second click of a double-click on the dot doesn't fire the glyph under it", () => {

@@ -965,8 +965,9 @@
   opacity: 0.5;
 }
 
-/* ── Attention slot ── amber; a bare dot, or a count pill when attention is a number (curator's
- * unread count). Sits first in the trailing group. */
+/* ── Attention slot ── amber; a bare dot, a count pill when attention is a number (curator's
+ * unread count), or a padlock for `"lock"` (warden's agent waiting on a permission). Sits first
+ * in the trailing group. */
 .cc-attention {
   flex: none;
   display: inline-flex;
@@ -984,6 +985,17 @@
   color: #1e1e1e;
   font-size: 11px;
   font-weight: 700;
+}
+.cc-attention.cc-lock {
+  min-width: 12px;
+  height: 12px;
+  border-radius: 0;
+  background: none;
+  color: #f0883e;
+}
+.cc-attention.cc-lock svg {
+  width: 12px;
+  height: 12px;
 }
 
 /* ── Presence slot ── cyan; filled = a probe reported a session, hollow ring = configured-but-absent.
