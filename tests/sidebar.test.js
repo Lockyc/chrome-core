@@ -1202,6 +1202,31 @@ test("title_row_controls_are_one_wrapping_group", () => {
   );
 });
 
+test("unload_all_leads_the_title_controls_and_is_off_while_nothing_is_loaded", () => {
+  assert.equal(mountHeader({ nav: ["back"] }).banner.querySelector(".cc-unload-all"), null, "absent without onUnloadAll");
+  const fired = [];
+  const sb = mountHeader({ nav: ["back"] }, { onUnloadAll: () => fired.push(1) });
+  const group = titleRow(sb).querySelector(".cc-title-controls");
+  const btn = group.querySelector(".cc-unload-all");
+  assert.equal(group.children[0], btn, "before the nav pill");
+  assert.ok(btn.classList.contains("off"));
+  assert.equal(btn.title, "Unload all — nothing loaded");
+  fire(btn, "click");
+  assert.deepEqual(fired, [], "an off button ignores clicks");
+  // A popped-out tab's window keeps it; a live or active one counts.
+  sb.update({ title: "Work", tabs: [{ id: "a", title: "A", live: true, detached: true }] });
+  assert.ok(btn.classList.contains("off"));
+  sb.update({ title: "Work", active: "b", tabs: [{ id: "b", title: "B" }] });
+  assert.ok(!btn.classList.contains("off"), "the active tab counts as loaded");
+  assert.equal(btn.title, "Unload all");
+  fire(btn, "click");
+  assert.deepEqual(fired, [1]);
+  sb.update({ title: "Work", active: null, tabs: [{ id: "b", title: "B" }] });
+  assert.ok(btn.classList.contains("off"));
+  sb.setLive("b", true);
+  assert.ok(!btn.classList.contains("off"), "a targeted setLive repaints it");
+});
+
 test("urlField_renders_toolbar_and_submits_on_enter", async () => {
   const submitted = [];
   const sb = mountHeader(

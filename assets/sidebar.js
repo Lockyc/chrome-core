@@ -311,7 +311,13 @@ const LOCK_SVG = `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true
 /** Whether group `group` has a tab an unload-group would close: one with a local surface (`live`,
  *  or `active`, which always has one), a popped-out tab excepted since its own window shows it. */
 function groupLoaded(tabs, group, active) {
-  return (tabs || []).some((t) => t.group === group && !t.detached && (t.live || t.id === active));
+  return anyLoaded((tabs || []).filter((t) => t.group === group), active);
+}
+
+/** Whether any of `tabs` has a local surface, counted as [`groupLoaded`] counts one: what the
+ *  header's unload-all button would close. */
+function anyLoaded(tabs, active) {
+  return (tabs || []).some((t) => !t.detached && (t.live || t.id === active));
 }
 
 /** Build a nested folder tree from flat rows carrying `treePath` segment arrays.
@@ -514,6 +520,8 @@ const NAV_BUTTONS = [
   { action: "reload", name: "Reload", icon: svgIcon('<path d="M21 12a9 9 0 1 1-2.6-6.36"/><path d="M21 3v6h-6"/>') },
   { action: "home", name: "Home", icon: svgIcon('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>') },
 ];
+// The header's unload-all: three stacked dots, the unload-group mark for "every tab in the window".
+const UNLOAD_ALL_ICON = svgIcon('<circle cx="8" cy="8" r="4"/><circle cx="12" cy="12" r="4"/><circle cx="16" cy="16" r="4"/>');
 const DOWNLOADS_ICON = svgIcon('<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>');
 const SIDEBAR_ICON = svgIcon('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>');
 
@@ -890,7 +898,8 @@ class Sidebar {
   }
 
   /** The banner's contents: the title row (name, then `.cc-title-controls` right-aligned: the
-   *  downloads button when there is no URL field, then the `nav` pill) and, with `urlField`, the
+   *  unload-all button with `onUnloadAll`, the downloads button when there is no URL field, then
+   *  the `nav` pill) and, with `urlField`, the
    *  toolbar row under it (the field at full width, then the downloads button). The controls are one
    *  element so they wrap together onto their own line when the name would be crushed. Every part is
    *  opt-in through mount config. */
@@ -946,8 +955,18 @@ class Sidebar {
       this.banner.appendChild(this.toolbarEl);
     }
 
+    this.unloadAllBtn = null;
+    if (this.cb.onUnloadAll) {
+      this.unloadAllBtn = el("button", { class: "cc-unload-all", type: "button", "aria-label": "Unload all" });
+      this.unloadAllBtn.innerHTML = UNLOAD_ALL_ICON;
+      this.unloadAllBtn.addEventListener("click", () => {
+        if (!this.unloadAllBtn.classList.contains("off")) this.cb.onUnloadAll();
+      });
+    }
+
     this.titleControls = null;
     const onTitle = [];
+    if (this.unloadAllBtn) onTitle.push(this.unloadAllBtn);
     if (this.downloadsBtn && !this.toolbarEl) onTitle.push(this.downloadsBtn);
     if (this.navBtns.length) {
       const pill = el("div", { class: "cc-nav" });
@@ -1767,6 +1786,13 @@ class Sidebar {
       const loaded = groupLoaded(this.tabs, btn.dataset.group, this.active);
       btn.toggleAttribute("disabled", !loaded);
       btn.title = loaded ? "Unload group" : "Unload group — nothing loaded";
+    }
+    if (this.unloadAllBtn) {
+      // Off is `.off`, not `disabled`, so WebKit keeps the tooltip carrying the reason (as the nav).
+      const loaded = anyLoaded(this.tabs, this.active);
+      this.unloadAllBtn.classList.toggle("off", !loaded);
+      this.unloadAllBtn.setAttribute("aria-disabled", String(!loaded));
+      this.unloadAllBtn.title = loaded ? "Unload all" : "Unload all — nothing loaded";
     }
     this._paintRail();
   }

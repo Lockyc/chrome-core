@@ -63,6 +63,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   Esc left the search field — hand focus back to the content).
   **`onToggleGroup(group, collapsed)`** (optional): a head row's disclosure arrow was clicked; it repaints nothing itself — the app persists the state and answers with `update(dto)` (absent → the arrow shows the state, disabled).
   **`onUnloadGroup(group)`** (optional): a head row's unload-group button, `.cc-unload-group`, left of the bin, was clicked; disabled while no tab of the group is `live` or active (a `detached` one excepted). The app unloads the group (absent → no button).
+  **`onUnloadAll()`** (optional): the title row's `.cc-unload-all`, first of its controls, was clicked; off (`.off`, reason in the tooltip) while no tab is `live` or active (a `detached` one excepted). The app unloads the window's tabs (absent → no button).
   **`onContextMenu(id, {x, y})`** (optional): a right-click on any row, the webview's own menu suppressed (absent → no listener).
   **`onBannerMenu({x, y})`** (optional): a right-click on the banner (window title row), the webview's own menu suppressed (absent → no listener).
   **`onIncomingAction(itemId, actionId, {x, y})`** (optional): an Incoming item's button was clicked; `x, y` is the button's bottom-left (absent → no listener).

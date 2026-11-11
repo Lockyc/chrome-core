@@ -225,6 +225,7 @@
   background: rgba(0, 0, 0, 0.25);
 }
 .cc-nav-btn,
+.cc-unload-all,
 .cc-downloads {
   flex: none;
   display: inline-flex;
@@ -243,19 +244,23 @@
   transition: opacity 0.12s ease, background 0.12s ease;
 }
 .cc-nav-btn svg,
+.cc-unload-all svg,
 .cc-downloads svg {
   display: block;
 }
 .cc-root:not(.cc-away) .cc-nav-btn:not(.off):hover,
+.cc-root:not(.cc-away) .cc-unload-all:not(.off):hover,
 .cc-root:not(.cc-away) .cc-downloads:hover {
   background: rgba(255, 255, 255, 0.1);
   opacity: 1;
 }
-.cc-nav-btn.off {
+.cc-nav-btn.off,
+.cc-unload-all.off {
   opacity: 0.25;
   cursor: default;
 }
 /* Standalone, so it carries the pill's own box: the same height and backing. */
+.cc-unload-all,
 .cc-downloads {
   position: relative;
   height: var(--cc-title-row-h);
