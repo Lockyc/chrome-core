@@ -8,7 +8,7 @@
 // divergence lives in the thin per-app controllers (callback → Tauri command, event → setter),
 // never here. See CLAUDE.md's dividing-line decision.
 //
-// See CLAUDE.md for the interface contract (DTO, callbacks, methods, the fixed dot-slot order).
+// See docs/contract.md for the interface contract (DTO, callbacks, methods, the fixed dot-slot order).
 
 // ─────────────────────────── pure helpers (unit-tested) ───────────────────────────
 
@@ -202,7 +202,7 @@ function busyTiming(nowMs, reduced) {
   return { period: period + "ms", delay: -(nowMs % period) + "ms" };
 }
 
-/** A row's dot slots, in their fixed order (CLAUDE.md). */
+/** A row's dot slots, in their fixed order (docs/contract.md). */
 const DOT_SLOTS = [".cc-attention", ".cc-presence", ".cc-unload-group", ".cc-remove", ".cc-dot"];
 
 /** Insert `node` (the slot `slot`, one of DOT_SLOTS) into `row` before the first later slot the
@@ -1636,7 +1636,7 @@ class Sidebar {
     const row = el("div", { class: "cc-tab", "data-id": t.id });
     if (t.detached) row.classList.add("detached");
     // Row click keeps its normal onSelect wiring even when detached — the app interprets
-    // onSelect-on-a-detached-tab as "raise the popped-out window" (see CLAUDE.md). No new
+    // onSelect-on-a-detached-tab as "raise the popped-out window" (see docs/contract.md). No new
     // callback: this IS the raise affordance.
     // A click is the search's other exit (Enter being the first), so it clears the field too.
     row.addEventListener("click", () => {
@@ -2454,7 +2454,7 @@ class Sidebar {
 }
 
 const ChromeSidebar = {
-  /** Mount the sidebar into `container`; returns the instance (see CLAUDE.md for the method set). */
+  /** Mount the sidebar into `container`; returns the instance (see docs/contract.md for the method set). */
   mount(container, callbacks, config) {
     return new Sidebar(container, callbacks, config);
   },

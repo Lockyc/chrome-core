@@ -1,0 +1,329 @@
+---
+type: reference
+links:
+  - rel: part-of
+    to: CLAUDE.md
+    note: the component's public interface, linked from CLAUDE.md and README.md
+---
+
+# Interface contract
+
+`ChromeSidebar.mount(container, callbacks, config) -> instance`
+
+- **callbacks:** `onSelect(id, {wasActive})`, `onUnload(id)`, `onSuspend(id)` + `onDestroy(id)` (the
+  confirm row's two actions — see below), `onStart(id)`, `onResize(width)`,
+  `onRescan(group)`, `onPopOut(id)` + `onPopIn(id)` (optional pair — see below), `onRemove(id)` (optional:
+  every row gets a muted bin, `.cc-remove`, firing at once — or, on a row whose `confirmRemove` is
+  the sentence saying what goes, opening `.cc-remove-confirm` under the row: that sentence, then
+  Remove, which fires, and Keep), `onSearchExit()` (optional:
+  Esc left the search field — hand focus back to the content).
+  **`onToggleGroup(group, collapsed)`** (optional): a head row's disclosure arrow was clicked; it repaints nothing itself — the app persists the state and answers with `update(dto)` (absent → the arrow shows the state, disabled).
+  **`onUnloadGroup(group)`** (optional): a head row's unload-group button, `.cc-unload-group`, left of the bin, was clicked; disabled while no tab of the group is `live` or active (a `detached` one excepted). The app unloads the group (absent → no button).
+  **`onUnloadAll()`** (optional): the title row's `.cc-unload-all`, first of its controls, was clicked; off (`.off`, reason in the tooltip) while no tab is `live` or active (a `detached` one excepted). The app unloads the window's tabs (absent → no button).
+  **`onContextMenu(id, {x, y})`** (optional): a right-click on any row, the webview's own menu suppressed (absent → no listener).
+  **`onBannerMenu({x, y})`** (optional): a right-click on the banner (window title row), the webview's own menu suppressed (absent → no listener).
+  **`onIncomingAction(itemId, actionId, {x, y})`** (optional): an Incoming item's button was clicked; `x, y` is the button's bottom-left (absent → no listener).
+  **`onMoveTab(id, group)`** (optional): a `movable` row was dragged onto another section (in the main list or a pinned mirror section) and released; `group` is that section's DTO `group`. The component moves nothing; the app answers with `update(dto)`. Absent, or under a search, nothing lifts. Mechanics: the "drag to move" docblock in `assets/sidebar.js`.
+  **`onLayout()`** (with `hole`): the hole moved or resized by collapse or peek. Re-measure and report it, because a peek's `transform` never reaches a `ResizeObserver`.
+  **`onNav(action)`**, **`onUrlSubmit(value) → Promise`** (Enter; resolve clears the field, reject → `setError`), **`onDownloads({x, y, width, height})`** (the button's rect): the header's controls (below).
+  (The update bar is wired **internally** —
+  self-update is a core capability, see the dividing-line decision in [CLAUDE.md](../CLAUDE.md) — so there is **no**
+  `onUpdate`/`onUpdateDismiss` callback.)
+- **config:** `{ nav: string[], urlField: {placeholder}|null, downloads: bool, appName: string|null, emptyState: Element|null, hole: Element|null, storageKey, defaultWidth, minWidth, maxWidth, maxFraction, autoUpdate }`.
+  **The header** is chrome-core's own, never app DOM (`_buildHeader`): the title row is the name, left,
+  then **`nav`** (any of `back`/`forward`/`reload`/`home`, always in that order) as a right-aligned
+  `.cc-nav` pill; **`urlField`** adds `#cc-toolbar` under it, a full-width `input.cc-url`;
+  **`downloads`** adds `button.cc-downloads`, after the field in the toolbar, else on the title row just
+  before the pill. The title row's controls are one `.cc-title-controls` that wraps onto its own line
+  rather than crush the name below 72px; one line is `--cc-title-row-h` tall with or without them.
+  **`appName`** (default null) names the host app in a strip above the banner, beside the macOS
+  traffic lights. Every consumer uses `TitleBarStyle::Overlay`, which hides the native window title
+  entirely — so without this the app's own name appears nowhere on screen. chrome-core owns the
+  strip (`#cc-titlebar`, `--cc-titlebar-h` tall, `--cc-lights-inset` of left padding to clear the
+  lights); before it, each app reserved the same zone with its own `#sidebar { padding-top: 28px }`
+  and drew nothing in it — **a consumer passing `appName` must drop that padding**, or the strip
+  lands below the lights instead of beside them. Absent/null → no strip, and the layout is exactly
+  as it was (so `preview.html` and any slot-less host are untouched).
+  **`emptyState`** (default null) is the app's own element holding its muted mark (an `<svg>`) inside
+  the content area; chrome-core styles it (`.cc-empty-state`: opaque, centred, filling its
+  positioned parent) and shows it on every `update(dto)` whose `active` is unset. The mark is the
+  app's; the treatment is shared. warden passes none: its transparent window needs an always-on
+  ground per split pane, which it paints itself.
+  **`hole`** (default null) makes the sidebar collapsible. It is the app's content-hole element, a
+  flex sibling of the mount container. The titlebar strip (built even without `appName`) leads with
+  `.cc-sidebar-toggle`. Collapsed (`cc-collapsed` / `cc-hole-collapsed`), the container is only that
+  strip across the window, showing the active tab's title, plus `#cc-rail` down the left edge, and the
+  hole fills the rest. Resting on the rail `PEEK_DELAY_MS` peeks (`cc-peek` / `cc-hole-peek`): the
+  column at `--cc-peek-w`, and the hole slides right by a `transform` at its collapsed width, since
+  the content views composite above the chrome and can't be drawn over. A peek ends on `pointerAway`,
+  on leaving the window, or `PEEK_LEAVE_MS` after leaving the column, unless a field inside has focus.
+  `focusSearch()`, `focusUrlField()` and `revealRow()` peek a collapsed sidebar. While it is
+  collapsed, a `.cc-notice` dot on the toggle stands in for the hidden error bar, update bar and
+  Incoming. The state persists per window under `collapseKey(storageKey, title)` and follows a
+  rename. The stored width is never touched. The DTO's **`rail`** picks the rail's look
+  (`RAIL_STYLES`, the first the default; anything else falls back to it): `handle`, the strip's
+  window colour carried down the edge with an expand chevron; `edge`, the bare strip; `map`, a mark per tab (`_paintRail`: active, live,
+  attention). **`toggleCount`** (default off) puts the tab count on a collapsed sidebar's toggle.
+  **`autoUpdate`** (bool, default false) is the app's config gate for self-update: when true *and* the
+  Tauri runtime is present, the component runs a launch check + the recurring re-check; the menu path
+  (`checkForUpdateNow()`) works regardless of it.
+  `maxFraction` caps the sidebar at a share of `window.innerWidth`; pass a **falsy** value (e.g. `0`)
+  to skip that cap. The cap is only meaningful when the sidebar's `innerWidth` IS the host window's
+  width — i.e. the sidebar is the window's full-size main webview, which **every** current
+  consumer is (curator, warden, lector and flotilla are hole-punch main webviews), so each passes a real
+  `maxFraction`. A consumer
+  whose sidebar were instead an isolated child webview (its `innerWidth` = the sidebar's own width,
+  not the window's) would have the cap pin every drag to `minWidth`, so it would pass a falsy value
+  and enforce the share-of-window limit backend-side. `storageKey` doubles as the
+  per-instance namespace for tree-collapse persistence (below) — it need only be unique per mounted
+  sidebar, its literal contents don't matter beyond that.
+- **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
+  windowDrag?: bool, openSection?: bool, backgroundSection?: bool, rail?: 'handle'|'edge'|'map', toggleCount?: bool, active?: id, trees?: string[], collapsed?: string[], incoming?: IncomingDTO[], dropSections?: { group, label }[], tabs: TabDTO[] }` where `IncomingDTO = { id, title, icon?, problem?, actions: { id, label, disabled? }[] }` (`disabled` is the reason: the button is disabled and its `title` is that text), and `TabDTO = { id, title, group: string|null,
+  live: bool, attention: null|true|number|'lock', presence: null|'on'|'ghost'|'off', killable: bool, suspendable: bool, startable: bool,
+  busy?: bool, suspendReason?: string, labels?: { end?, destroy?, suspend?, start? }, warn: bool|string, tree?: bool, treePath?: string[], detached?: bool, accent?: string, icon?: string, head?: bool, groupName?: string, confirmRemove?: string, movable?: bool }`.
+  **`warn`**: truthy marks the title `⚠`; a string is the reason, the title's hover text.
+  **`movable`** (with `onMoveTab`): the row can be dragged to another section; a head row never is. **`dropSections`**: sections that take a drop while they have no rows, shown as `.cc-drop-zone`s labelled `label` atop the main list only during a drag.
+  **`icon`** is opt-in (an image URL the page can load): the tile shows it (`.cc-icon-image`) in place of the initial and colour.
+  **`head`**: in a flat run of same-`group` rows, that row renders in place of the text header — a full tab row (`.cc-head`) led by a disclosure arrow (an arrow-wide blank when it has no members); the rest are its `.cc-member`s.
+  **`collapsed`**: the headed groups whose members are hidden (app-owned; a search still shows matching members, and `navOrder` skips hidden ones — a hidden active tab is stood in for by its head, `.cc-contains-active`, which `selectByOffset` steps from; a group with no head ignores it).
+  **`groupName`**: the group's label for search, a member's text header under a search, and a mirror's context (absent → `group`). **`accent`** is opt-in (any CSS colour): when set the row shows a small `.cc-accent` mark between tile and title; absent renders exactly as before. **`detached`** is opt-in (absent/falsy
+  on every row until an app's DTO sets it) — see the pop-out section below for what it does to a row.
+  **`windowDrag`** (default **on** when absent) makes the non-interactive chrome — banner, name, the
+  empty area of the tab list, group headers — a `data-tauri-drag-region` so a drag there moves the
+  host window (interactive descendants stay clickable; Tauri drags only when the mousedown target
+  itself carries the attr). Re-applied every `update`, so a consumer can hot-reload the toggle. A
+  consumer opts out with `windowDrag: false`; warden drives it from its `sidebar_drag` config.
+  **`openSection`** / **`backgroundSection`** (each default **off** when absent) pin the "Open" /
+  "Background" sections above the main list — see *The pinned mirror sections* below; warden drives
+  them from its `open_tabs_section` / `background_tabs_section` config.
+  **`active`** selects the ownership model: **present** ⇒ the app owns selection (curator, whose Rust
+  side is authoritative) — the component honours it and does NOT fire `onSelect`; **absent** ⇒ the
+  component owns it (warden) — it preserves the current selection (one the app cleared with
+  `setActive(null)` stays clear), falls back to the first tab when none was chosen yet or it
+  vanished, and fires `onSelect` so the app activates the fallback.
+- **`select(id)`** (public): highlight + fire `onSelect` (row clicks, keyboard nav, notification
+  focus resolve to this). **`setActive(id)`**: highlight only, no callback (reflect app-actioned
+  state, e.g. the neighbour activated after an unload).
+- **methods:** `update(dto)`, `setActive(id)`, `setLive(id,live)`, `setAttention(id,val)`,
+  `setPresence(id,state)`, `selectByOffset(dir,{liveOnly,from})`, `selectByIndex(n)`,
+  `focusSearch()` (shell-core's Find in Sidebar ⌘⇧F — see *Search* below), `setNavEnabled(enabled)`
+  (off — `.off`, `aria-disabled`, never `disabled`, so the tooltip stays — each title says `— no tab open`), `focusUrlField()`,
+  `toggleSidebar()` / `setSidebarCollapsed(on)` / `sidebarCollapsed` (with `hole`; the host's Toggle
+  Sidebar menu item calls the first), `setDownloads({active, unseen,
+  unseenFailed})` (`cc-dl-active` spinner ring; `cc-dl-unseen` blue dot; `cc-dl-failed` red dot, winning over blue), `requestEnd(id, "suspend"|"destroy")` (the keyboard route to the confirm row: suspend fires at once,
+  destroy arms the row and fires on a second request — `endIntent`), `revealRow(id)` (the tab's row, un-hidden from a search or collapsed folder first; flotilla's in-place rename), `setError(msg)`, `clearError()`, `pointerAway()` (a host compositing a view over the chrome calls it; see its docblock), `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update-bar view),
+  **`checkForUpdateNow()`** (the menu "Check for Updates…" path — check + announce the result; the app
+  forwards its own app-named menu event here), and **`destroy()`** (stop the recurring update check —
+  the only long-lived resource the component holds).
+
+> **Footgun — a targeted setter must write its signal back to `this.tabs`, not just the DOM.**
+> `setLive` / `setAttention` / `setPresence` each call `patchTab(this.tabs, id, …)` before touching a
+> row: the tab record is the state, the painted row only its projection. A `tree: true` section
+> repaints itself from those records on every folder expand/collapse (`_renderTreeSection`'s
+> `repaint`), which never goes through `update()` — so a DOM-only patch is silently reverted there,
+> and a host that emits the signal only *on change* never re-sends it. Flat rows hide the bug (only
+> `update()` rebuilds them). Any new targeted setter takes the same write-back. Full mechanism:
+> `patchTab`'s comment in `assets/sidebar.js`.
+
+**Dot slots (fixed order): attention · presence · unload-group (opt-in, heads only) · remove (opt-in) · live/unload — unload is always rightmost.** Attention = amber dot, rendered as a
+count pill when `attention` is a number (curator's unread count), or an amber padlock for `'lock'`
+(warden's agent waiting on a permission). Live/unload = green live ↔ hover-✕
+unload / hollow cold. (Pop-out is **not** a dot slot — it's a hover overlay on the icon tile, below.)
+
+**Pop-out / pop-in — a hover overlay ON the initial tile, not a trailing slot** (`.cc-icon-pop`, built
+in `_renderRow`). Opt-in by capability-by-callback-presence: rendered only when the
+app supplied `onPopOut(id)`. It's absolutely-positioned to fill the `.cc-icon` square (which is now
+`position: relative`), hidden until the **whole row is hovered** (`.cc-tab:hover .cc-icon-pop`), with a
+dark scrim + solid-white glyph nearly filling the tile (`calc(--cc-tile-size * 0.95)`) so it reads as a
+big, obvious button rather than a faint dot. A **docked** tab shows **`⤢`** and fires `onPopOut(id)`; a
+**detached** tab shows **`⇱`** (arrow into the corner) and fires **`onPopIn(id)`** — dock it back into a
+tab. `onPopIn` is a **separate opt-in
+callback**: the pop-in overlay renders only when the app supplied it (a docked tab needs only `onPopOut`;
+a detached tab's pop-in needs `onPopIn`). Both fire immediately on click (`e.stopPropagation()`); what
+each means is the app's business (warden: pop out = own window / pop in = close that window → redock).
+Kill-confirm's row-overlay hides the tile overlay too (`.cc-ctl-row.confirming .cc-icon-pop`).
+
+**`detached: true` on a `TabDTO` row means that tab is already popped out into its own window** —
+opt-in, like `onPopOut` itself: absent/falsy on every row until an app's DTO sets it. It changes a row
+in three ways, all in `_renderRow`: (1) the row gets class `.cc-tab.detached`, muted via `opacity: 0.6`
+(the same disabled-affordance treatment `#cc-update-btn:disabled` uses) — **shown, not removed or
+reshuffled**, same row height and slot layout as any other row; the muting is the persistent
+"popped-out" signal (it un-mutes on hover, `.cc-tab.detached:hover`, so the pop-in overlay reads as
+actionable). (2) the **live/unload dot shows live regardless of `t.live`** (`_makeDot(t.detached
+|| t.live)`) — a detached tab is always running, just in another window, so `t.live` (a *local*-surface
+signal) would misleadingly show it cold — and its **unload click is unwired** (you don't unload a tab
+that lives elsewhere). (3) the icon-tile overlay flips to the pop-in glyph (above), **and** clicking the
+row still fires `onSelect(id)` while **`select()` short-circuits for a detached tab — it does NOT move
+the highlight** (`this.active`). The app gives the row-click meaning ("raise the popped-out window") and
+the tile-overlay meaning ("dock it back"). Not moving the highlight is load-bearing — the detached tab is
+shown in *another* window, so highlighting its row would steal the selection indicator from the terminal
+actually displayed in *this* window (the "clicking a popped-out tab steals the sidebar focus indicator"
+bug). This all lives in the core (not per-app) per the dividing-line decision — like the confirm row's actions,
+app-agnostic row affordances whose semantics the consuming app supplies.
+
+**Presence is three-state — `on` | `ghost` | `off`** (warden's probe drives it; curator and lector
+never set it, passing `null` = no dot). `on` = cyan, a probe reported a live session. **`ghost` = a
+*recoverable* session** — none live, but the host reports one a plain launch would restore (warden:
+a crashed amux session, probe exit 3); it paints the ghost mask (`--cc-ghost-mask`) rather than a
+cyan dot. `off` = configured-but-absent, hollow. `on` and `ghost` are mutually exclusive. The
+authority is `presenceClass` (state + armable/`startable`/`live` → class list); `derivePresenceState`
+is its inverse, reading the state back off a painted dot.
+
+**Kill-confirm is a row-overlay state, not a slot** (clicking an armable presence dot reddens the row,
+hides the dots, shows ☠/⏻/↩). A row is **armable** (`armable`) when it has either ending action:
+`killable` (☠ destroy → `onDestroy`) or `suspendable` (⏻ suspend → `onSuspend`); curator and lector set
+neither. The presence dot is a **session toggle**:
+- **`on` + armable** → arms the confirm (2-step).
+- **`ghost` or `off`, + `startable` + the tab is `live`** → **starts**: a single click firing `onStart`
+  (curator and lector: `startable` always false), re-running the tab's command. The start affordance is
+  offered for **both** non-`on` states — a ghost is decoration *on* that same affordance, not a
+  separate path.
+- **`ghost` + `killable`, without start** → arms the confirm, where ☠ discards the restorable session
+  and ⏻ is disabled: nothing is running to suspend. What may run *now* is `canEnd`/`canSuspend`
+  (presence-aware); `armable` is only whether the row carries the controls.
+- **Cold (not `live`)** shows no start affordance regardless of state (no shell to type into — the
+  row-click activation path starts it instead).
+
+> **Footgun — `ghost` is easy to erase.** Both `presenceClass` and `derivePresenceState` must
+> check `ghost`, never collapse to `on`/`off` — the two-state collapse silently downgrades a ghost
+> to `off` on every repaint, losing the recoverable signal with no error. Guarded in
+> `presenceClass`/`derivePresenceState` and pinned in `tests/sidebar.test.js`; don't "simplify" either mapping.
+
+The armed row always renders **both** ending actions, `☠` then `⏻` — an action the tab lacks
+(`killable`/`suspendable` false) stays in place, **disabled** (`.cc-disabled`, muted, titled with why),
+never dropped; `suspendReason` disables ⏻ with that text as its title. What each means is the
+app's business (warden: run the tab's `kill` or `suspend` command, then unload the terminal); the
+component only reports the click. `busy` pulses an `on` dot, and `labels` (`{ end, destroy, suspend,
+start }`) replace the dot's and the glyphs' default titles.
+
+**`RowControls` is the one owner of the attention and presence slots and the confirm row** — their
+painting, the armed id, Escape/outside-click disarm. `Sidebar` holds one (`sb.controls`), and an app
+list outside the sidebar uses its own (warden's agent tabs; `window.ChromeRowControls`), handing it
+`rowsFor(id)`, `tabOf(id)` and the callbacks, with `.cc-ctl-host` on its container for the hover
+cues. A row it builds while its record is armed comes back armed unless another row for it already is.
+
+**The active-row highlight is derived from a lightness-LIFTED window colour, never the raw one**
+(`liftColour`), and `update()` publishes it as `--cc-active-bg` (fill) + `--cc-active-bar` (the 3px
+left stripe) — the single place either is computed. `_paint()` only toggles `.active`.
+
+> **Footgun — bumping the tint ratio does not fix a dark accent.** The obvious tune when a selected
+> row reads faintly is to raise the mix ratio, because the sidebar and the active row are the same
+> colour at different strengths. It cannot work: at ratio 1.0 the row *is* the accent, and for a
+> near-black one (`#002B49`, L≈14%) that is still nearly the background. Contrast has to stop being a function of the accent's own
+> luminance, which is what lifting to a lightness floor buys. Saturation is deliberately *not*
+> floored: that would tint the neutral no-colour fallback blue. Pinned in `tests/sidebar.test.js`.
+
+The component owns `cc-`-prefixed IDs (`#cc-banner`, `#cc-tab-list`, `#cc-error`, `#cc-resize`) so
+they never collide with an app's page-shell IDs; the mount container itself carries the `.cc-root`
+class (not an id).
+
+**Project-tree sections** (`tree`/`treePath` on `TabDTO`, warden-only — curator and lector never
+set them): a
+run of consecutive same-`group` tabs whose rows carry `tree: true` renders as a collapsible folder
+tree instead of a flat group. `treePath` is the folder-segment chain between the tree's root and the
+project (empty for a project sitting directly in the root, or for a non-tree row). The pure helper
+`buildTree(rows)` (exported for tests) nests rows by `treePath` into `{ folders: [{label, folders,
+rows}], rows }`, compressing single-child folder chains (labels joined with `/`) — a chain rooted at
+the anonymous top level whose compression fully absorbs the top folder surfaces its children directly
+(no synthetic top-level label), which only matters when the *entire* section is one unbranching chain
+with no root-level rows. The tree-head (a `.cc-group.cc-tree-head`) carries the group label + a
+`.cc-rescan` button firing `onRescan(group)` — return a promise that settles once the rescan's
+snapshot is applied, and the ⟳ spins until then, followed by a brief `.cc-rescan-status` outcome
+(`rescanSummary`: "+2 −1" / "No changes", the names in its tooltip); a tree named in the DTO's `trees` with no rows
+still renders, after the other sections (not under a search), as the head plus a muted
+`.cc-tree-empty` "No projects found" line, so its ⟳ stays reachable. Folder rows (`.cc-folder`) toggle their subtree via a full
+repaint (trees are config-scale, so this is simpler than DOM-patching visibility) and persist collapse
+state in `localStorage` under `cc-tree:<storageKey>:<group>/<folder-path>` — default policy is top
+level (depth 0) expanded, deeper folders collapsed. Depth indentation for both folder rows and leaf
+rows (`.cc-tab.cc-tree-row`) is driven by an inline `--cc-depth` custom property against the
+`--cc-indent` density token.
+
+**The pinned mirror sections** (`MIRROR_SECTIONS`; off for curator and lector): a `.cc-open`
+container pinned above the main list holding, per opted-in section with members, a collapsible header
+and a **mirror row** per member; a member of a headed group nests under a mirror of its head
+(`mirrorEntries`), which collapses with the app's `collapsed` like the main list's. **Open** (`openSection`; warden's `open_tabs_section`) mirrors
+`openTabs(tabs)` — `live || detached`; a session probe (`presence`) is deliberately not openness.
+**Background** (`backgroundSection`; warden's `background_tabs_section`) mirrors
+`backgroundTabs(tabs)` — `presence` `on` or `ghost` on a tab that is not open, so the two never share a tab.
+A header's arrow persists its section's collapse state in `localStorage` (`_sectionKey`, per
+`storageKey`); Open defaults expanded, Background collapsed. The mirrored tab keeps its row in its own
+group/tree as well, so the main list never shuffles; the sections repaint whole
+(`_paintMirrorSections`) rather than patching a row in or out, from `update()`, `setLive`, and
+`setPresence` when it moves a tab into or out of Background. A mirror row is lifted out
+of its section, so it carries a dimmed **where-it-lives label** after the title (`.cc-context`, from
+the pure `mirrorContext(t)`: a tree row's parent folder, else its group, none for a loose tab or a
+nested member) — the
+title alone can't tell `club/website` from any other `website`, or two same-titled tabs apart.
+
+The tab list therefore has **two containers, always both present**: `.cc-open` and `.cc-main`
+(everything else), plus `.cc-incoming` before them only while `incoming` has items (below). **`#cc-tab-list` is no longer a scroller** — it is the column that lays them
+out, and each section scrolls on its own: the pinned one is content-sized up to `--cc-open-max`
+(2/5 of the window) and then scrolls within itself, the main one takes the rest. Paging through a
+long project list therefore never pushes the open tabs off the top, which is the whole point of
+pinning them. A hard ceiling can't strand space here — every tab in the pinned section is also a row
+in the main list, so the section can never need more room than the list below it does. `.cc-main`
+needs `min-height: 0` (a flex item's automatic minimum size is its content height, which would
+otherwise defeat the cap and grow the list instead of scrolling it), and `flex-shrink: 0` on the
+ROWS is scoped inside the sections rather than at `#cc-tab-list > *`, which would also pin the
+sections themselves.
+
+> **Footgun — the section scrollers must carry no `padding-top`.** A sticky header's `top: 0` is
+> measured from the scrollport's *padding* box while overflow is clipped at that same box, so top
+> padding on the scroller parks every stuck header that far down and leaves the rows scrolling past
+> visible in the strip above it — a sliver of the row underneath, riding over the header.
+> `#cc-tab-list` may carry padding only because it does not scroll. Space the first header with its
+> own `padding-top` (`--cc-group-first-top`, inside the painted box), never with padding on a
+> scroller.
+
+> **Footgun — `.cc-open` must be `flex-shrink: 0`; `max-height` is the only thing allowed to bound
+> it.** Leaving shrink at the default 1 looks like a free safety valve (a very short window takes
+> height back off the pinned section, whose rows are all duplicated below anyway). It isn't: flex
+> shrink applies whenever the CONTAINER overflows, and the container overflows whenever the main
+> list is longer than the sidebar — the ordinary case. The section is then squeezed *proportionally
+> on every long list* and starts scrolling at three or four rows, nowhere near the ceiling, which
+> reads as a scrollbar on a section occupying a fifth of the window. The degenerate case shrink was guarding does not exist: `--cc-open-max` could only exceed the
+> list's own height in a window shorter than the banner it carries.
+
+**The pinned Incoming section** (`incoming`; absent or empty → not painted): `.cc-incoming`, the list's first
+child, lists items waiting on an action — each a tile, title, optional `.cc-inbox-problem` line and a row of
+`button[data-action]`. It is rebuilt whole by `_paintIncoming` on every `_paintList`, is not searched, and its
+items are not `.cc-tab`s, so nav (`selectByIndex`), `_rowsById` and `_paint` never see them. It follows the
+`.cc-open` scroller rules above (`flex-shrink: 0`, `max-height`, no `padding-top`).
+
+`.cc-main` also lets the CSS address the main list as a unit, which buys two more things. `.cc-group:first-child` means "first header of its own list" again in both containers — the
+pinned section is always the list's first child, so without the split the main list's first header
+would permanently lose its flush-top treatment. And while the pinned section is showing, the main
+list is **de-emphasised until pointed at** (`filter: saturate() opacity()`, lifted on `:hover`,
+`transition` dropped under `prefers-reduced-motion`): with the open tabs pinned above, the list below
+is the index you reach into, not where you are working. Two deliberate details: the de-emphasis is
+gated on the section being **non-empty**, not merely opted in (muting the only list on screen would
+just be an unreadable sidebar), and `.cc-main` takes `flex-grow: 1` so the hover region includes the
+**empty space under the last row**, which reads as part of the list and would otherwise stay dim.
+
+> **Footgun — `:hover` is not self-clearing for a host that composites ANY view over the chrome
+> webview** (a native surface or another webview), so **every `:hover` rule in `sidebar.css` is written `.cc-root:not(.cc-away) …:hover`**
+> (a row's highlight, its pop-out overlay and hover-✕, the resize handle, the main list's
+> de-emphasis). The host calls **`pointerAway()`** to set `cc-away`; its docblock carries the
+> mechanism. A new hover rule gets the same prefix, never a second mechanism — and the prefix raises
+> its specificity, so check it doesn't now out-rank a state rule meant to hide it (the pop-out
+> overlay needed `:not(.confirming)` for exactly that).
+
+> **Footgun — one tab id can own TWO rows, so row lookup is `_rowsById` (plural).** Everything that
+> patches a row by id must loop: `setLive`, `setAttention`, `setPresence`, and the kill-confirm
+> arm/disarm. A singular lookup compiles and looks right — it silently paints one row and leaves the
+> twin's dot, badge or presence stale. **The DTO is NOT duplicated**: `this.tabs` stays one record
+> per tab, so `patchTab` and every id → record lookup are untouched by this. Mirrors carry
+> `data-mirror` and are excluded from `_navRows()`, which `selectByIndex` counts — counting them
+> would shift every ⌘1–9 index by however many tabs happened to be open. `selectByOffset` walks the
+> records (`navOrder`), never the DOM, because a tab in a collapsed tree folder has no row at all.
+
+### Search
+
+The always-shown `#cc-search` field above the list narrows it as you type: `filterTabs` (exported,
+tested) keeps a tab when every whitespace term appears, case-insensitively, in its title, tree path
+or group label (`groupName ?? group`). **`this.tabs` stays whole** — `_paintList()` paints both sections from `_shown()`, so the
+targeted setters and `selectByOffset` see every tab, while `selectByIndex` (DOM-counted) numbers the
+matches. A search opens every tree folder and collapsed headed group without writing either's collapse state. ↑/↓ move a
+`.cc-cursor` outline among the matches; Enter selects it; Enter and Esc both clear the field and blur
+it, and Esc also fires `onSearchExit`. Clicking a row also clears it; the `#cc-search-clear` × clears
+and keeps focus (disabled while empty).

@@ -43,7 +43,7 @@ const sidebar = ChromeSidebar.mount(document.getElementById("sidebar"), {
 sidebar.update(tabsDto);
 ```
 
-The full contract — the tab DTO, every callback and config key — is in [CLAUDE.md](CLAUDE.md).
+The full contract — the tab DTO, every callback and config key — is in [docs/contract.md](docs/contract.md).
 
 ## What it provides
 
