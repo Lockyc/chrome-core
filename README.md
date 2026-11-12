@@ -14,11 +14,6 @@ own.
 
 ![The sidebar in chrome-core's preview: a teal window banner with back, forward, reload and home, a link field, search, then rows of tabs with letter tiles and status dots, a Backend section and a collapsible project tree](docs/screenshots/sidebar.png)
 
-## Consumers
-
-warden, curator, lector and flotilla, each pinned to a **commit rev**. There are no tags or
-releases.
-
 ## Use
 
 Take chrome-core as a **build-dependency** pinned by `rev`:
@@ -65,7 +60,7 @@ The full contract — the tab DTO, every callback and config key — is in [CLAU
 
 ## Status
 
-In use by all four apps.
+In use by all four apps, each pinned to a commit rev; there are no tags or releases.
 
 ## Related
 
