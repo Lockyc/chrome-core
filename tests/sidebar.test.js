@@ -1967,3 +1967,15 @@ test("a detached row's presence dot paints from its live dot, on birth as on eve
   sb.setPresence("p", "off");
   assert.ok(pres().classList.contains("start"), "a repaint agrees");
 });
+
+test("setLive(false) on a detached tab keeps its dot live, as the full paint shows it", () => {
+  const root = installDom();
+  const sb = new Sidebar(root, {}, {});
+  sb.update({ title: "w", active: "a", tabs: [{ id: "a", title: "A", live: true }, { id: "p", title: "P", live: true, detached: true }] });
+  const dot = () => sb.list.querySelector('.cc-tab[data-id="p"]').querySelector(".cc-dot");
+  // Popping a tab out drops its local surface; the app reports that, and the tab still runs.
+  sb.setLive("p", false);
+  assert.ok(dot().classList.contains("live"));
+  sb.update({ title: "w", active: "a", tabs: sb.tabs });
+  assert.ok(dot().classList.contains("live"));
+});

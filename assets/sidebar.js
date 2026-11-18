@@ -1920,10 +1920,13 @@ class Sidebar {
     // patched above, so a mirror renders correct on birth) before patching the standing rows.
     this._paintMirrorSections();
     this._paint(); // a freshly-built mirror of the active tab needs its `.active` class
+    // `live` reports only a local surface; a detached tab's dot stays live, as `_renderRow` paints it.
+    const t = this.tabs.find((x) => x.id === id);
+    const shown = !!live || !!(t && t.detached);
     for (const row of this._rowsById(id)) {
       const dot = row.querySelector(".cc-dot");
-      if (dot) this._paintDot(dot, live);
-      this._refreshPresenceLive(row, live); // live gates the presence `start` affordance
+      if (dot) this._paintDot(dot, shown);
+      this._refreshPresenceLive(row, shown); // live gates the presence `start` affordance
     }
   }
 
