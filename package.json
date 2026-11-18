@@ -1,8 +1,11 @@
 {
   "name": "chrome-core",
   "private": true,
-  "description": "Test harness for the chrome-core sidebar component (node:test, zero deps).",
+  "description": "Test harness for the chrome-core sidebar component (node:test, with fast-check for the property test).",
   "scripts": {
     "test": "node --test"
+  },
+  "devDependencies": {
+    "fast-check": "4.10.2"
   }
 }

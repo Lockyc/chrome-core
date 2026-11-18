@@ -73,7 +73,7 @@ two cores the apps share.
 ```sh
 git clone https://github.com/lockyc/chrome-core && cd chrome-core
 cargo build     # compiles the include_str! constants (catches missing/renamed assets)
-node --test     # unit-tests the component's pure logic (zero deps)
+just test       # unit- and property-tests the component's logic (installs fast-check, a dev dependency)
 just dev        # serve preview.html, the component with sample tabs and no app
 ```
 

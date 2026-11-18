@@ -35,10 +35,20 @@ shot density="comfortable":
     echo "✓ wrote preview.png ({{density}})"
 
 # Covers the pure helpers and render/event behaviour on a fake DOM (tests/). Visual behaviour is out of scope — use `just dev` / `just shot`.
-# Unit-test the component's JS logic (zero deps, node:test)
+# Unit- and property-test the component's JS logic (node:test + fast-check)
 [group("check")]
-test:
+test: _deps
     node --test
+
+# Occasional: the operation-sequence property test at 20× its usual runs (FC_RUNS)
+[group("check")]
+soak runs="8000": _deps
+    FC_RUNS={{ runs }} node --test tests/sidebar.state.test.js
+
+# Install the test harness's dev dependencies when the lockfile is newer than node_modules
+[private]
+_deps:
+    @[ node_modules/.package-lock.json -nt package-lock.json ] || npm ci --no-audit --no-fund --silent
 
 # Compile the include_str! constants (catches a missing/renamed asset)
 [group("check")]
@@ -52,7 +62,7 @@ fmt:
 
 # Pre-merge gate: rustfmt check (non-mutating), JS unit tests, and the include_str! build.
 [group("check")]
-gate:
+gate: _deps
     cargo fmt --check
     node --test
     cargo build
