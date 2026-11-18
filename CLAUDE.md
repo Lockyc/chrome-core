@@ -85,5 +85,6 @@ comment documents them. This is the fast loop for iterating on `sidebar.{css,js}
 `just build` (`cargo build`) compiles the `include_str!` constants (catches a missing/renamed asset).
 `just test` (`node --test`) unit-tests the exported pure helpers (`tests/sidebar.test.js`), and mounts
 the component on the minimal fake DOM in `tests/dom.js` for render/event behaviour; `just gate`
-runs rustfmt-check + tests + build together. Visual behaviour has no unit coverage — iterate it with
+runs rustfmt-check + tests + build together. Visual behaviour has no unit coverage beyond
+`tests/css.test.js`'s selector invariants — iterate it with
 `just dev` / `just shot` (above) and confirm integration by running the consuming apps.
