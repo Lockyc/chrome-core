@@ -1421,6 +1421,8 @@ class Sidebar {
 
     const tree = buildTree(rows);
     const repaint = () => {
+      // As `_paintMirrorSections`: a wiped armed row would leave the tab armed with no confirm UI.
+      if (body.querySelector(".cc-tab.confirming")) this.controls.disarm();
       body.innerHTML = "";
       if (!tree.folders.length && !tree.rows.length) {
         body.appendChild(el("div", { class: "cc-tree-empty" }, "No projects found"));

@@ -1979,3 +1979,24 @@ test("setLive(false) on a detached tab keeps its dot live, as the full paint sho
   sb.update({ title: "w", active: "a", tabs: sb.tabs });
   assert.ok(dot().classList.contains("live"));
 });
+
+test("collapsing the folder over an armed tree row disarms it, so a second requestEnd can't destroy blind", () => {
+  const root = installDom();
+  installStorage();
+  const destroyed = [];
+  const sb = new Sidebar(root, { onDestroy: (id) => destroyed.push(id) }, {});
+  const tabs = [
+    { id: "top", title: "top", group: "Dev", tree: true, treePath: [] },
+    { id: "deep", title: "deep", group: "Dev", tree: true, treePath: ["gh"], killable: true },
+  ];
+  sb.update({ title: "w", active: "top", tabs });
+  sb.requestEnd("deep", "destroy"); // arms the row, on screen
+  assert.equal(sb.controls.armed, "deep");
+  fire(sb.list.querySelector(".cc-folder"), "click"); // collapse "gh": the armed row goes
+  assert.equal(sb.controls.armed, null, "no confirm row on screen, so nothing stays armed");
+  sb.requestEnd("deep", "destroy");
+  assert.deepEqual(destroyed, [], "the second request re-arms instead of destroying");
+  assert.equal(sb.controls.armed, "deep");
+  sb.destroy();
+  clearTimeout(sb._armTimer);
+});
