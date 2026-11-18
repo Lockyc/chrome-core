@@ -7,7 +7,12 @@ refs="$(cat)"   # git feeds pre-push ref lines on stdin; captured before running
 
 # The JS tests (the working tree's), fail-closed: consumers re-pin to pushed HEAD, so a red push can
 # be pinned into an app. `just test` installs the dev dependency first when it is missing.
-just test || { echo "pre-push: just test failed — push blocked." >&2; exit 1; }
+# Silent on a pass: every line a hook prints lands in the pushing agent's context.
+if ! out="$(just test 2>&1)"; then
+  printf '%s\n' "$out" >&2
+  echo "pre-push: just test failed — push blocked." >&2
+  exit 1
+fi
 
 docgraph_bin() {
   if command -v docgraph >/dev/null 2>&1; then command -v docgraph; return; fi
