@@ -482,6 +482,9 @@ function el(tag, attrs, text) {
 // without a restart (the single home for the interval, shared by every consuming app).
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
+// How long the menu check's "You're up to date." notice stays before it clears itself.
+const UP_TO_DATE_NOTICE_MS = 4000;
+
 // How long a keyboard-armed confirm row (`requestEnd`) stays armed before it lapses on its own.
 const KEY_ARM_TIMEOUT_MS = 4000;
 
@@ -2175,7 +2178,7 @@ class Sidebar {
         if (announce || !this._updateDismissed) this.setUpdate({ version: update.version, notes: update.body });
       } else if (announce) {
         this.setError("You're up to date.");
-        this._noticeTimer = setTimeout(() => this.clearError(), 4000);
+        this._noticeTimer = setTimeout(() => this.clearError(), UP_TO_DATE_NOTICE_MS);
       }
     } catch (e) {
       if (announce) this.setError("Couldn't check for updates: " + e);
@@ -2467,7 +2470,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, Sidebar, collapseKey, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, busyTiming, armable, canSuspend, canEnd, endIntent, derivePresenceState, buildTree, patchTab, openTabs, backgroundTabs, mirrorContext, filterTabs, treeRows, rescanSummary, RowControls };
+  module.exports = { ChromeSidebar, Sidebar, collapseKey, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, busyTiming, armable, canSuspend, canEnd, endIntent, derivePresenceState, buildTree, patchTab, openTabs, backgroundTabs, mirrorContext, filterTabs, treeRows, rescanSummary, RowControls, UPDATE_CHECK_INTERVAL_MS, KEY_ARM_TIMEOUT_MS, RESCAN_STATUS_MS, UP_TO_DATE_NOTICE_MS };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;
