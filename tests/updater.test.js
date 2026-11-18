@@ -103,7 +103,7 @@ test("updater: the interval re-checks at UPDATE_CHECK_INTERVAL_MS and destroy() 
   assert.equal(checks.length, 2);
 });
 
-test("updater: a dismissed update stays down on the periodic check, and the menu check re-surfaces it", async (t) => {
+test("updater: a dismissed update stays down on the periodic check, and the menu check lifts the dismissal", async (t) => {
   const { sb, checks } = mountUpdater(t);
   const u = { version: "2.0.0", downloadAndInstall: async () => {} };
   checks[0].resolve(u);
@@ -118,6 +118,11 @@ test("updater: a dismissed update stays down on the periodic check, and the menu
   checks[2].resolve(u);
   await flush();
   assert.ok(updateShown(sb), "the menu path re-engages");
+  sb.clearUpdate(); // the bar goes without a dismissal
+  t.mock.timers.tick(UPDATE_CHECK_INTERVAL_MS);
+  checks[3].resolve(u);
+  await flush();
+  assert.ok(updateShown(sb), "the periodic check offers it again");
 });
 
 test("updater: without the process plugin nothing arms, and Update clears the bar with the reason", async (t) => {
