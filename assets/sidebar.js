@@ -1695,8 +1695,9 @@ class Sidebar {
     // Attention slot (amber; count pill when a number). Absent when null.
     if (t.attention != null) row.appendChild(this.controls.attention(t.attention));
 
-    // Presence slot (cyan; warden probe). Absent when null. Clickable when armable + on.
-    if (t.presence != null) row.appendChild(this.controls.presence(t, !!t.live));
+    // Presence slot (cyan; warden probe). Absent when null. Clickable when armable + on. Live as the
+    // row's dot is (a detached tab included), the same input every later repaint of it reads.
+    if (t.presence != null) row.appendChild(this.controls.presence(t, !!(t.detached || t.live)));
 
     // Remove slot — opt-in per app (rendered only when the consumer supplies `onRemove`): take the
     // tab out of the sidebar. Always on screen, muted until hovered; fires at once, unless the row

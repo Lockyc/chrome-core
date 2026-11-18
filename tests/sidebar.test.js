@@ -1955,3 +1955,15 @@ test("RowControls: a ghost's disabled ⏻ keeps the host's suspend label", () =>
   rc.arm("a", r1);
   assert.equal(r1.querySelector(".cc-confirm-suspend").title, "Sleep — nothing running; already restorable");
 });
+
+test("a detached row's presence dot paints from its live dot, on birth as on every repaint", () => {
+  const root = installDom();
+  const sb = new Sidebar(root, { onStart() {} }, {});
+  const t = { id: "p", title: "popped", live: false, detached: true, presence: "off", startable: true };
+  sb.update({ title: "w", active: "a", tabs: [{ id: "a", title: "A", live: true }, t] });
+  const pres = () => sb.list.querySelector('.cc-tab[data-id="p"]').querySelector(".cc-presence");
+  // Running in its own window, so it can be started: the same paint `setPresence` would give it.
+  assert.ok(pres().classList.contains("start"), "the full paint offers start");
+  sb.setPresence("p", "off");
+  assert.ok(pres().classList.contains("start"), "a repaint agrees");
+});
