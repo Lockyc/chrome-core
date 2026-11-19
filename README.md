@@ -49,6 +49,8 @@ The full contract — the tab DTO, every callback and config key — is in [docs
 
 - **The banner** — the window's name and accent colour, optional back / forward / reload / home,
   a link field and a downloads button.
+- **Title-bar strip** — `appName` names the host app beside the macOS traffic lights and owns
+  their inset.
 - **Tab rows** — a letter tile or icon, a title, status dots (needs attention, session present,
   loaded), and optional unload-group and remove controls; groups headed by their own row,
   collapsible project trees with a rescan button, pinned "Open" and "Background" sections.
