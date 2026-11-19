@@ -1135,8 +1135,8 @@ test("an armed row stays armed across a DTO push, and disarms once the push ends
   const fired = [];
   const sb = new Sidebar(root, { onSuspend: (id) => fired.push(id) }, { storageKey: "w" });
   const tabs = (xPresence) => [
-    row("x", "ops", null, { live: true, presence: xPresence, killable: true, suspendable: true }),
-    row("y", "locus", null, { live: true, presence: "on", suspendable: true }),
+    row("x", "second", null, { live: true, presence: xPresence, killable: true, suspendable: true }),
+    row("y", "first", null, { live: true, presence: "on", suspendable: true }),
   ];
   const push = (t) => sb.update({ title: "w", colour: null, density: "comfortable", tabs: t });
   push(tabs("on"));
