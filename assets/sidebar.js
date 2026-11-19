@@ -1041,7 +1041,7 @@ class Sidebar {
 
   /** Full render from a window DTO. The one render path (init + hot-reload). */
   update(dto) {
-    this.controls.disarm();
+    const armed = this._armSnapshot();
     const prevActive = this.active;
     this.windowColour = dto.colour || NEUTRAL_COLOUR;
     this.tabs = dto.tabs || [];
@@ -1119,7 +1119,7 @@ class Sidebar {
     const mainTop = this.mainEl ? this.mainEl.scrollTop : 0;
     const openTop = this.openEl ? this.openEl.scrollTop : 0;
     const incomingTop = this.incomingEl ? this.incomingEl.scrollTop : 0;
-    this._paintList();
+    this._paintList(armed);
     if (this.incomingEl) this.incomingEl.scrollTop = incomingTop;
     if (this.mainEl) this.mainEl.scrollTop = mainTop;
     if (this.openEl) this.openEl.scrollTop = openTop;
@@ -1135,10 +1135,51 @@ class Sidebar {
     return filterTabs(this.tabs, this.query);
   }
 
+  /** The armed confirm as it stands before a repaint: its id, whether its row is a mirror, and the
+   *  presence it was armed against. Null when nothing is armed, or inside a repaint already. */
+  _armSnapshot() {
+    const id = this.controls.armed;
+    if (!id || this._repainting) return null;
+    const row = this._rowsById(id).find((r) => r.classList.contains("confirming"));
+    const t = this.tabs.find((x) => x.id === id);
+    return { id, mirror: !!(row && row.dataset.mirror), presence: t ? (t.presence ?? null) : null };
+  }
+
+  /** Re-seat the armed confirm on the rows a repaint built: on the same kind of row it was on
+   *  (mirror or main list), else the other. It disarms when no row for it is on screen, its record
+   *  can no longer end, or its session changed state — the armed actions no longer describe it, and
+   *  an armed record with no confirm on screen would let `requestEnd` destroy unconfirmed. */
+  _restoreArm(snap) {
+    if (!snap || this.controls.armed !== snap.id) return;
+    const t = this.tabs.find((x) => x.id === snap.id);
+    const rows = this._rowsById(snap.id).filter((r) => r.classList.contains("cc-ctl-row"));
+    const row = rows.find((r) => !!r.dataset.mirror === snap.mirror) || rows[0];
+    if (!t || !row || !canEnd(t) || (t.presence ?? null) !== snap.presence) return this.controls.disarm();
+    for (const r of rows) r.classList.toggle("confirming", r === row);
+    this.controls._paintControls(row, t);
+  }
+
+  /** Run `paint`, which replaces rows, keeping the armed confirm (`_restoreArm`): a host pushes
+   *  DTOs while the user reaches for ⏻ or ☠. A repaint nested in another leaves it to the outer. */
+  _keepingArm(paint, snap = this._armSnapshot()) {
+    if (this._repainting) return paint();
+    this._repainting = true;
+    try {
+      paint();
+    } finally {
+      this._repainting = false;
+    }
+    this._restoreArm(snap);
+  }
+
   /** Rebuild both sections from `_shown()` — `update()`'s list half, and the search field's repaint.
-   *  Selection is untouched: a filtered-out active tab stays active, it just has no row. */
-  _paintList() {
-    this.controls.disarm();
+   *  Selection is untouched: a filtered-out active tab stays active, it just has no row. `armed` is
+   *  the confirm to keep, when the caller snapshotted it before changing the records. */
+  _paintList(armed) {
+    this._keepingArm(() => this._paintListRows(), armed);
+  }
+
+  _paintListRows() {
     const tint = this.tint;
     const drag = this.drag;
     const tabs = this._shown();
@@ -1319,10 +1360,10 @@ class Sidebar {
    *  place. `data-rows` on the container marks an expanded section with rows: the CSS dims the main
    *  list only then, never under a lone collapsed header. */
   _paintMirrorSections() {
-    if (!this.openEl) return;
-    // Wiping an armed mirror row would leave the tab armed with no confirm UI, so the next dot
-    // click does nothing and requestEnd destroys unconfirmed. An armed main-list row is untouched.
-    if (this.openEl.querySelector(".cc-tab.confirming")) this.controls.disarm();
+    if (this.openEl) this._keepingArm(() => this._paintMirrorRows());
+  }
+
+  _paintMirrorRows() {
     this.openEl.innerHTML = "";
     let anyRows = false;
     const searching = !!this.query.trim();
@@ -1423,16 +1464,15 @@ class Sidebar {
     this.mainEl.appendChild(body);
 
     const tree = buildTree(rows);
-    const repaint = () => {
-      // As `_paintMirrorSections`: a wiped armed row would leave the tab armed with no confirm UI.
-      if (body.querySelector(".cc-tab.confirming")) this.controls.disarm();
-      body.innerHTML = "";
-      if (!tree.folders.length && !tree.rows.length) {
-        body.appendChild(el("div", { class: "cc-tree-empty" }, "No projects found"));
-        return;
-      }
-      this._paintTreeNode(body, tree, group, [], 0, repaint);
-    };
+    const repaint = () =>
+      this._keepingArm(() => {
+        body.innerHTML = "";
+        if (!tree.folders.length && !tree.rows.length) {
+          body.appendChild(el("div", { class: "cc-tree-empty" }, "No projects found"));
+          return;
+        }
+        this._paintTreeNode(body, tree, group, [], 0, repaint);
+      });
     repaint();
   }
 

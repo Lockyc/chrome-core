@@ -996,7 +996,10 @@ test("an armed Open mirror survives probe sweeps that move no tab between sectio
   sb.setPresence("y", "off");
   assert.equal(sb.controls.armed, "x", "a sweep that changes no section keeps the confirm row");
   sb.setPresence("y", "ghost");
-  assert.equal(sb.controls.armed, null, "a section repaint wipes the armed mirror, so it disarms");
+  assert.equal(sb.controls.armed, "x", "a section repaint re-seats the armed mirror");
+  const mirror = sb.openEl.querySelector('.cc-tab[data-id="x"]');
+  assert.ok(mirror.classList.contains("confirming"), "on the mirror it was armed on");
+  assert.ok(!sb.mainEl.querySelector('.cc-tab[data-id="x"]').classList.contains("confirming"));
 
   // With Background off, a tab turning ghost changes nothing visible — no repaint, still armed.
   const off = mountSections({ openSection: true, backgroundSection: false, tabs: tabs() }, storage);
@@ -1124,6 +1127,36 @@ test("a cold killable ghost: its dot arms the confirm row — ☠ discards, ⏻ 
   assert.deepEqual(fired, []);
   fire(destroy, "click");
   assert.deepEqual(fired, [["destroy", "g"]]);
+});
+
+test("an armed row stays armed across a DTO push, and disarms once the push ends or removes it", () => {
+  const root = installDom();
+  globalThis.localStorage = installStorage();
+  const fired = [];
+  const sb = new Sidebar(root, { onSuspend: (id) => fired.push(id) }, { storageKey: "w" });
+  const tabs = (xPresence) => [
+    row("x", "ops", null, { live: true, presence: xPresence, killable: true, suspendable: true }),
+    row("y", "locus", null, { live: true, presence: "on", suspendable: true }),
+  ];
+  const push = (t) => sb.update({ title: "w", colour: null, density: "comfortable", tabs: t });
+  push(tabs("on"));
+  fire(rowOf(sb, "x").querySelector(".cc-presence"), "click");
+  push(tabs("on")); // another tab's agents closing, one refresh each
+  push(tabs("on"));
+  assert.equal(sb.controls.armed, "x");
+  assert.ok(rowOf(sb, "x").classList.contains("confirming"), "the rebuilt row shows the confirm");
+  fire(rowOf(sb, "x").querySelector(".cc-confirm-suspend"), "click");
+  assert.deepEqual(fired, ["x"], "⏻ on the rebuilt row fires");
+  sb.controls.disarm(); // the press animation's own disarm
+
+  fire(rowOf(sb, "x").querySelector(".cc-presence"), "click");
+  push(tabs("ghost"));
+  assert.equal(sb.controls.armed, null, "its session changed state");
+  push(tabs("on"));
+  fire(rowOf(sb, "x").querySelector(".cc-presence"), "click");
+  assert.equal(sb.controls.armed, "x");
+  push(tabs("on").slice(1));
+  assert.equal(sb.controls.armed, null, "its record went");
 });
 
 test("an armed row disarms when its session changes state, not on a repeat report", () => {
