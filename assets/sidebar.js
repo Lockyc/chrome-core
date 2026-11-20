@@ -2354,6 +2354,8 @@ class Sidebar {
     }
     if (counted) countEl.textContent = String(n);
     const count = counted ? ` — ${n} ${n === 1 ? "tab" : "tabs"}` : "";
+    // ⌃⌘S is shell-core's ACCEL_TOGGLE_SIDEBAR, which this core can't read (cores don't depend on
+    // each other). Rebinding it there means passing the chord in through mount config instead.
     const label = `${this.sidebarCollapsed ? "Show" : "Hide"} Sidebar (⌃⌘S)${count}${flag ? ` — ${waiting.join(", ")}` : ""}`;
     this.sidebarToggle.title = label;
     this.sidebarToggle.setAttribute("aria-label", label);
