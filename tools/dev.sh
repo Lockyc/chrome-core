@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Serve the site on loopback with live reload, for design iteration. Nothing is
-# built or rewritten. House contract: lockyc-config skill, references/dev-server.md.
+# built or rewritten.
 set -euo pipefail
 
 # The directory to serve — the ONLY line to change per repo. "." for a repo whose
@@ -38,7 +38,7 @@ dev_port() {
 PORT=$(dev_port "${1:-${DEV_PORT:-}}")
 URL="http://127.0.0.1:${PORT}/"
 
-# The URL is the one output rule 5 guarantees, so it gets its own line, short enough
+# The URL is the one line this script always prints, so it gets its own line, short enough
 # never to wrap, as an OSC 8 hyperlink (clickable even where URL sniffing isn't).
 # Styling only on a terminal and never under NO_COLOR, so piped output stays plain.
 b='' d='' c='' r='' link=$URL

@@ -57,7 +57,7 @@ The mount call, callbacks, config, DTO, methods and every row behaviour: [docs/c
 ## Consumption (build-dep + build.rs) and pinning
 
 Each app is a **build-dependency** consumer pinned by `rev`; its `build.rs` writes `SIDEBAR_CSS`/
-`SIDEBAR_JS` into the app's `frontendDist` (`src/` for curator and lector, `ui/` for warden) as
+`SIDEBAR_JS` into the app's `frontendDist` (`src/` for curator, lector and flotilla, `ui/` for warden) as
 `chrome-core.{css,js}` before `generate_context!` embeds it. The generated files are git-ignored in
 each app. **Pin this crate by `rev` and bump it in lockstep with config-core and the Rust toolchain
 pin** across curator, warden, lector and flotilla (the same lockstep discipline those already follow).
@@ -71,7 +71,7 @@ Dev iteration on the chrome from inside an app is higher-friction behind a pinne
 ships **`just chrome-dev`** (build against a local `../chrome-core` checkout via a normally-commented
 `[patch]`) and **`just chrome-pin`** (re-pin the app's rev to `../chrome-core`'s pushed HEAD and
 re-comment the patch before you commit); `just gate` in each app refuses a left-active patch. Reach
-this repo's preview from any app with **`just chrome-preview`**. See warden's / curator's / lector's CLAUDE.md.
+this repo's preview from warden, curator or lector with **`just chrome-preview`** (see their CLAUDE.md).
 
 For **visual** tweaks, skip the app round-trip entirely: the checked-in **`preview.html`** mounts the
 component in isolation with a representative DTO (loose tabs, a plain group, headed groups expanded

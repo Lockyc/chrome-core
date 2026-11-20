@@ -2251,9 +2251,9 @@ class Sidebar {
     }
   }
 
-  // Stop the recurring check — the interval is the only long-lived resource the component holds. A
-  // consumer that unmounts the sidebar should call this; the current apps let the webview teardown
-  // collect it, but destroy() keeps that explicit and lets tests tear down cleanly.
+  // Tear down every listener and timer the component installed on `window`/`document`, so an
+  // unmounted sidebar never calls back into the host. The current apps let the webview teardown
+  // collect it; a consumer that unmounts and remounts must call this.
   destroy() {
     if (this._updateTimer) {
       clearInterval(this._updateTimer);
@@ -2262,6 +2262,19 @@ class Sidebar {
     window.removeEventListener("mousemove", this._onDragMove);
     window.removeEventListener("mouseup", this._onDragEnd);
     window.removeEventListener("keydown", this._onDragKey);
+    if (this._onWinBlur) window.removeEventListener("blur", this._onWinBlur);
+    if (this._onDocLeave) document.documentElement.removeEventListener("mouseleave", this._onDocLeave);
+    this._onWinBlur = this._onDocLeave = null;
+    this.controls.disarm(); // its document listeners, and `_armTimer` through onDisarm
+    this._disarmRemove();
+    clearTimeout(this._noticeTimer);
+    this._noticeTimer = null;
+    for (const st of this._rescans.values()) clearTimeout(st.timer);
+    this._rescans.clear();
+    if (this.cfg.clock) {
+      this.cfg.clock.clear(this._railTimer);
+      this.cfg.clock.clear(this._leaveTimer);
+    }
   }
 
   // ── collapse ──
@@ -2400,14 +2413,16 @@ class Sidebar {
       this._leaveTimer = clock.set(() => this._endPeekUnlessTyping(), PEEK_LEAVE_MS);
     });
     // Out of the window altogether.
-    document.documentElement.addEventListener("mouseleave", () => {
+    this._onDocLeave = () => {
       this._pointerInside = false;
       this._endPeekUnlessTyping();
-    });
+    };
+    document.documentElement.addEventListener("mouseleave", this._onDocLeave);
     // The page lost key focus (a click on the content, another app): a field here no longer counts.
-    window.addEventListener("blur", () => {
+    this._onWinBlur = () => {
       if (!this._pointerInside) this._endPeekUnlessTyping();
-    });
+    };
+    window.addEventListener("blur", this._onWinBlur);
     // A field let go (Esc, Enter, a click on the content): close if the pointer is elsewhere.
     this.root.addEventListener("focusout", (e) => {
       if (e.relatedTarget && this.root.contains(e.relatedTarget)) return;

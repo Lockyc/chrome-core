@@ -40,10 +40,8 @@ links:
   traffic lights. Every consumer uses `TitleBarStyle::Overlay`, which hides the native window title
   entirely — so without this the app's own name appears nowhere on screen. chrome-core owns the
   strip (`#cc-titlebar`, `--cc-titlebar-h` tall, `--cc-lights-inset` of left padding to clear the
-  lights); before it, each app reserved the same zone with its own `#sidebar { padding-top: 28px }`
-  and drew nothing in it — **a consumer passing `appName` must drop that padding**, or the strip
-  lands below the lights instead of beside them. Absent/null → no strip, and the layout is exactly
-  as it was (so `preview.html` and any slot-less host are untouched).
+  lights) — **a consumer passing `appName` must not also pad `#sidebar` for the lights**, or the
+  strip lands below them instead of beside them. Absent/null → no strip.
   **`emptyState`** (default null) is the app's own element holding its muted mark (an `<svg>`) inside
   the content area; chrome-core styles it (`.cc-empty-state`: opaque, centred, filling its
   positioned parent) and shows it on every `update(dto)` whose `active` is unset. The mark is the
@@ -77,7 +75,7 @@ links:
   and enforce the share-of-window limit backend-side. `storageKey` doubles as the
   per-instance namespace for tree-collapse persistence (below) — it need only be unique per mounted
   sidebar, its literal contents don't matter beyond that.
-- **DTO** (`instance.update(dto)`): `{ title, colour: string|null, density: 'comfortable'|'compact',
+- **DTO** (`instance.update(dto)`): `{ title, colour: '#rgb'|'#rrggbb'|null, density: 'comfortable'|'compact',
   windowDrag?: bool, openSection?: bool, backgroundSection?: bool, rail?: 'handle'|'edge'|'map', toggleCount?: bool, active?: id, trees?: string[], collapsed?: string[], incoming?: IncomingDTO[], dropSections?: { group, label }[], tabs: TabDTO[] }` where `IncomingDTO = { id, title, icon?, problem?, actions: { id, label, disabled? }[] }` (`disabled` is the reason: the button is disabled and its `title` is that text), and `TabDTO = { id, title, group: string|null,
   live: bool, attention: null|true|number|'lock', presence: null|'on'|'ghost'|'off', killable: bool, suspendable: bool, startable: bool,
   busy?: bool, suspendReason?: string, labels?: { end?, destroy?, suspend?, start? }, warn: bool|string, tree?: bool, treePath?: string[], detached?: bool, accent?: string, icon?: string, head?: bool, groupName?: string, confirmRemove?: string, movable?: bool }`.
@@ -86,7 +84,7 @@ links:
   **`icon`** is opt-in (an image URL the page can load): the tile shows it (`.cc-icon-image`) in place of the initial and colour.
   **`head`**: in a flat run of same-`group` rows, that row renders in place of the text header — a full tab row (`.cc-head`) led by a disclosure arrow (an arrow-wide blank when it has no members); the rest are its `.cc-member`s.
   **`collapsed`**: the headed groups whose members are hidden (app-owned; a search still shows matching members, and `navOrder` skips hidden ones — a hidden active tab is stood in for by its head, `.cc-contains-active`, which `selectByOffset` steps from; a group with no head ignores it).
-  **`groupName`**: the group's label for search, a member's text header under a search, and a mirror's context (absent → `group`). **`accent`** is opt-in (any CSS colour): when set the row shows a small `.cc-accent` mark between tile and title; absent renders exactly as before. **`detached`** is opt-in (absent/falsy
+  **`groupName`**: the group's label for search, a member's text header under a search, and a mirror's context (absent → `group`). **`accent`** is opt-in (any CSS colour): when set the row shows a small `.cc-accent` mark between tile and title; absent → no mark. **`detached`** is opt-in (absent/falsy
   on every row until an app's DTO sets it) — see the pop-out section below for what it does to a row.
   **`windowDrag`** (default **on** when absent) makes the non-interactive chrome — banner, name, the
   empty area of the tab list, group headers — a `data-tauri-drag-region` so a drag there moves the
@@ -113,8 +111,8 @@ links:
   unseenFailed})` (`cc-dl-active` spinner ring; `cc-dl-unseen` blue dot; `cc-dl-failed` red dot, winning over blue), `requestEnd(id, "suspend"|"destroy")` (the keyboard route to the confirm row: suspend fires at once,
   destroy arms the row and fires on a second request — `endIntent`), `revealRow(id)` (the tab's row, un-hidden from a search or collapsed folder first; flotilla's in-place rename), `setError(msg)`, `clearError()`, `pointerAway()` (a host compositing a view over the chrome calls it; see its docblock), `setUpdate({version,notes})` / `clearUpdate()` (show/hide the update-bar view),
   **`checkForUpdateNow()`** (the menu "Check for Updates…" path — check + announce the result; the app
-  forwards its own app-named menu event here), and **`destroy()`** (stop the recurring update check —
-  the only long-lived resource the component holds).
+  forwards its own app-named menu event here), and **`destroy()`** (tear down every listener and timer
+  the component installed, so an unmounted sidebar never calls back into the host).
 
 > **Footgun — a targeted setter must write its signal back to `this.tabs`, not just the DOM.**
 > `setLive` / `setAttention` / `setPresence` each call `patchTab(this.tabs, id, …)` before touching a
@@ -132,7 +130,7 @@ unload / hollow cold. (Pop-out is **not** a dot slot — it's a hover overlay on
 
 **Pop-out / pop-in — a hover overlay ON the initial tile, not a trailing slot** (`.cc-icon-pop`, built
 in `_renderRow`). Opt-in by capability-by-callback-presence: rendered only when the
-app supplied `onPopOut(id)`. It's absolutely-positioned to fill the `.cc-icon` square (which is now
+app supplied `onPopOut(id)`. It's absolutely-positioned to fill the `.cc-icon` square (`.cc-icon` is
 `position: relative`), hidden until the **whole row is hovered** (`.cc-tab:hover .cc-icon-pop`), with a
 dark scrim + solid-white glyph nearly filling the tile (`calc(--cc-tile-size * 0.95)`) so it reads as a
 big, obvious button rather than a faint dot. A **docked** tab shows **`⤢`** and fires `onPopOut(id)`; a
@@ -157,8 +155,7 @@ row still fires `onSelect(id)` while **`select()` short-circuits for a detached 
 the highlight** (`this.active`). The app gives the row-click meaning ("raise the popped-out window") and
 the tile-overlay meaning ("dock it back"). Not moving the highlight is load-bearing — the detached tab is
 shown in *another* window, so highlighting its row would steal the selection indicator from the terminal
-actually displayed in *this* window (the "clicking a popped-out tab steals the sidebar focus indicator"
-bug). This all lives in the core (not per-app) per the dividing-line decision — like the confirm row's actions,
+actually displayed in *this* window. This all lives in the core (not per-app) per the dividing-line decision — like the confirm row's actions,
 app-agnostic row affordances whose semantics the consuming app supplies.
 
 **Presence is three-state — `on` | `ghost` | `off`** (warden's probe drives it; curator and lector
@@ -256,7 +253,7 @@ nested member) — the
 title alone can't tell `club/website` from any other `website`, or two same-titled tabs apart.
 
 The tab list therefore has **two containers, always both present**: `.cc-open` and `.cc-main`
-(everything else), plus `.cc-incoming` before them only while `incoming` has items (below). **`#cc-tab-list` is no longer a scroller** — it is the column that lays them
+(everything else), plus `.cc-incoming` before them only while `incoming` has items (below). **`#cc-tab-list` does not scroll** — it is the column that lays them
 out, and each section scrolls on its own: the pinned one is content-sized up to `--cc-open-max`
 (2/5 of the window) and then scrolls within itself, the main one takes the rest. Paging through a
 long project list therefore never pushes the open tabs off the top, which is the whole point of

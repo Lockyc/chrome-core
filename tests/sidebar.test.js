@@ -1500,6 +1500,22 @@ function peeked(opts) {
   return m;
 }
 
+test("a destroyed sidebar ignores window blur and mouseleave", () => {
+  const live = peeked();
+  const before = live.calls.layout;
+  fire(window, "blur");
+  assert.ok(!peeking(live), "a live sidebar ends its peek on blur");
+  assert.equal(live.calls.layout, before + 1);
+
+  const m = peeked();
+  m.sb.destroy();
+  const after = m.calls.layout;
+  fire(window, "blur");
+  fire(document.documentElement, "mouseleave");
+  assert.ok(peeking(m), "the destroyed one is left as it was");
+  assert.equal(m.calls.layout, after);
+});
+
 test("pointerAway ends a peek", () => {
   const m = peeked();
   const before = m.calls.layout;
