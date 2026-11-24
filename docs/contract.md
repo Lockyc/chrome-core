@@ -147,8 +147,8 @@ in three ways, all in `_renderRow`: (1) the row gets class `.cc-tab.detached`, m
 (the same disabled-affordance treatment `#cc-update-btn:disabled` uses) — **shown, not removed or
 reshuffled**, same row height and slot layout as any other row; the muting is the persistent
 "popped-out" signal (it un-mutes on hover, `.cc-tab.detached:hover`, so the pop-in overlay reads as
-actionable). (2) the **live/unload dot shows live regardless of `t.live`** (`_makeDot(t.detached
-|| t.live)`) — a detached tab is always running, just in another window, so `t.live` (a *local*-surface
+actionable). (2) the **live/unload dot shows live regardless of `t.live`** (`dotLive`, which the
+`map` rail's mark reads too) — a detached tab is always running, just in another window, so `t.live` (a *local*-surface
 signal) would misleadingly show it cold — and its **unload click is unwired** (you don't unload a tab
 that lives elsewhere). (3) the icon-tile overlay flips to the pop-in glyph (above), **and** clicking the
 row still fires `onSelect(id)` while **`select()` short-circuits for a detached tab — it does NOT move
