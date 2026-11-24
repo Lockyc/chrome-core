@@ -836,7 +836,8 @@ class Sidebar {
     // inside can be dispatched *after* the away signal. An event older than the away signal
     // describes where the pointer was, so it decides nothing; `timeStamp` shares
     // `performance.now()`'s time origin.
-    this.root.addEventListener("pointermove", (e) => {
+    this._rootListeners = [];
+    this._onRoot("pointermove", (e) => {
       if (e.timeStamp < this._awayAt) return;
       this.root.classList.remove("cc-away");
       this._pointerInside = true;
@@ -2281,6 +2282,9 @@ class Sidebar {
     if (this._onWinBlur) window.removeEventListener("blur", this._onWinBlur);
     if (this._onDocLeave) document.documentElement.removeEventListener("mouseleave", this._onDocLeave);
     this._onWinBlur = this._onDocLeave = null;
+    for (const [type, fn] of this._rootListeners) this.root.removeEventListener(type, fn);
+    this._rootListeners = [];
+    this._peeking = false;
     this.controls.disarm(); // its document listeners, and `_armTimer` through onDisarm
     this._disarmRemove();
     clearTimeout(this._noticeTimer);
@@ -2418,12 +2422,12 @@ class Sidebar {
     this.railEl.addEventListener("pointerleave", () => clock.clear(this._railTimer));
     // pointerenter/leave don't bubble in a browser; the target check keeps a child's (and the fake
     // DOM's bubbling) events from reading as the sidebar's own.
-    this.root.addEventListener("pointerenter", (e) => {
+    this._onRoot("pointerenter", (e) => {
       if (e.target !== this.root) return;
       this._pointerInside = true;
       clock.clear(this._leaveTimer);
     });
-    this.root.addEventListener("pointerleave", (e) => {
+    this._onRoot("pointerleave", (e) => {
       if (e.target !== this.root) return;
       this._pointerInside = false;
       if (!this._peeking) return;
@@ -2442,10 +2446,17 @@ class Sidebar {
     };
     window.addEventListener("blur", this._onWinBlur);
     // A field let go (Esc, Enter, a click on the content): close if the pointer is elsewhere.
-    this.root.addEventListener("focusout", (e) => {
+    this._onRoot("focusout", (e) => {
       if (e.relatedTarget && this.root.contains(e.relatedTarget)) return;
       if (!this._pointerInside) this._endPeekUnlessTyping();
     });
+  }
+
+  /** Listen on the mount container, which outlives this instance (a host may remount on it), so
+   *  `destroy()` removes every such listener. */
+  _onRoot(type, fn) {
+    this.root.addEventListener(type, fn);
+    this._rootListeners.push([type, fn]);
   }
 
   /** Whether the keyboard is in a field inside the sidebar (search, URL, a rename). `hasFocus` too:

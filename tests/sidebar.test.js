@@ -1526,6 +1526,22 @@ test("a destroyed sidebar ignores window blur and mouseleave", () => {
   assert.equal(m.calls.layout, after);
 });
 
+test("a destroyed sidebar leaves no listener on its mount container", () => {
+  const m = peeked();
+  m.sb.destroy();
+  m.root.classList.add("cc-away");
+  const after = m.calls.layout;
+  fire(m.root, "pointermove");
+  fire(m.root, "pointerleave");
+  m.clock.run();
+  fire(m.root, "focusout");
+  fire(m.root, "pointerenter");
+  assert.ok(m.root.classList.contains("cc-away"), "pointermove no longer clears cc-away");
+  assert.ok(peeking(m), "pointerleave and focusout no longer end the peek");
+  assert.equal(m.calls.layout, after, "nor reach the host's onLayout");
+  assert.equal(m.sb._peeking, false, "destroy resets the peek flag");
+});
+
 test("pointerAway ends a peek", () => {
   const m = peeked();
   const before = m.calls.layout;
