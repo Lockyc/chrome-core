@@ -66,13 +66,7 @@ links:
   Tauri runtime is present, the component runs a launch check + the recurring re-check; the menu path
   (`checkForUpdateNow()`) works regardless of it.
   `maxFraction` caps the sidebar at a share of `window.innerWidth`; pass a **falsy** value (e.g. `0`)
-  to skip that cap. The cap is only meaningful when the sidebar's `innerWidth` IS the host window's
-  width — i.e. the sidebar is the window's full-size main webview, which **every** current
-  consumer is (curator, warden, lector and flotilla are hole-punch main webviews), so each passes a real
-  `maxFraction`. A consumer
-  whose sidebar were instead an isolated child webview (its `innerWidth` = the sidebar's own width,
-  not the window's) would have the cap pin every drag to `minWidth`, so it would pass a falsy value
-  and enforce the share-of-window limit backend-side. `storageKey` doubles as the
+  to skip that cap (which consumers need which: `clampWidth`). `storageKey` doubles as the
   per-instance namespace for tree-collapse persistence (below) — it need only be unique per mounted
   sidebar, its literal contents don't matter beyond that.
 - **DTO** (`instance.update(dto)`): `{ title, colour: '#rgb'|'#rrggbb'|null, density: 'comfortable'|'compact',
@@ -94,11 +88,9 @@ links:
   **`openSection`** / **`backgroundSection`** (each default **off** when absent) pin the "Open" /
   "Background" sections above the main list — see *The pinned mirror sections* below; warden drives
   them from its `open_tabs_section` / `background_tabs_section` config.
-  **`active`** selects the ownership model: **present** ⇒ the app owns selection (curator, whose Rust
-  side is authoritative) — the component honours it and does NOT fire `onSelect`; **absent** ⇒ the
-  component owns it (warden) — it preserves the current selection (one the app cleared with
-  `setActive(null)` stays clear), falls back to the first tab when none was chosen yet or it
-  vanished, and fires `onSelect` so the app activates the fallback.
+  **`active`** selects the ownership model: **present** ⇒ the app owns selection (curator) and
+  `onSelect` does not fire; **absent** ⇒ the component owns it (warden) and fires `onSelect` for the
+  tab it falls back to (the rules: `update`).
 - **`select(id)`** (public): highlight + fire `onSelect` (row clicks, keyboard nav, notification
   focus resolve to this). **`setActive(id)`**: highlight only, no callback (reflect app-actioned
   state, e.g. the neighbour activated after an unload).
@@ -148,14 +140,10 @@ in three ways, all in `_renderRow`: (1) the row gets class `.cc-tab.detached`, m
 reshuffled**, same row height and slot layout as any other row; the muting is the persistent
 "popped-out" signal (it un-mutes on hover, `.cc-tab.detached:hover`, so the pop-in overlay reads as
 actionable). (2) the **live/unload dot shows live regardless of `t.live`** (`dotLive`, which the
-`map` rail's mark reads too) — a detached tab is always running, just in another window, so `t.live` (a *local*-surface
-signal) would misleadingly show it cold — and its **unload click is unwired** (you don't unload a tab
-that lives elsewhere). (3) the icon-tile overlay flips to the pop-in glyph (above), **and** clicking the
-row still fires `onSelect(id)` while **`select()` short-circuits for a detached tab — it does NOT move
-the highlight** (`this.active`). The app gives the row-click meaning ("raise the popped-out window") and
-the tile-overlay meaning ("dock it back"). Not moving the highlight is load-bearing — the detached tab is
-shown in *another* window, so highlighting its row would steal the selection indicator from the terminal
-actually displayed in *this* window. This all lives in the core (not per-app) per the dividing-line decision — like the confirm row's actions,
+`map` rail's mark reads too), and its **unload click is unwired**. (3) the icon-tile overlay flips to
+the pop-in glyph (above), **and** clicking the row still fires `onSelect(id)` while **`select()` does
+NOT move the highlight** (`this.active`; why: `select`). The app gives the row-click meaning ("raise
+the popped-out window") and the tile-overlay meaning ("dock it back"). This all lives in the core (not per-app) per the dividing-line decision — like the confirm row's actions,
 app-agnostic row affordances whose semantics the consuming app supplies.
 
 **Presence is three-state — `on` | `ghost` | `off`** (warden's probe drives it; curator and lector
