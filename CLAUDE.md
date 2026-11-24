@@ -35,10 +35,7 @@ chrome-core is the shared, composable layer, and the whole reason to share compo
   a terminal feature or a browser feature; it's an *app* feature.
 
 > **Decision (2026-07-08): app-agnostic capabilities (self-update first) are owned by chrome-core, not
-> reimplemented per app.** Status: **active; implemented.** The earlier framing — "the component is a
-> VIEW only; the consumer owns the updater" — was backwards: it demoted a universal capability to an
-> app concern, which led to the updater being copy-pasted into both app controllers. **Do not
-> re-litigate this** (it was questioned once already). A shared capability may use a
+> reimplemented per app. Do not re-litigate this.** A shared capability may use a
 > platform primitive that *all* consumers share (the Tauri runtime): the core **feature-detects** it
 > (`window.__TAURI__?.updater`) so the isolated `preview.html` — which has no Tauri — no-ops, while
 > every real app's Tauri runtime is presented the full capability. Each app's own capabilities file
