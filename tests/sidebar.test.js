@@ -19,6 +19,7 @@ const {
   patchTab,
   openTabs,
   backgroundTabs,
+  dotLive,
   mirrorContext,
   folderChain,
   listSections,
@@ -1680,6 +1681,25 @@ test("a map rail holds a mark per tab: active, live and wanting attention", () =
   assert.deepEqual(has("attention"), ["a"]);
   m.sb.setLive("c", true);
   assert.deepEqual(has("live"), ["a", "b", "c"]);
+});
+
+test("a map rail fills a popped-out tab's mark, as its row's dot", () => {
+  const tabs = [
+    { id: "a", title: "a", live: true },
+    { id: "p", title: "p", live: false, detached: true },
+  ];
+  const m = mountCollapsible({ tabs, active: "a" });
+  m.sb.update({ title: "Club", tabs, active: "a", rail: "map" });
+  const mark = rail(m.root).querySelector('[data-id="p"]');
+  assert.ok(mark.classList.contains("live"));
+  assert.ok(m.sb._rowsById("p")[0].querySelector(".cc-dot").classList.contains("live"));
+});
+
+test("dotLive: live, detached or active", () => {
+  assert.equal(dotLive({ id: "a", live: true }, null), true);
+  assert.equal(dotLive({ id: "a", detached: true }, null), true);
+  assert.equal(dotLive({ id: "a" }, "a"), true);
+  assert.equal(dotLive({ id: "a" }, "b"), false);
 });
 
 test("toggleCount puts the tab count on a collapsed sidebar's toggle", () => {

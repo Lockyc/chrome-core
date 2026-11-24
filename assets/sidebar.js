@@ -111,6 +111,13 @@ function openTabs(tabs) {
   return (tabs || []).filter((t) => t.live || t.detached);
 }
 
+/** Whether tab `t`'s dot (its row's, and its `map` rail mark) shows live: a live local surface, a
+ *  popped-out window (`detached`, where `live` reports only the local surface), or the active tab
+ *  (selecting it activates its surface, whatever the last snapshot said). */
+function dotLive(t, active) {
+  return !!(t && (t.detached || t.live || t.id === active));
+}
+
 /** The tabs the pinned "Background" section mirrors, in the DTO's own order: the host reports a
  *  session behind the tab — running (`presence: "on"`) or restorable (`"ghost"`) — and nothing is
  *  open. The complement of `openTabs`, so the two sections never mirror the same tab. Opening one
@@ -1741,8 +1748,9 @@ class Sidebar {
     if (t.attention != null) row.appendChild(this.controls.attention(t.attention));
 
     // Presence slot (cyan; warden probe). Absent when null. Clickable when armable + on. Live as the
-    // row's dot is (a detached tab included), the same input every later repaint of it reads.
-    if (t.presence != null) row.appendChild(this.controls.presence(t, !!(t.detached || t.live)));
+    // row's dot is (`dotLive`), the same input every later repaint of it reads.
+    const live = dotLive(t, this.active);
+    if (t.presence != null) row.appendChild(this.controls.presence(t, live));
 
     // Remove slot — opt-in per app (rendered only when the consumer supplies `onRemove`): take the
     // tab out of the sidebar. Always on screen, muted until hovered; fires at once, unless the row
@@ -1762,12 +1770,10 @@ class Sidebar {
     }
 
     // Live/unload slot — always rightmost (green live ↔ hover-✕ / hollow cold). Always present.
-    // A detached tab is ALWAYS live — it's running in its own popped-out window — so its dot
-    // shows live regardless of `t.live` (which reports only a LOCAL surface). It is NOT an
-    // unload affordance there, though: you don't unload a tab that lives in another window, you
-    // raise that window — so the click stays unwired and falls through to the row's onSelect
-    // (which the app maps to "raise the popped-out window").
-    const dot = this._makeDot(t.detached || t.live);
+    // A detached tab's dot is live but NOT an unload affordance: you don't unload a tab that lives
+    // in another window, you raise that window — so the click stays unwired and falls through to
+    // the row's onSelect (which the app maps to "raise the popped-out window").
+    const dot = this._makeDot(live);
     if (!t.detached) {
       dot.addEventListener("click", (e) => {
         if (!dot.classList.contains("live")) return; // cold: nothing to unload
@@ -1812,13 +1818,15 @@ class Sidebar {
     for (const row of this.list.querySelectorAll(".cc-tab")) {
       const isActive = row.dataset.id === this.active;
       row.classList.toggle("active", isActive);
-      // The active tab always has a live surface (selecting it activates/creates it), so upgrade its
-      // dot to live even if the last DTO snapshot caught it cold. Without this the loaded dot never
-      // fills after a lazy select, and the unload ✕ (gated on .live) can never fire.
+      // A selection change makes a row's dot live (`dotLive`'s active clause) even when the last DTO
+      // snapshot caught it cold. Without this the loaded dot never fills after a lazy select, and
+      // the unload ✕ (gated on .live) can never fire. Upgrade only: the outgoing tab's surface
+      // stays loaded, and its record's next `setLive`/`update` says so.
       if (isActive) {
+        const live = dotLive(this.tabs.find((t) => t.id === this.active), this.active);
         const dot = row.querySelector(".cc-dot");
-        if (dot) this._paintDot(dot, true);
-        this._refreshPresenceLive(row, true); // active ⇒ live ⇒ its presence dot can offer start
+        if (dot) this._paintDot(dot, live);
+        this._refreshPresenceLive(row, live); // live gates the presence dot's `start`
       }
     }
     const cursor = this._searchCursor();
@@ -1965,9 +1973,7 @@ class Sidebar {
     // patched above, so a mirror renders correct on birth) before patching the standing rows.
     this._paintMirrorSections();
     this._paint(); // a freshly-built mirror of the active tab needs its `.active` class
-    // `live` reports only a local surface; a detached tab's dot stays live, as `_renderRow` paints it.
-    const t = this.tabs.find((x) => x.id === id);
-    const shown = !!live || !!(t && t.detached);
+    const shown = dotLive(this.tabs.find((x) => x.id === id), this.active);
     for (const row of this._rowsById(id)) {
       const dot = row.querySelector(".cc-dot");
       if (dot) this._paintDot(dot, shown);
@@ -2373,8 +2379,8 @@ class Sidebar {
     if (this.cb.onLayout) this.cb.onLayout();
   }
 
-  /** A `map` rail's marks: one per tab in list order, lit for the active tab, filled while live
-   *  (the active tab always is), amber while it wants attention. Any other style holds none. */
+  /** A `map` rail's marks: one per tab in list order, lit for the active tab, filled as its row's
+   *  dot is (`dotLive`), amber while it wants attention. Any other style holds none. */
   _paintRail() {
     if (!this.railEl) return;
     this.railEl.textContent = "";
@@ -2383,7 +2389,7 @@ class Sidebar {
       const mark = el("span", { class: "cc-rail-mark", "data-id": t.id });
       const active = t.id === this.active;
       mark.classList.toggle("active", active);
-      mark.classList.toggle("live", active || !!t.live);
+      mark.classList.toggle("live", dotLive(t, this.active));
       mark.classList.toggle("attention", t.attention != null && t.attention !== false);
       this.railEl.appendChild(mark);
     }
@@ -2527,7 +2533,7 @@ const ChromeSidebar = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ChromeSidebar, Sidebar, collapseKey, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, busyTiming, armable, canSuspend, canEnd, endIntent, derivePresenceState, buildTree, patchTab, openTabs, backgroundTabs, mirrorContext, filterTabs, treeRows, rescanSummary, RowControls, UPDATE_CHECK_INTERVAL_MS, KEY_ARM_TIMEOUT_MS, RESCAN_STATUS_MS, UP_TO_DATE_NOTICE_MS };
+  module.exports = { ChromeSidebar, Sidebar, collapseKey, folderChain, listSections, navOrder, navAnchor, tileInitial, tileColour, hexToRgb, tintOverBase, liftColour, clampWidth, resolveOffset, presenceClass, busyTiming, armable, canSuspend, canEnd, endIntent, derivePresenceState, buildTree, patchTab, openTabs, backgroundTabs, dotLive, mirrorContext, filterTabs, treeRows, rescanSummary, RowControls, UPDATE_CHECK_INTERVAL_MS, KEY_ARM_TIMEOUT_MS, RESCAN_STATUS_MS, UP_TO_DATE_NOTICE_MS };
 }
 if (typeof window !== "undefined") {
   window.ChromeSidebar = ChromeSidebar;

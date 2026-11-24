@@ -9,8 +9,8 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
 const fc = require("fast-check");
-const { Sidebar, presenceClass } = require("../assets/sidebar.js");
-const { installDom, installStorage, fire } = require("./dom.js");
+const { Sidebar, presenceClass, dotLive } = require("../assets/sidebar.js");
+const { installDom, installStorage, fire, FakeNode } = require("./dom.js");
 
 const NUM_RUNS = Number(process.env.FC_RUNS) || 400;
 
@@ -77,7 +77,8 @@ function mount() {
       onSuspend() {},
       onStart() {},
     },
-    {},
+    // A collapsible sidebar, so a `map` rail paints a mark per tab for the invariants to check.
+    { hole: new FakeNode("div"), clock: { set: () => null, clear() {} } },
   );
   return world;
 }
@@ -93,7 +94,7 @@ function checkInvariants(world, note) {
     const t = rec(sb, id);
     assert.ok(t, at(`row ${id} has a record`));
     const dot = row.querySelector(".cc-dot");
-    const wantLive = !!(t.live || t.detached || id === sb.active);
+    const wantLive = dotLive(t, sb.active);
     assert.equal(dot.classList.contains("live"), wantLive, at(`row ${id} live dot`));
     const pres = row.querySelector(".cc-presence");
     if (t.presence == null) assert.equal(pres, null, at(`row ${id} has no presence dot`));
@@ -115,6 +116,10 @@ function checkInvariants(world, note) {
     assert.equal(row.classList.contains("active"), id === sb.active, at(`row ${id} .active`));
     if (row.classList.contains("confirming")) assert.equal(sb.controls.armed, id, at(`confirming row ${id} is the armed one`));
   }
+  for (const mark of sb.railEl.querySelectorAll(".cc-rail-mark")) {
+    const t = rec(sb, mark.dataset.id);
+    assert.equal(mark.classList.contains("live"), dotLive(t, sb.active), at(`rail mark ${t.id} live`));
+  }
   const armed = sb.controls.armed;
   if (armed) {
     const rows = sb._rowsById(armed);
@@ -135,6 +140,7 @@ function pushDto(world, d) {
     openSection: d.openSection,
     backgroundSection: d.backgroundSection,
     collapsed: d.collapseG ? ["G"] : [],
+    rail: "map",
   };
   if (d.active !== undefined) dto.active = d.active;
   world.lastDto = dto;
