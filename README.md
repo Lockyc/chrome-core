@@ -79,8 +79,8 @@ just test       # unit- and property-tests the component's logic (installs fast-
 just dev        # serve preview.html, the component with sample tabs and no app
 ```
 
-`docs/screenshots/sidebar.png` is `plate render --png docs/screenshots/sidebar.png --size 520x760
-preview.html`. Conventions: [CLAUDE.md](CLAUDE.md).
+`just readme-shot` regenerates `docs/screenshots/sidebar.png` with
+[plate](https://github.com/lockyc/plate). Conventions: [CLAUDE.md](CLAUDE.md).
 
 ## License
 

@@ -18,21 +18,16 @@ default:
 dev port="":
     ./tools/dev.sh {{ port }}
 
-# Headless-screenshot the preview to preview.png (git-ignored). Density: `just shot compact`.
+# Renders through plate (github.com/lockyc/plate). A file:// URL, since plate reads a bare path as a file name, query and all.
+# Screenshot the preview to preview.png (git-ignored). Density: `just shot compact`.
 [group("dev")]
 shot density="comfortable":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    dir="{{justfile_directory()}}"
-    browser=""
-    for b in chromium google-chrome google-chrome-stable "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
-      if command -v "$b" >/dev/null 2>&1 || [ -x "$b" ]; then browser="$b"; break; fi
-    done
-    [ -n "$browser" ] || { echo "✗ no Chromium/Chrome found — install one or use \`just dev\`"; exit 1; }
-    "$browser" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 \
-      --window-size=310,900 --default-background-color=00000000 \
-      --screenshot="$dir/preview.png" "file://$dir/preview.html?density={{density}}"
-    echo "✓ wrote preview.png ({{density}})"
+    plate render --png preview.png --size 310x900 --scale 2 "file://{{justfile_directory()}}/preview.html?density={{density}}"
+
+# Regenerate the README's screenshot, docs/screenshots/sidebar.png
+[group("dev")]
+readme-shot:
+    plate render --png docs/screenshots/sidebar.png --size 520x760 preview.html
 
 # Covers the pure helpers and render/event behaviour on a fake DOM (tests/). Visual behaviour is out of scope — use `just dev` / `just shot`.
 # Unit- and property-test the component's JS logic (node:test + fast-check)
