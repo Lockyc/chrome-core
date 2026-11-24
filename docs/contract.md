@@ -197,7 +197,8 @@ start }`) replace the dot's and the glyphs' default titles.
 painting, the armed id, Escape/outside-click disarm. `Sidebar` holds one (`sb.controls`), and an app
 list outside the sidebar uses its own (warden's agent tabs; `window.ChromeRowControls`), handing it
 `rowsFor(id)`, `tabOf(id)` and the callbacks, with `.cc-ctl-host` on its container for the hover
-cues. A row it builds while its record is armed comes back armed unless another row for it already is.
+cues. A row it builds while its record is armed comes back armed unless another row for it already is
+or `revalidate(t)` disarms it; a host that patches a record's presence in place calls `revalidate` too.
 
 **The active-row highlight is derived from a lightness-LIFTED window colour, never the raw one**
 (`liftColour`), and `update()` publishes it as `--cc-active-bg` (fill) + `--cc-active-bar` (the 3px
