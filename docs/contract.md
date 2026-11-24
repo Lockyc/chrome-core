@@ -44,7 +44,7 @@ links:
   strip lands below them instead of beside them. Absent/null → no strip.
   **`emptyState`** (default null) is the app's own element holding its muted mark (an `<svg>`) inside
   the content area; chrome-core styles it (`.cc-empty-state`: opaque, centred, filling its
-  positioned parent) and shows it on every `update(dto)` whose `active` is unset. The mark is the
+  positioned parent) and shows it while no tab is active, by either ownership model. The mark is the
   app's; the treatment is shared. warden passes none: its transparent window needs an always-on
   ground per split pane, which it paints itself.
   **`hole`** (default null) makes the sidebar collapsible. It is the app's content-hole element, a

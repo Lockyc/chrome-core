@@ -1070,7 +1070,6 @@ class Sidebar {
     this.railStyle = RAIL_STYLES.includes(dto.rail) ? dto.rail : RAIL_STYLES[0];
     if (this.holeEl) document.documentElement.setAttribute("data-rail", this.railStyle);
     this.toggleCount = dto.toggleCount === true;
-    if (this.emptyEl) this.emptyEl.classList.toggle("cc-shown", !dto.active);
 
     this.nameEl.textContent = dto.title || "";
     if (this.holeEl && dto.title !== this._collapseTitle) this._restoreCollapse(dto.title);
@@ -1828,6 +1827,7 @@ class Sidebar {
   }
 
   _paint() {
+    if (this.emptyEl) this.emptyEl.classList.toggle("cc-shown", !this.active);
     for (const row of this.list.querySelectorAll(".cc-tab")) {
       const isActive = row.dataset.id === this.active;
       row.classList.toggle("active", isActive);

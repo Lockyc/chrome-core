@@ -1363,10 +1363,19 @@ test("emptyState_shows_only_while_no_tab_is_active", () => {
   const empty = document.createElement("div");
   const sb = new Sidebar(root, {}, { emptyState: empty });
   assert.ok(empty.classList.contains("cc-empty-state"), "chrome-core styles the element");
+  const shown = () => empty.classList.contains("cc-shown");
+  sb.update({ title: "Work", tabs: [] });
+  assert.ok(shown(), "no tab to select → shown");
   sb.update({ title: "Work", tabs: [{ id: "a", title: "A" }] });
-  assert.ok(empty.classList.contains("cc-shown"), "no active tab → shown");
+  assert.ok(!shown(), "the component selected the first tab, which covers the content area");
+  sb.setActive(null);
+  assert.ok(shown(), "a cleared selection shows it at once");
+  sb.select("a");
+  assert.ok(!shown());
+  sb.update({ title: "Work", active: null, tabs: [{ id: "a", title: "A" }] });
+  assert.ok(shown(), "the app cleared it");
   sb.update({ title: "Work", active: "a", tabs: [{ id: "a", title: "A" }] });
-  assert.ok(!empty.classList.contains("cc-shown"), "an active tab covers the content area");
+  assert.ok(!shown(), "the app selected a tab");
 });
 
 test("no_emptyState_configured_mounts_and_updates_as_before", () => {
