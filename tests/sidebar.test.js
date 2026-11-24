@@ -1961,6 +1961,32 @@ test("RowControls: confirm re-applies confirming to a fresh row while armed", ()
   assert.ok(!build(t).classList.contains("confirming"));
 });
 
+test("RowControls: a row rebuilt after its session ended or changed comes back disarmed", () => {
+  for (const after of [
+    { id: "a", presence: "off", killable: true }, // the session went
+    { id: "a", presence: "ghost", killable: true }, // it crashed to restorable
+    { id: "a", presence: "on", suspendable: true, suspendReason: "busy" }, // nothing can end it
+  ]) {
+    const t = { id: "a", presence: "on", killable: true, suspendable: true };
+    const { rc, rows, build } = controlsFixture([t]);
+    rc.arm("a", rows.get("a")[0]);
+    rows.set("a", []); // the host's repaint cleared its list
+    const fresh = build(after);
+    assert.ok(!fresh.classList.contains("confirming"), `rebuilt over ${JSON.stringify(after)}`);
+    assert.equal(rc.armed, null);
+  }
+});
+
+test("RowControls: revalidate disarms a record whose session changed in place", () => {
+  const t = { id: "a", presence: "on", killable: true };
+  const { rc, rows } = controlsFixture([t]);
+  rc.arm("a", rows.get("a")[0]);
+  rc.revalidate({ ...t });
+  assert.equal(rc.armed, "a", "unchanged: stays armed");
+  rc.revalidate({ ...t, presence: "off" });
+  assert.equal(rc.armed, null);
+});
+
 test("RowControls: a fresh mirror beside a standing armed row stays plain", () => {
   const t = { id: "a", presence: "on", killable: true };
   const { rc, rows, build } = controlsFixture([t]);

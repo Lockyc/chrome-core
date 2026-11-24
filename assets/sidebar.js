@@ -621,7 +621,7 @@ class RowControls {
 
   /** Give `row` (record `t`) its confirm controls — ☠ and ⏻, both always rendered with the one
    *  that can't run disabled in place, and ↩ — hidden until the row is `.confirming`. A row built
-   *  while its record is armed (a repaint) comes back armed. */
+   *  while its record is armed (a repaint) comes back armed while `revalidate` holds. */
   confirm(row, t) {
     if (!armable(t)) return;
     row.classList.add("cc-ctl-row");
@@ -636,10 +636,22 @@ class RowControls {
       this.disarm();
     });
     row.append(cancel);
+    if (this._armed !== t.id || !this.revalidate(t)) return;
     // Only when no row for it is still armed on screen: arming paints the one row clicked, so a
     // repainted mirror beside a standing armed row stays plain.
     const standing = this.rowsFor(t.id).some((r) => r.classList.contains("confirming"));
-    if (this._armed === t.id && !standing) row.classList.add("confirming");
+    if (!standing) row.classList.add("confirming");
+  }
+
+  /** Whether the armed confirm still describes record `t` as it is now, disarming when it doesn't:
+   *  it can no longer end, or its session changed state (ended, crashed, discarded) since it armed.
+   *  A record that isn't the armed one answers false and disarms nothing. A host calls it when it
+   *  patches a record's presence in place; `confirm` calls it for a rebuilt row. */
+  revalidate(t) {
+    if (!t || this._armed !== t.id) return false;
+    if (canEnd(t) && (t.presence ?? null) === this._armedPresence) return true;
+    this.disarm();
+    return false;
   }
 
   /** Arm `row`, record `id`'s: it reddens and shows its confirm. Escape, or a click outside every
@@ -649,6 +661,7 @@ class RowControls {
     this.disarm();
     this._armed = id;
     const t = this.tabOf(id);
+    this._armedPresence = t ? (t.presence ?? null) : null;
     if (t) this._paintControls(row, t);
     row.classList.add("confirming");
     this._onKey = (e) => {
@@ -1142,26 +1155,26 @@ class Sidebar {
     return filterTabs(this.tabs, this.query);
   }
 
-  /** The armed confirm as it stands before a repaint: its id, whether its row is a mirror, and the
-   *  presence it was armed against. Null when nothing is armed, or inside a repaint already. */
+  /** The armed confirm as it stands before a repaint: its id and whether its row is a mirror. Null
+   *  when nothing is armed, or inside a repaint already. */
   _armSnapshot() {
     const id = this.controls.armed;
     if (!id || this._repainting) return null;
     const row = this._rowsById(id).find((r) => r.classList.contains("confirming"));
-    const t = this.tabs.find((x) => x.id === id);
-    return { id, mirror: !!(row && row.dataset.mirror), presence: t ? (t.presence ?? null) : null };
+    return { id, mirror: !!(row && row.dataset.mirror) };
   }
 
   /** Re-seat the armed confirm on the rows a repaint built: on the same kind of row it was on
-   *  (mirror or main list), else the other. It disarms when no row for it is on screen, its record
-   *  can no longer end, or its session changed state — the armed actions no longer describe it, and
-   *  an armed record with no confirm on screen would let `requestEnd` destroy unconfirmed. */
+   *  (mirror or main list), else the other. Whether it still holds is `RowControls.revalidate`'s
+   *  call; it also disarms when no row for it is on screen, since an armed record with no confirm
+   *  on screen would let `requestEnd` destroy unconfirmed. */
   _restoreArm(snap) {
     if (!snap || this.controls.armed !== snap.id) return;
     const t = this.tabs.find((x) => x.id === snap.id);
     const rows = this._rowsById(snap.id).filter((r) => r.classList.contains("cc-ctl-row"));
     const row = rows.find((r) => !!r.dataset.mirror === snap.mirror) || rows[0];
-    if (!t || !row || !canEnd(t) || (t.presence ?? null) !== snap.presence) return this.controls.disarm();
+    if (!row) return this.controls.disarm();
+    if (!this.controls.revalidate(t)) return;
     for (const r of rows) r.classList.toggle("confirming", r === row);
     this.controls._paintControls(row, t);
   }
@@ -1998,7 +2011,6 @@ class Sidebar {
   setPresence(id, state) {
     const inBackground = () => backgroundTabs(this.tabs).some((t) => t.id === id);
     const was = inBackground();
-    const prev = (this.tabs.find((t) => t.id === id) || {}).presence ?? null;
     patchTab(this.tabs, id, { presence: state == null ? null : state });
     // Repaint the sections only when this tab entered or left "Background": probes report every
     // tab on each sweep, and an unconditional repaint would disarm an armed "Open" mirror each time.
@@ -2023,9 +2035,7 @@ class Sidebar {
         this.controls.repaintPresence(s, state, live);
       }
     }
-    // The session the confirm row was armed against changed (ended, crashed, discarded) → the
-    // armed actions no longer describe it, on either row.
-    if (state !== prev && this.controls.armed === id) this.controls.disarm();
+    this.controls.revalidate(this.tabs.find((x) => x.id === id));
   }
 
   // ── kill-confirm state machine ──
