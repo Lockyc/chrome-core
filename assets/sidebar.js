@@ -1378,15 +1378,19 @@ class Sidebar {
    *  or `setPresence` as well as a full `update()` — each repaints every section rather than patching
    *  a row in or out, which is cheap (mirrored tabs are few) and keeps the order derived from one
    *  place. `data-rows` on the container marks an expanded section with rows: the CSS dims the main
-   *  list only then, never under a lone collapsed header. */
+   *  list only then, never under a lone collapsed header.
+   *
+   *  A search hides every mirror section: the matches and the search cursor live in the main list,
+   *  so it is the one list shown, at full strength, with nothing pinned above it pulling the eye. */
   _paintMirrorSections() {
     if (this.openEl) this._keepingArm(() => this._paintMirrorRows());
   }
 
   _paintMirrorRows() {
     this.openEl.innerHTML = "";
+    this.openEl.removeAttribute("data-rows");
+    if (this.query.trim()) return;
     let anyRows = false;
-    const searching = !!this.query.trim();
     const add = (row, t, group) => {
       row.dataset.mirror = "1";
       this._dropTarget(row, group);
@@ -1407,8 +1411,8 @@ class Sidebar {
           continue;
         }
         // The group's collapse state is the app's one `collapsed`, shared with the main list.
-        const hidden = !searching && this.collapsed.includes(e.group);
-        add(this._renderHead(e, hidden, searching), e.head, e.group);
+        const hidden = this.collapsed.includes(e.group);
+        add(this._renderHead(e, hidden, false), e.head, e.group);
         if (hidden) continue;
         for (const t of e.rows) {
           const r = this._renderRow(t);

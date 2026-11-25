@@ -1009,8 +1009,9 @@ test("an armed Open mirror survives probe sweeps that move no tab between sectio
   assert.equal(off.controls.armed, "x");
 });
 
-test("search narrows mirrors; a collapsed section stays collapsed under it", () => {
+test("a search hides the mirror sections, so the main list it narrows is not dimmed", () => {
   const storage = installStorage();
+  storage.setItem("cc-section:w:background", "0");
   const tabs = [
     row("a", "alpha", null, { presence: "ghost" }),
     row("z", "zeta", null, { presence: "ghost" }),
@@ -1020,15 +1021,17 @@ test("search narrows mirrors; a collapsed section stays collapsed under it", () 
     sb.searchInput.value = q;
     fire(sb.searchInput, "input");
   };
+  assert.deepEqual(mirrorIds(sb), ["a", "z"]);
+  assert.ok(sb.openEl.hasAttribute("data-rows"));
   search("zeta");
-  assert.deepEqual(heads(sb), ["Background"]);
-  assert.deepEqual(mirrorIds(sb), [], "collapsed stays collapsed");
-  assert.ok(!sb.openEl.hasAttribute("data-rows"));
-  storage.setItem("cc-section:w:background", "0");
-  search("zet");
-  assert.deepEqual(mirrorIds(sb), ["z"]);
-  search("nothing");
   assert.deepEqual(heads(sb), []);
+  assert.deepEqual(mirrorIds(sb), []);
+  assert.ok(!sb.openEl.hasAttribute("data-rows"), "nothing dims the main list");
+  assert.ok(sb.mainEl.querySelector('.cc-tab[data-id="z"]'));
+  sb.setPresence("a", "on");
+  assert.deepEqual(mirrorIds(sb), [], "a targeted repaint keeps them hidden");
+  search("");
+  assert.deepEqual(mirrorIds(sb), ["a", "z"]);
 });
 
 // ── the pinned "Incoming" section (opt-in `incoming`: items waiting on an action) ──

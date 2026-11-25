@@ -307,9 +307,9 @@ just be an unreadable sidebar), and `.cc-main` takes `flex-grow: 1` so the hover
 
 The always-shown `#cc-search` field above the list narrows it as you type: `filterTabs` (exported,
 tested) keeps a tab when every whitespace term appears, case-insensitively, in its title, tree path
-or group label (`groupName ?? group`). **`this.tabs` stays whole** — `_paintList()` paints both sections from `_shown()`, so the
+or group label (`groupName ?? group`). **`this.tabs` stays whole** — `_paintList()` paints the main list from `_shown()`, so the
 targeted setters and `selectByOffset` see every tab, while `selectByIndex` (DOM-counted) numbers the
-matches. A search opens every tree folder and collapsed headed group without writing either's collapse state. ↑/↓ move a
+matches. A search hides the pinned mirror sections, so the main list is the one list shown and is not dimmed. It opens every tree folder and collapsed headed group without writing either's collapse state. ↑/↓ move a
 `.cc-cursor` outline among the matches; Enter selects it; Enter and Esc both clear the field and blur
 it, and Esc also fires `onSearchExit`. Clicking a row also clears it; the `#cc-search-clear` × clears
 and keeps focus (disabled while empty).
